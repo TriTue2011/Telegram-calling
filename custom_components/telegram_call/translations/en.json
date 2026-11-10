@@ -77,6 +77,10 @@
       "name": "Call",
       "description": "Place a voice or video call to a Telegram user.",
       "fields": {
+        "peer": {
+          "name": "Callee (@username or +phone)",
+          "description": "@username or +phone number (with country code; the person must allow being found by number). Use instead of the numeric ID."
+        },
         "user_id": {
           "name": "User ID",
           "description": "Telegram user ID of the callee."

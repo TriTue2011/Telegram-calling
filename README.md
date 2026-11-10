@@ -29,6 +29,9 @@ Cần **`api_id`** và **`api_hash`**:
 
 ## 2. Đặt thông số
 
+> **Token gateway là gì?** Mật khẩu chung giữa gateway và tích hợp HA, không liên quan Telegram. Add-on: bỏ trống `gateway_token` thì tự sinh, in ra tab **Nhật ký** và giữ lại.
+> Docker: bạn tự đặt trong `.env` (`openssl rand -hex 32`). Dán đúng chuỗi đó vào ô **Token gateway** khi *Thêm tích hợp*, và vào ô token của WebUI `/ui/`.
+
 **Add-on** (HAOS / Supervised): cài **Telegram Calling** từ kho `has-addons` → tab **Cấu hình**:
 
 | Tuỳ chọn | Điền gì |
@@ -44,6 +47,14 @@ services:
     image: ghcr.io/tritue2011/telegram-calling:latest
     container_name: telegram-calling
     restart: unless-stopped
+    init: true                # dọn ffmpeg mồ côi, không để lại tiến trình ma
+    mem_limit: 512m           # đo: ~70 MB lúc rảnh, mỗi ffmpeg video ≤ ~160 MB; tăng nếu camera 4K
+    memswap_limit: 512m       # không tràn sang swap
+    cpus: "1.5"
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
     ports:
       - "127.0.0.1:3333:3333"   # HA ở máy khác: "IP_LAN:3333:3333" + firewall chỉ cho IP của HA
     volumes:
@@ -53,6 +64,7 @@ services:
       TELEGRAM_API_ID: ${TELEGRAM_API_ID}
       TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
       GATEWAY_MOCK: "0"         # 0 = chạy thật; 1 = giả lập
+      # VIDEO_PROFILE: "low"    # máy yếu: hình 480x270, 10 khung/giây (mặc định normal = 640x360, 15)
 ```
 
 ```
@@ -73,12 +85,23 @@ loa khác chưa hỗ trợ. Mic lấy từ camera, loa R1 hoặc địa chỉ lu
 
 ```yaml
 service: telegram_call.make_call
-data: {user_id: 123456789, video: true, volume: 70}   # user_id: số ID Telegram của người nhận
+data: {peer: "@ten_dang_nhap", video: true, volume: 70}   # gọi bằng tên đăng nhập Telegram
+# peer cũng nhận "+84912345678" (số điện thoại, có mã nước) hoặc ID số (user_id: 123456789)
 ```
+
+**Gọi cho một tài khoản Telegram khác:** dùng `peer` là **@tên đăng nhập** của họ (Telegram → Cài đặt → Tên người dùng). Gọi bằng **số điện thoại** (`+84…`)
+chỉ được khi họ cho phép tìm bằng số; không tìm thấy thì gateway báo lỗi 404. Người nhận phải để Telegram cho phép **cuộc gọi từ bạn**
+(Cài đặt → Quyền riêng tư → Cuộc gọi) và **không** là chính tài khoản phụ đang đăng nhập. Kênh/nhóm không gọi được.
 
 Dịch vụ khác: `answer_call`, `hangup_call`, `send_message`. Sự kiện `telegram_call_call_state` dùng **cùng tên trạng thái** với `zalo_call_call_state`
 (`incoming`, `ringing`, `answered`, `ended`, `not_answered`, `missed`, `error`) nên một automation chạy cho cả hai.
 Không biết `user_id`? Gọi thử bằng nút gọi trong giao diện trò chuyện của gateway (`http://<máy>:3333/ui/`).
+
+## Máy yếu (Raspberry Pi, NAS nhỏ)
+
+- **Docker:** khối compose ở trên đã có trần RAM (512 MB), CPU (1,5 lõi), số tiến trình và xoay vòng nhật ký, để một cuộc gọi lỗi không làm cả máy đầy RAM/đĩa. Máy 1 GB RAM thì hạ `mem_limit` xuống `384m`.
+- **Giảm hình:** `VIDEO_PROFILE=low` (480x270, 10 khung/giây thay cho 640x360, 15); add-on có tuỳ chọn `video_profile` tương ứng.
+- **Camera: chọn luồng phụ (sub), không phải luồng chính.** Đo thật cùng một camera, ffmpeg giải mã + thu nhỏ: luồng chính ≈ **40%** một lõi, luồng phụ ≈ **16%**. Với go2rtc, dùng tên luồng phụ (ví dụ `phong-khach-sub`).
 
 ## Cần biết
 

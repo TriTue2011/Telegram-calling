@@ -55,3 +55,12 @@ def test_bien_moi_truong_dat_san_thang_tuy_chon(tmp_path):
     env = {"GATEWAY_TOKEN": "tu-env", "GATEWAY_MOCK": "0"}
     ep.apply_addon_options(env, _opts(tmp_path, {"gateway_token": "khac"}), str(tmp_path))
     assert env["GATEWAY_TOKEN"] == "tu-env" and env["GATEWAY_MOCK"] == "0"
+
+
+def test_video_profile_tu_tuy_chon_addon_chi_nhan_gia_tri_hop_le(tmp_path):
+    env = {}
+    ep.apply_addon_options(env, _opts(tmp_path, {"video_profile": "LOW"}), str(tmp_path))
+    assert env["VIDEO_PROFILE"] == "low"
+    env = {}
+    ep.apply_addon_options(env, _opts(tmp_path, {"video_profile": "ultra-nang"}), str(tmp_path))
+    assert "VIDEO_PROFILE" not in env

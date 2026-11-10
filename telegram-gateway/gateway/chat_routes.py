@@ -15,7 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 
 from .chat import ChatService, Feed
-from .live_call import CallRuntime, apply_defaults, valid_speaker_url
+from .live_call import CallRuntime, apply_defaults, sweep_stale_audio, valid_speaker_url
 from .errors import ApiError, bad_request, not_found
 from .tdclient import TelegramError
 
@@ -34,6 +34,7 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
     app.state.chat_services = services
     uploads = os.path.join(data_dir, "uploads")
     os.makedirs(uploads, exist_ok=True)
+    sweep_stale_audio(data_dir)       # tệp tiếng bên kia của lần chạy trước (CallRuntime chỉ tạo ở cuộc gọi đầu tiên)
 
     runtime: dict = {"rt": None}
 
@@ -292,10 +293,16 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         auth(request)
         b = await body_dict(request)
         phone = _phone_of(request)
-        try:
-            user_id = int(b["user_id"])
-        except (KeyError, ValueError, TypeError):
-            raise bad_request("Thiếu user_id (số).")
+        if b.get("peer"):
+            try:
+                user_id = await run(clients[phone].resolve_user_id, b["peer"])
+            except ValueError as exc:
+                raise bad_request(str(exc))
+        else:
+            try:
+                user_id = int(b["user_id"])
+            except (KeyError, ValueError, TypeError):
+                raise bad_request("Thiếu người nhận: user_id (số) hoặc peer (@username, +số điện thoại).")
         rt = get_runtime()
         try:
             d = load_settings()           # nguồn mặc định (có thể ghi đè từng cuộc bằng mic/camera/speaker trong body)

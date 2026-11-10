@@ -356,6 +356,18 @@ def test_api_live_call_and_settings_bodies():
     asyncio.run(run())
 
 
+def test_api_live_call_target_is_id_or_peer():
+    """ID số (kể cả chuỗi toàn số) đi bằng user_id; @username / +số điện thoại đi bằng peer để gateway tra ra ID."""
+    async def run():
+        s = _Session()
+        api = api_mod.TelegramGatewayApi(s, "http://gw:3333/", "TOKEN", "+84")
+        for target, want in ((5, {"user_id": 5}), ("123456", {"user_id": 123456}),
+                             ("@ben_bap", {"peer": "@ben_bap"}), (" +84912345678 ", {"peer": "+84912345678"})):
+            await api.live_call(target, False)
+            assert s.requests[-1][2]["json"] == dict(want, video=False), target
+    asyncio.run(run())
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

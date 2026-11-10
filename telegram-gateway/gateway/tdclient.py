@@ -376,6 +376,28 @@ class TdlibClient:
                           "username": username})
         return int(resp["id"])
 
+    def resolve_user_id(self, peer) -> int:
+        """Người nhận cuộc gọi: ID số, ``@username`` (hoặc tên trần), hoặc ``+số điện thoại`` (tìm được khi người đó
+        cho phép tìm bằng số). Không tìm thấy thì ``TelegramError(404)``; sai dạng thì ``ValueError``."""
+        peer = str(peer).strip()
+        if not peer:
+            raise ValueError("thiếu người nhận")
+        if peer.isdigit():
+            return int(peer)
+        if peer.startswith("+"):
+            digits = peer[1:].replace(" ", "")
+            if not digits.isdigit():
+                raise ValueError("số điện thoại chỉ gồm chữ số sau dấu +")
+            resp = self.call({"@type": "searchUserByPhoneNumber", "phone_number": digits, "only_local": False})
+            if resp.get("@type") != "user":
+                raise TelegramError(404, "PHONE_NOT_FOUND")
+            return int(resp["id"])
+        resp = self.call({"@type": "searchPublicChat", "username": peer[1:] if peer.startswith("@") else peer})
+        kind = resp.get("type") or {}
+        if kind.get("@type") != "chatTypePrivate":
+            raise TelegramError(404, "USERNAME_NOT_USER")           # kênh/nhóm, không gọi được
+        return int(kind["user_id"])
+
     def send_message(self, peer: str, text: str) -> int:
         chat_id = self.resolve_chat_id(peer)
         resp = self.call({

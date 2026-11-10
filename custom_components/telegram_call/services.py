@@ -13,14 +13,15 @@ from .bridge_core import redact
 from .const import DOMAIN
 
 _ENTRY = {vol.Optional("config_entry_id"): cv.string}
-MAKE_CALL = vol.Schema({
+MAKE_CALL = vol.All(cv.has_at_least_one_key("user_id", "peer"), vol.Schema({
     **_ENTRY,
-    vol.Required("user_id"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+    vol.Optional("user_id"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+    vol.Optional("peer"): cv.string,        # @username, +số điện thoại hoặc ID số
     vol.Optional("video", default=False): cv.boolean,
     vol.Optional("mic"): cv.string, vol.Optional("mic_url"): cv.string, vol.Optional("camera"): cv.string,
     vol.Optional("speaker"): cv.string,
     vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-})
+}))
 CALL_ID = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string})
 SEND = vol.Schema({**_ENTRY, vol.Required("chat_id"): vol.All(vol.Coerce(int), vol.Range(min=1)), vol.Required("text"): cv.string})
 
@@ -55,7 +56,7 @@ def async_register_services(hass: HomeAssistant) -> None:
         async def go(rt):
             rt.bridge.remember(None, override)                     # loa/âm lượng riêng cuộc này, dùng lúc nghe máy
             fields = await rt.bridge.async_call_fields(override)
-            return _public(await rt.api.live_call(call.data["user_id"], call.data["video"], **{
+            return _public(await rt.api.live_call(call.data.get("user_id") or str(call.data["peer"]).strip(), call.data["video"], **{
                 "mic": fields.get("mic"), "mic_format": fields.get("mic_format"), "camera": fields.get("camera"),
                 "speaker": fields.get("speaker")}))
         res = await run(call, go)

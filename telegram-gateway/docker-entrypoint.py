@@ -3,7 +3,7 @@
 
 Không có options.json = chạy Docker thường: không đụng vào gì, dùng .env như cũ.
 Tuỳ chọn add-on: api_id, api_hash (lấy ở my.telegram.org), gateway_token (bỏ trống = tự sinh,
-giữ lại trong /data/gateway_token 0600 và in ra Nhật ký), ha_webhook_url.
+giữ lại trong /data/gateway_token 0600 và in ra Nhật ký), ha_webhook_url, video_profile (normal|low: «low» cho máy yếu).
 Có đủ api_id + api_hash thì bật engine thật (GATEWAY_MOCK=0); thiếu thì để chế độ giả lập và nói rõ.
 Chỉ dùng thư viện chuẩn.
 """
@@ -55,6 +55,9 @@ def apply_addon_options(env=None, options_path=OPTIONS_FILE, data_dir=None):
         env.setdefault("GATEWAY_MOCK", "0")
     else:
         env.setdefault("GATEWAY_MOCK", "1")
+    profile = str(opts.get("video_profile") or "").strip().lower()
+    if profile in ("normal", "low"):
+        env.setdefault("VIDEO_PROFILE", profile)
     url = str(opts.get("ha_webhook_url") or "").strip()
     if url:
         env.setdefault("HA_WEBHOOK_URL", url)

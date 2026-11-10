@@ -1,7 +1,10 @@
 make_call:
   fields:
+    peer:
+      example: "@ten_dang_nhap"
+      selector:
+        text:
     user_id:
-      required: true
       example: 123456789
       selector:
         number:

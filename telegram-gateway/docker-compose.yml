@@ -5,6 +5,12 @@ services:
     image: ghcr.io/tritue2011/telegram-calling:latest
     container_name: telegram-gateway
     restart: unless-stopped
+    init: true                # dọn ffmpeg mồ côi, không để lại tiến trình ma
+    mem_limit: 512m           # đo: ~70 MB lúc rảnh, mỗi ffmpeg video ≤ ~160 MB; tăng nếu camera 4K
+    memswap_limit: 512m       # không tràn sang swap
+    cpus: "1.5"
+    pids_limit: 256
+    # Máy yếu (Raspberry Pi, NAS nhỏ): thêm vào environment  VIDEO_PROFILE: "low"  (480x270, 10 khung/giây)
     # Mặc định: HA và gateway cùng server -> chỉ bind loopback.
     # Nếu HA ở máy khác trong LAN: đổi thành "IP_LAN_CUA_SERVER:3333:3333"
     # kèm rule firewall chỉ cho IP của HA. KHÔNG bind 0.0.0.0 không kèm

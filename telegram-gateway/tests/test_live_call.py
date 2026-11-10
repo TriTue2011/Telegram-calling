@@ -254,3 +254,87 @@ def test_gateway_version_comes_from_version_file(tmp_path):
     assert want and Config(data_dir=str(tmp_path), gateway_token="tk").version == want
     c = _client(tmp_path)
     assert c.get("/health").json()["version"] == want
+
+
+def test_ended_call_deletes_far_end_audio_file_and_keeps_size(tmp_path):
+    """Kiểu `file` ghi ~96 KB/giây; xoá khi kết thúc, nhưng info còn báo kích thước đã nhận."""
+    import asyncio
+    rt = StubRuntime()
+    rt.data_dir = str(tmp_path)
+    rt.ntg = type("N", (), {"stop": staticmethod(lambda uid: _done())})()
+    c = live_call.LiveCall(rt, "+84", StubClient(), 5, True)
+    (tmp_path / "live").mkdir()
+    for p in (c.playback_path, c.playback_path + ".wav"):
+        open(p, "wb").write(b"x" * 1000)
+    assert c.info()["playback"]["bytes"] == 1000
+    asyncio.run(c._stop())
+    import os
+    assert not os.path.exists(c.playback_path) and not os.path.exists(c.playback_path + ".wav")
+    assert c.info()["playback"]["bytes"] == 1000
+
+
+async def _done():
+    return None
+
+
+def test_runtime_prunes_old_ended_calls_but_never_active_ones():
+    rt = object.__new__(live_call.CallRuntime)
+    rt.calls = {}
+    for i in range(live_call.MAX_ENDED_CALLS + 7):
+        c = live_call.LiveCall(StubRuntime(), "+84", StubClient(), 100 + i, True)
+        c.state, c.ended_at = "ended", float(i + 1)
+        rt.calls[c.id] = c
+    live = live_call.LiveCall(StubRuntime(), "+84", StubClient(), 1, True)      # đang chạy: không được đụng tới
+    rt.calls[live.id] = live
+    rt._prune()
+    ended = [x for x in rt.calls.values() if x.state == "ended"]
+    assert len(ended) == live_call.MAX_ENDED_CALLS and live.id in rt.calls
+    assert min(x.ended_at for x in ended) == 8.0, "phải bỏ cái cũ nhất trước"
+
+
+
+def test_video_profile_low_for_weak_machines_and_unknown_falls_back():
+    assert live_call.video_profile({}) == (640, 360, 15)
+    assert live_call.video_profile({"VIDEO_PROFILE": " Low "}) == (480, 270, 10)
+    assert live_call.video_profile({"VIDEO_PROFILE": "gì-đó"}) == (640, 360, 15)
+    w, h, fps = live_call.video_profile({"VIDEO_PROFILE": "low"})
+    assert w % 2 == 0 and h % 2 == 0, "yuv420p cần kích thước chẵn"
+
+
+def _td(responses):
+    """TdlibClient giả: chỉ có call() trả lời theo @type, để thử resolve_user_id không cần TDLib thật."""
+    from gateway.tdclient import TdlibClient
+    cl = object.__new__(TdlibClient)
+    seen = []
+    cl.call = lambda req: (seen.append(req), responses[req["@type"]])[1]
+    return cl, seen
+
+
+def test_resolve_user_id_accepts_id_username_and_phone():
+    from gateway.tdclient import TelegramError
+    cl, seen = _td({"searchPublicChat": {"@type": "chat", "id": 7, "type": {"@type": "chatTypePrivate", "user_id": 7}},
+                    "searchUserByPhoneNumber": {"@type": "user", "id": 99}})
+    assert cl.resolve_user_id("123456789") == 123456789 and seen == []          # số thuần = ID, không hỏi TDLib
+    assert cl.resolve_user_id("@ben_bap") == 7 and seen[-1]["username"] == "ben_bap"
+    assert cl.resolve_user_id("ben_bap") == 7                                   # tên trần cũng được
+    assert cl.resolve_user_id("+84 912 345 678") == 99 and seen[-1]["phone_number"] == "84912345678"
+    with pytest.raises(ValueError):
+        cl.resolve_user_id("+84abc")
+    with pytest.raises(ValueError):
+        cl.resolve_user_id("  ")
+    chan, _ = _td({"searchPublicChat": {"@type": "chat", "id": -100, "type": {"@type": "chatTypeSupergroup", "supergroup_id": 5}}})
+    with pytest.raises(TelegramError) as e:
+        chan.resolve_user_id("@mot_kenh")                                         # kênh/nhóm không gọi được
+    assert e.value.code == 404
+    nob, _ = _td({"searchUserByPhoneNumber": {"@type": "ok"}})
+    with pytest.raises(TelegramError):
+        nob.resolve_user_id("+84900000000")
+
+
+def test_sweep_stale_audio_runs_without_a_call_runtime(tmp_path):
+    d = tmp_path / "live"
+    d.mkdir()
+    (d / "x_in.pcm").write_bytes(b"1")
+    live_call.sweep_stale_audio(str(tmp_path))
+    assert list(d.iterdir()) == []
+    live_call.sweep_stale_audio(str(tmp_path / "khong-co"))                      # thư mục chưa có: không nổ

@@ -77,6 +77,10 @@
       "name": "Gọi",
       "description": "Gọi thoại hoặc video tới một người dùng Telegram.",
       "fields": {
+        "peer": {
+          "name": "Người nhận (@username hoặc +số)",
+          "description": "@tên_đăng_nhập hoặc +số điện thoại (có mã nước, người đó phải cho phép tìm bằng số). Dùng thay cho ID số."
+        },
         "user_id": {
           "name": "ID người dùng",
           "description": "Số ID Telegram của người nhận."

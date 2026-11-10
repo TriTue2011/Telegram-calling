@@ -61,9 +61,14 @@ class TelegramGatewayApi:
     async def live_calls(self) -> list[dict]:
         return (await self._request("GET", "/api/live/calls")).get("calls", [])
 
-    async def live_call(self, user_id: int, video: bool = False, mic: str | None = None,
+    async def live_call(self, target: int | str, video: bool = False, mic: str | None = None,
                         mic_format: str | None = None, camera: str | None = None, speaker: str | None = None) -> dict:
-        body: dict[str, Any] = {"user_id": int(user_id), "video": bool(video)}
+        # target: ID số (user_id) hoặc chuỗi @username / +số điện thoại (gateway tra ra ID).
+        body: dict[str, Any] = {"video": bool(video)}
+        if isinstance(target, int) or str(target).strip().isdigit():
+            body["user_id"] = int(target)
+        else:
+            body["peer"] = str(target).strip()
         for k, v in (("mic", mic), ("mic_format", mic_format), ("camera", camera), ("speaker", speaker)):
             if v:
                 body[k] = v

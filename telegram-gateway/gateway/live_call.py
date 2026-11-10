@@ -30,6 +30,7 @@ logger = logging.getLogger("telegram_gateway")
 SAMPLE_RATE = 48000
 CHANNELS = 1
 MAX_EVENTS = 200
+MAX_ENDED_CALLS = 20          # cuộc gọi đã kết thúc giữ lại để xem nhật ký; thừa thì bỏ cái cũ nhất
 
 
 def mic_command(spec: str, fmt: str = "auto") -> str:
@@ -83,11 +84,21 @@ def apply_defaults(c, d: dict) -> None:
         c.playback_kind = d.get("playback") if d.get("playback") in ("external", "file") else "file"
 
 
-VIDEO_W, VIDEO_H, VIDEO_FPS = 640, 360, 15
+# Hình gửi đi: «low» cho máy yếu (đo thật: nặng nhất là giải mã + thu nhỏ luồng camera; ít điểm ảnh/giây hơn thì nhẹ hơn rõ).
+VIDEO_PROFILES = {"normal": (640, 360, 15), "low": (480, 270, 10)}
+
+
+def video_profile(env=None) -> tuple:
+    """(rộng, cao, fps) theo biến môi trường VIDEO_PROFILE; giá trị lạ thì về «normal», không nổ lúc khởi động."""
+    name = str((os.environ if env is None else env).get("VIDEO_PROFILE", "normal")).strip().lower()
+    return VIDEO_PROFILES.get(name, VIDEO_PROFILES["normal"])
+
+
+VIDEO_W, VIDEO_H, VIDEO_FPS = video_profile()
 
 
 def camera_command(spec: str) -> str:
-    """Lệnh shell xuất khung hình thô yuv420p 640x360 15 fps ra stdout (nguồn hình gửi lên cuộc gọi video)."""
+    """Lệnh shell xuất khung hình thô yuv420p (kích thước và fps theo VIDEO_PROFILE) ra stdout (nguồn hình gửi lên cuộc gọi video)."""
     out = f"-vf scale={VIDEO_W}:{VIDEO_H},fps={VIDEO_FPS} -f rawvideo -pix_fmt yuv420p pipe:1"
     base = "ffmpeg -hide_banner -loglevel error -nostdin"
     if spec in ("", "test"):
@@ -118,6 +129,7 @@ class LiveCall:
         self.speaker_url = ""           # địa chỉ cửa bộ đàm của loa khi playback_kind == "push" (KHÔNG đưa ra info/log)
         self.playback_path = os.path.join(runtime.data_dir, "live", self.id + "_in.pcm")
         self.error = ""
+        self.playback_bytes_final = None   # kích thước tệp tiếng bên kia lúc kết thúc (tệp đã xoá)
         self._ready_done = False
         self.log("tạo cuộc gọi %s video=%s" % ("đi" if outgoing else "đến", video))
 
@@ -134,7 +146,19 @@ class LiveCall:
                 "playback": {"kind": self.playback_kind, "bytes": self._playback_size()},
                 "events": self.events[-40:]}
 
+    def _drop_playback_file(self) -> None:
+        """Kiểu `file` ghi tiếng bên kia ~96 KB/giây (≈345 MB mỗi giờ) và sau cuộc gọi không ai đọc lại: xoá khi kết thúc
+        (nhớ kích thước để info còn báo được)."""
+        self.playback_bytes_final = self._playback_size()
+        for path in (self.playback_path, self.playback_path + ".wav"):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
     def _playback_size(self) -> int:
+        if self.playback_bytes_final is not None:
+            return self.playback_bytes_final
         try:
             return os.path.getsize(self.playback_path)
         except OSError:
@@ -246,6 +270,8 @@ class LiveCall:
             await self.runtime.ntg.stop(self.user_id)
         except Exception as exc:  # noqa: BLE001 - chưa tạo cuộc gọi NTgCalls thì stop báo lỗi: bình thường
             self.log("NTgCalls stop: %s" % exc)
+        finally:
+            self._drop_playback_file()
 
     # -- do người dùng ---------------------------------------------------------------------------------
     def hangup(self) -> None:
@@ -259,6 +285,21 @@ class LiveCall:
     def accept(self) -> None:
         self.client.accept_call(self.tdlib_call_id, self.runtime.protocol())
         self.log("đã nghe máy")
+
+
+def sweep_stale_audio(data_dir: str) -> None:
+    """Lúc khởi động chưa có cuộc gọi nào: tệp tiếng bên kia còn lại là của lần chạy trước (sập, hoặc bản cũ không xoá)."""
+    live = os.path.join(data_dir, "live")
+    try:
+        names = os.listdir(live)
+    except OSError:
+        return
+    for name in names:
+        if "_in.pcm" in name:
+            try:
+                os.remove(os.path.join(live, name))
+            except OSError:
+                pass
 
 
 class CallRuntime:
@@ -280,6 +321,12 @@ class CallRuntime:
         self.ntg.on_stream_end(self._stream_end)
         self._first_frame_logged = False
 
+    def _prune(self) -> None:
+        """Giữ tối đa MAX_ENDED_CALLS cuộc gọi đã kết thúc (cái cũ nhất đi trước); cuộc đang chạy không bao giờ bị bỏ."""
+        ended = sorted((c for c in list(self.calls.values()) if c.state == "ended"), key=lambda c: c.ended_at)
+        for c in ended[:max(0, len(ended) - MAX_ENDED_CALLS)]:
+            self.calls.pop(c.id, None)
+
     def run(self, coro) -> None:
         fut = asyncio.run_coroutine_threadsafe(coro, self.loop)
         fut.add_done_callback(lambda f: f.exception() and logger.error("tác vụ NTgCalls lỗi: %r", f.exception()))
@@ -291,7 +338,7 @@ class CallRuntime:
                 "library_versions": list(p.library_versions)}
 
     def by_user(self, user_id: int) -> "LiveCall | None":
-        for c in self.calls.values():
+        for c in list(self.calls.values()):
             if c.user_id == int(user_id) and c.state != "ended":
                 return c
         return None
@@ -358,6 +405,7 @@ class CallRuntime:
                 raise ValueError("speaker không phải địa chỉ cửa bộ đàm r1_speaker / dahua_talk")
             c.speaker_url, c.playback_kind = speaker_url, "push"
         self.calls[c.id] = c
+        self._prune()
         new_id = client.create_call(user_id, self.protocol(), video)
         if c.tdlib_call_id is None:
             c.tdlib_call_id = new_id
@@ -370,10 +418,10 @@ class CallRuntime:
         if t == "updateCall":
             call = obj.get("call") or {}
             cid = call.get("id")
-            c = next((x for x in self.calls.values() if x.tdlib_call_id == cid), None)
+            c = next((x for x in list(self.calls.values()) if x.tdlib_call_id == cid), None)
             if c is None and call.get("is_outgoing"):
                 # updateCall đầu tiên có thể tới TRƯỚC phản hồi createCall: nhận cuộc gọi đi chưa có mã, cùng người.
-                c = next((x for x in self.calls.values() if x.outgoing and x.tdlib_call_id is None
+                c = next((x for x in list(self.calls.values()) if x.outgoing and x.tdlib_call_id is None
                           and x.user_id == int(call.get("user_id") or 0) and x.state != "ended"), None)
                 if c is not None:
                     c.tdlib_call_id = cid
@@ -381,13 +429,14 @@ class CallRuntime:
                 c = LiveCall(self, phone, client, call.get("user_id"), False, bool(call.get("is_video")))
                 c.tdlib_call_id = cid
                 self.calls[c.id] = c
+                self._prune()
                 self.on_event("incoming", c)
             if c is not None:
                 c.on_call_state(call)
                 if c.state == "ended":
                     self.on_event("ended", c)
         elif t == "updateNewCallSignalingData":
-            c = next((x for x in self.calls.values() if x.tdlib_call_id == obj.get("call_id")), None)
+            c = next((x for x in list(self.calls.values()) if x.tdlib_call_id == obj.get("call_id")), None)
             if c is not None:
                 raw = obj.get("data") or ""
                 c.on_signaling(base64.b64decode(raw) if isinstance(raw, str) else bytes(raw))
