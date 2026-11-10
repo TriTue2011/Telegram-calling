@@ -50,3 +50,20 @@ def test_gateway_version_khop_manifest():
     with open(os.path.join(ROOT, "telegram-gateway", "VERSION"), encoding="utf-8") as fh:
         gv = fh.read().strip()
     assert gv == _json(INT, "manifest.json")["version"], "VERSION của gateway phải bằng version tích hợp (một thẻ phát hành cho cả hai)"
+
+
+def test_lich_cap_nhat_trang_thai_phai_la_callback():
+    """HA chạy hàm thường ở luồng nền; async_write_ha_state từ đó gây lỗi mỗi phút (đo 10/11/2026 ở zalo_call).
+    Không được truyền lambda gọi async_write_ha_state cho async_track_*."""
+    import ast
+    bad = []
+    for path in sorted(glob.glob(os.path.join(INT, "*.py"))):
+        tree = ast.parse(open(path, encoding="utf-8").read())
+        for call in ast.walk(tree):
+            name = getattr(call.func, "id", getattr(call.func, "attr", "")) if isinstance(call, ast.Call) else ""
+            if not name.startswith("async_track_"):
+                continue
+            for arg in call.args:
+                if isinstance(arg, ast.Lambda) and any(getattr(n, "attr", "") == "async_write_ha_state" for n in ast.walk(arg)):
+                    bad.append("%s:%d" % (os.path.basename(path), arg.lineno))
+    assert not bad, "lambda gọi async_write_ha_state sẽ chạy ở luồng nền: %s" % bad

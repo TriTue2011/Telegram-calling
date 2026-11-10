@@ -18,6 +18,8 @@ MAKE_CALL = vol.Schema({
     vol.Required("user_id"): vol.All(vol.Coerce(int), vol.Range(min=1)),
     vol.Optional("video", default=False): cv.boolean,
     vol.Optional("mic"): cv.string, vol.Optional("mic_url"): cv.string, vol.Optional("camera"): cv.string,
+    vol.Optional("speaker"): cv.string,
+    vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
 })
 CALL_ID = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string})
 SEND = vol.Schema({**_ENTRY, vol.Required("chat_id"): vol.All(vol.Coerce(int), vol.Range(min=1)), vol.Required("text"): cv.string})
@@ -48,12 +50,14 @@ def async_register_services(hass: HomeAssistant) -> None:
             raise HomeAssistantError(redact(str(err))) from err
 
     async def make_call(call: ServiceCall) -> ServiceResponse:
-        override = {k: call.data[k] for k in ("mic", "mic_url", "camera") if k in call.data}
+        override = {k: call.data[k] for k in ("mic", "mic_url", "camera", "speaker", "volume") if k in call.data}
 
         async def go(rt):
+            rt.bridge.remember(None, override)                     # loa/âm lượng riêng cuộc này, dùng lúc nghe máy
             fields = await rt.bridge.async_call_fields(override)
             return _public(await rt.api.live_call(call.data["user_id"], call.data["video"], **{
-                "mic": fields.get("mic"), "mic_format": fields.get("mic_format"), "camera": fields.get("camera")}))
+                "mic": fields.get("mic"), "mic_format": fields.get("mic_format"), "camera": fields.get("camera"),
+                "speaker": fields.get("speaker")}))
         res = await run(call, go)
         await _refresh(hass, call)
         return res

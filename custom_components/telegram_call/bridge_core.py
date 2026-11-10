@@ -10,7 +10,7 @@ from typing import Any, Mapping
 from urllib.parse import quote, urlsplit, urlunsplit
 
 ALLOWED_SCHEMES = ("rtsp", "rtsps", "http", "https", "rtmp", "rtmps")
-DEVICE_KEYS = ("mic", "mic_url", "camera")
+DEVICE_KEYS = ("mic", "mic_url", "camera", "speaker")
 LABEL_SEP = " · "
 R1_MIC_PATH = "/api/r1_speaker/mic/"
 LOOPBACK_HOSTS = ("localhost", "127.0.0.1", "::1", "0.0.0.0")
@@ -91,6 +91,11 @@ def mic_format_for_url(url: str) -> str:
 
 def r1_mic_url(base: str, entry_id: str, key: str) -> str:
     return f"{base.rstrip('/')}{R1_MIC_PATH}{quote(entry_id, safe='')}?k={quote(key, safe='')}"
+
+
+def intercom_url(base: str, domain: str, entry_id: str, key: str, kind: str = "intercom") -> str:
+    """Cửa bộ đàm của loa (``r1_speaker`` / ``dahua_talk``): gateway POST tiếng bên kia vào đây. Khớp ``valid_speaker_url`` của gateway."""
+    return f"{base.rstrip('/')}/api/{domain}/{kind}/{quote(entry_id, safe='')}?k={quote(key, safe='')}"
 
 
 def dahua_mic_url(options: Mapping[str, Any], data: Mapping[str, Any]) -> str:

@@ -129,3 +129,120 @@ def test_live_settings_validate_mask_and_persist(tmp_path):
     assert saved["camera"] == "rtsp://u:secret@cam/s"
     assert oct(os.stat(os.path.join(str(tmp_path), "live_settings.json")).st_mode & 0o777) == "0o600"
     assert c.post("/api/live/hangup", headers=H, json={"id": "x"}).status_code == 404
+
+
+# ── Loa nhận tiếng bên kia: kiểu phát «push» ───────────────────────────────────────────────────────
+
+_R1_URL = "http://172.16.10.200:8123/api/r1_speaker/intercom/01M61K2CMCVTZKHGG3TWR3976N?k=ab-cd_EF%20x"
+_DUPLEX_URL = "https://ha.local/api/dahua_talk/duplex/ABC123?k=tok"
+
+
+def test_speaker_url_validation_and_fixed_command():
+    for u in (_R1_URL, _DUPLEX_URL):
+        assert live_call.valid_speaker_url(u), u
+    bad = ["", "ftp://h/api/r1_speaker/intercom/E?k=1", "http://h/api/other/intercom/E?k=1", "http://h/api/r1_speaker/intercom/E",
+           "http://h/api/r1_speaker/intercom/E?k=1;rm -rf /", "http://h/api/r1_speaker/intercom/E?k=1 &x",
+           "http://h/api/r1_speaker/mic/E?k=1", "http://h x/api/r1_speaker/intercom/E?k=1",
+           "http://h/api/r1_speaker/intercom/E?k=$(id)", "http://h/api/r1_speaker/intercom/../E?k=1",
+           "http://h/api/r1_speaker/intercom/E?k=1\nfoo"]
+    for u in bad:
+        assert not live_call.valid_speaker_url(u), u
+        with pytest.raises(ValueError):
+            live_call.speaker_command(u)
+    a = shlex.split(live_call.speaker_command(_R1_URL))
+    assert a[-1] == _R1_URL and "pcm_alaw" in a and a[a.index("-method") + 1] == "POST"      # URL là MỘT đối số
+    assert a[a.index("-ar") + 1] == "48000" and "pipe:0" in a                                  # đầu vào PCM 48 kHz từ stdin
+    d = shlex.split(live_call.speaker_command(_DUPLEX_URL))
+    assert "pcm_s16le" in d and "pcm_alaw" not in d and d[d.index("-c:a") + 1] == "pcm_s16le"  # song công: PCM16 16 kHz thô
+
+
+def test_live_settings_speaker_validate_mask_and_persist(tmp_path):
+    import json, os
+    c = _client(tmp_path)
+    H = {"Authorization": "Bearer tk"}
+    assert c.get("/api/live/settings", headers=H).json()["speaker"] == ""
+    assert c.post("/api/live/settings", headers=H, json={"speaker": "http://evil/x"}).status_code == 400
+    assert c.post("/api/live/settings", headers=H, json={"speaker": _R1_URL, "mic": "http://r1/mic?k=SECRETMIC"}).json() == {"ok": True}
+    got = c.get("/api/live/settings", headers=H).json()
+    assert got["speaker"].endswith("?k=***") and "ab-cd" not in str(got) and "SECRETMIC" not in str(got), got
+    c.post("/api/live/settings", headers=H, json={"speaker": got["speaker"], "mic": got["mic"]})      # gửi lại bản đã che
+    path = os.path.join(str(tmp_path), "live_settings.json")
+    saved = json.load(open(path))
+    assert saved["speaker"] == _R1_URL and saved["mic"] == "http://r1/mic?k=SECRETMIC"
+    assert c.post("/api/live/settings", headers=H, json={"speaker": ""}).json() == {"ok": True}      # rỗng = bỏ loa
+    assert json.load(open(path))["speaker"] == ""
+
+
+def test_call_out_with_speaker_uses_push_and_rejects_bad_url():
+    pytest.importorskip("ntgcalls")
+    rt = live_call.CallRuntime(data_dir="/tmp/live-test")
+    cl = StubClient()
+    c = rt.call_out("+84", cl, 5, speaker_url=_R1_URL)
+    assert c.playback_kind == "push" and c.speaker_url == _R1_URL
+    assert "ab-cd" not in str(c.info()), "địa chỉ loa (có khoá) không được lộ ra info/nhật ký"
+    with pytest.raises(ValueError):
+        rt.call_out("+84", cl, 6, speaker_url="http://evil/x")
+
+
+def test_set_playback_push_builds_fixed_command_for_ntgcalls():
+    import asyncio
+    seen = []
+
+    class NT:
+        class MediaSource:
+            SHELL, FILE, EXTERNAL = "SHELL", "FILE", "EXT"
+
+        class StreamMode:
+            PLAYBACK = "PB"
+
+        @staticmethod
+        def AudioDescription(*a):
+            return ("AD",) + a
+
+        @staticmethod
+        def MediaDescription(*a):
+            return ("MD",) + a
+
+    class NTG:
+        async def set_stream_sources(self, uid, mode, desc):
+            seen.append(desc)
+
+    rt = StubRuntime()
+    rt.nt, rt.ntg = NT, NTG()
+    c = live_call.LiveCall(rt, "+84", StubClient(), 5, True)
+    asyncio.run(c._set_playback("push", _R1_URL))
+    ad = seen[0][2]                                  # MediaDescription(None, AudioDescription(...), None, None)
+    assert ad[1] == "SHELL" and ad[4] == live_call.speaker_command(_R1_URL) and c.playback_kind == "push"
+    with pytest.raises(ValueError):
+        asyncio.run(c._set_playback("push", "http://evil/x"))
+
+
+def test_incoming_call_gets_default_devices_before_accept():
+    rt = StubRuntime()
+    c = live_call.LiveCall(rt, "+84", StubClient(), 9, False, True)
+    assert c.mic == "test" and c.cam == "test"                  # giá trị khởi tạo của cuộc gọi đến
+    live_call.apply_defaults(c, {"mic": "http://r1/mic?k=1", "mic_format": "s16le16k", "camera": "rtsp://cam/s",
+                                 "speaker": _R1_URL, "playback": "file"})
+    assert (c.mic, c.mic_fmt, c.cam) == ("http://r1/mic?k=1", "s16le16k", "rtsp://cam/s")
+    assert c.playback_kind == "push" and c.speaker_url == _R1_URL
+    live_call.apply_defaults(c, {"mic": "test", "mic_format": "auto", "camera": "test", "speaker": "", "playback": "external"})
+    assert c.playback_kind == "external" and c.speaker_url == ""
+    live_call.apply_defaults(c, {"mic": "test", "mic_format": "auto", "camera": "test", "speaker": "http://evil/x", "playback": "shell"})
+    assert c.playback_kind == "file" and c.speaker_url == ""     # địa chỉ loa sai / kiểu shell không được áp từ mặc định
+
+
+def test_integration_intercom_url_is_accepted_by_gateway():
+    """Hợp đồng giữa hai nửa của kho: địa chỉ cửa bộ đàm mà tích hợp telegram_call SINH RA phải qua kiểm tra của gateway
+    (và địa chỉ có khoá lạ thì gateway vẫn từ chối). Nạp bridge_core.py của tích hợp bằng đường dẫn (không cần Home Assistant)."""
+    import importlib.util
+    import os
+    path = os.path.join(os.path.dirname(__file__), "..", "..", "custom_components", "telegram_call", "bridge_core.py")
+    spec = importlib.util.spec_from_file_location("tc_bridge_core", path)
+    core = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(core)
+    for domain in ("r1_speaker", "dahua_talk"):
+        for kind in ("intercom", "duplex"):
+            for entry_id, key in (("01M61K2CMCVTZKHGG3TWR3976N", "ab-cd_EF123"), ("abc123", "k e/y;&"), ("E-1_x", "z" * 43)):
+                u = core.intercom_url("http://172.16.10.200:8123/", domain, entry_id, key, kind)
+                assert live_call.valid_speaker_url(u), u
+                live_call.speaker_command(u)                                  # không ném lỗi

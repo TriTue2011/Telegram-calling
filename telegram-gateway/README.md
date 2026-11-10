@@ -91,6 +91,17 @@ này), `LOGIN_LOCKED` (khóa đăng nhập), `BACKPRESSURE` (HA đẩy mic
 nhanh hơn gateway tiêu thụ), `RATE_LIMITED` (quá 120 request/phút);
 502 `MEDIA_ENGINE_ERROR`; 503 `ACCOUNT_OFFLINE`.
 
+## Loa nhận tiếng bên kia: kiểu phát `push`
+
+Cuộc gọi thật (`/api/live/*`) nhận tiếng bên kia theo một trong các kiểu `file | external | shell | push`. `push` là kiểu cho HA/R1:
+gateway tự dựng lệnh ffmpeg **cố định** đẩy tiếng vào «cửa bộ đàm» của loa; **không chạy lệnh tuỳ ý** (khác `shell`).
+
+- Địa chỉ loa (`speaker`) chỉ nhận dạng `http(s)://host[:port]/api/(r1_speaker|dahua_talk)/(intercom|duplex)/<id>?k=<khoá>`; sai thì `400`.
+  `intercom` = A-law 8 kHz (nửa song công, HA tự tắt mic loa lúc phát), `duplex` = PCM16 16 kHz thô (song công, loa R1 tự khử vọng).
+- Đặt mặc định: `POST /api/live/settings {"speaker": "..."}` (rỗng = bỏ loa). `GET /api/live/settings` trả địa chỉ đã che khoá (`?k=***`).
+- Ghi đè từng cuộc: `POST /api/live/call {"user_id": ..., "speaker": "..."}`. Đổi ngay trong cuộc gọi: `POST /api/live/playback {"id": ..., "kind": "push", "url": "..."}`.
+- Cuộc gọi **đến** áp thiết bị mặc định (mic, camera, loa) lúc `POST /api/live/accept`; trước 0.2.0 nó luôn dùng mic/camera «test» (âm 440 Hz, hình thử).
+
 ## Đăng nhập — chỉ qua web UI nội bộ
 
 Mở `http://<server>:3333/ui/` (LAN-only). Đăng nhập **không** qua API

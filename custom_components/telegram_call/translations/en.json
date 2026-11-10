@@ -97,6 +97,14 @@
           "name": "Camera",
           "description": "Override the default camera (video calls)."
         },
+        "speaker": {
+          "name": "Speaker",
+          "description": "Override the default speaker (R1 speaker or Imou/Dahua camera) that plays the other side."
+        },
+        "volume": {
+          "name": "Volume",
+          "description": "Speaker volume 1-100 % while on the call, restored afterwards. 0 or empty = use the default / leave the speaker alone."
+        },
         "config_entry_id": {
           "name": "Account",
           "description": "Only needed with several Telegram Call accounts."

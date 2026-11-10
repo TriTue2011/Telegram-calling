@@ -62,9 +62,9 @@ class TelegramGatewayApi:
         return (await self._request("GET", "/api/live/calls")).get("calls", [])
 
     async def live_call(self, user_id: int, video: bool = False, mic: str | None = None,
-                        mic_format: str | None = None, camera: str | None = None) -> dict:
+                        mic_format: str | None = None, camera: str | None = None, speaker: str | None = None) -> dict:
         body: dict[str, Any] = {"user_id": int(user_id), "video": bool(video)}
-        for k, v in (("mic", mic), ("mic_format", mic_format), ("camera", camera)):
+        for k, v in (("mic", mic), ("mic_format", mic_format), ("camera", camera), ("speaker", speaker)):
             if v:
                 body[k] = v
         return await self._request("POST", "/api/live/call", json=body)
@@ -75,8 +75,9 @@ class TelegramGatewayApi:
     async def hangup(self, call_id: str) -> dict:
         return await self._request("POST", "/api/live/hangup", json={"id": call_id})
 
-    async def set_live_settings(self, mic: str, mic_format: str, camera: str) -> None:
-        await self._request("POST", "/api/live/settings", json={"mic": mic, "mic_format": mic_format, "camera": camera})
+    async def set_live_settings(self, patch: dict[str, Any]) -> None:
+        """Đặt thiết bị MẶC ĐỊNH của gateway (``mic``, ``mic_format``, ``camera``, ``speaker``). Trường vắng = gateway giữ giá trị cũ."""
+        await self._request("POST", "/api/live/settings", json=patch)
 
     async def send_message(self, chat_id: int, text: str) -> dict:
         return await self._request("POST", f"/api/chats/{int(chat_id)}/send", json={"text": text})

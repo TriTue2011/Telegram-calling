@@ -23,6 +23,17 @@ make_call:
       selector:
         entity:
           domain: camera
+    speaker:
+      selector:
+        entity:
+          domain: media_player
+    volume:
+      selector:
+        number:
+          min: 0
+          max: 100
+          mode: slider
+          unit_of_measurement: "%"
     config_entry_id:
       selector:
         config_entry:

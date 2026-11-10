@@ -15,7 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 
 from .chat import ChatService, Feed
-from .live_call import CallRuntime
+from .live_call import CallRuntime, apply_defaults, valid_speaker_url
 from .errors import ApiError, bad_request, not_found
 from .tdclient import TelegramError
 
@@ -227,7 +227,7 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
 
     # -- cuộc gọi thật (thoại + video) ----------------------------------------------------------------
     settings_path = os.path.join(data_dir, "live_settings.json")
-    DEFAULT_SETTINGS = {"mic": "test", "mic_format": "auto", "camera": "test", "playback": "file"}
+    DEFAULT_SETTINGS = {"mic": "test", "mic_format": "auto", "camera": "test", "playback": "file", "speaker": ""}
 
     def load_settings() -> dict:
         import json
@@ -242,14 +242,15 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
 
     def _mask(v: str) -> str:
         import re as _re
-        return _re.sub(r"(://[^/\s:@]+:)[^@/\s]*@", r"\1***@", v or "")
+        v = _re.sub(r"(://[^/\s:@]+:)[^@/\s]*@", r"\1***@", v or "")
+        return _re.sub(r"([?&]k=)[^&\s]+", r"\1***", v)               # khoá ?k= của cửa bộ đàm / mic R1
 
     @app.get("/api/live/settings")
     async def get_live_settings(request: Request):
         auth(request)
         s = load_settings()
         return {"mic": _mask(s["mic"]), "mic_format": s["mic_format"], "camera": _mask(s["camera"]),
-                "playback": s["playback"]}
+                "playback": s["playback"], "speaker": _mask(s["speaker"])}
 
     @app.post("/api/live/settings")
     async def set_live_settings(request: Request):
@@ -263,8 +264,14 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
                 v = str(b[k] or "test").strip()
                 if v != "test" and not (v.startswith(("rtsp://", "rtsps://", "http://", "https://", "rtmp://")) or v.startswith("/")):
                     raise bad_request(f"{k} phải là test, URL rtsp/http hoặc đường dẫn tệp.")
-                if "***@" not in v:
+                if "***@" not in v and "k=***" not in v:
                     s[k] = v
+        if "speaker" in b:
+            v = str(b["speaker"] or "").strip()
+            if v and not valid_speaker_url(v) and "k=***" not in v:
+                raise bad_request("speaker phải rỗng hoặc là địa chỉ cửa bộ đàm /api/r1_speaker|dahua_talk/intercom|duplex/<id>?k=<khoá>.")
+            if "k=***" not in v:
+                s["speaker"] = v
         if b.get("mic_format") in ("auto", "s16le16k"):
             s["mic_format"] = b["mic_format"]
         if b.get("playback") in ("external", "file"):
@@ -291,10 +298,13 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
             raise bad_request("Thiếu user_id (số).")
         rt = get_runtime()
         try:
-            d = load_settings()           # nguồn mặc định (có thể ghi đè từng cuộc bằng mic/camera trong body)
+            d = load_settings()           # nguồn mặc định (có thể ghi đè từng cuộc bằng mic/camera/speaker trong body)
+            speaker = str(b.get("speaker") or d["speaker"]).strip()
+            if speaker and not valid_speaker_url(speaker):
+                raise bad_request("speaker phải là địa chỉ cửa bộ đàm /api/r1_speaker|dahua_talk/intercom|duplex/<id>?k=<khoá>.")
             call = await run(rt.call_out, phone, clients[phone], user_id, bool(b.get("video", False)),
                              str(b.get("mic") or d["mic"]), str(b.get("mic_format") or d["mic_format"]),
-                             str(b.get("camera") or d["camera"]), str(b.get("playback") or d["playback"]))
+                             str(b.get("camera") or d["camera"]), str(b.get("playback") or d["playback"]), speaker)
         except RuntimeError as exc:
             raise ApiError(409, "CALL_BUSY", str(exc))
         return call.info()
@@ -318,7 +328,7 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
 
     @app.post("/api/live/playback")
     async def live_playback(request: Request):
-        """Đổi cách nhận tiếng bên kia ngay trong cuộc gọi: kind = external | file | shell (+ cmd)."""
+        """Đổi cách nhận tiếng bên kia ngay trong cuộc gọi: kind = external | file | shell (+ cmd) | push (+ url cửa bộ đàm)."""
         auth(request)
         b = await body_dict(request)
         rt = runtime["rt"]
@@ -326,9 +336,11 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         if c is None:
             raise not_found("Không có cuộc gọi này.")
         kind = str(b.get("kind") or "file")
-        if kind not in ("external", "file", "shell"):
-            raise bad_request("kind phải là external, file hoặc shell.")
-        asyncio.run_coroutine_threadsafe(c._set_playback(kind, str(b.get("cmd") or "")), rt.loop)
+        if kind not in ("external", "file", "shell", "push"):
+            raise bad_request("kind phải là external, file, shell hoặc push.")
+        if kind == "push" and not valid_speaker_url(str(b.get("url") or c.speaker_url)):
+            raise bad_request("push cần url là địa chỉ cửa bộ đàm /api/r1_speaker|dahua_talk/intercom|duplex/<id>?k=<khoá>.")
+        asyncio.run_coroutine_threadsafe(c._set_playback(kind, str(b.get("cmd") or b.get("url") or "")), rt.loop)
         await asyncio.sleep(0.5)
         return c.info()
 
@@ -340,6 +352,9 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         c = rt.calls.get(str(b.get("id"))) if rt else None
         if c is None or c.outgoing:
             raise not_found("Không có cuộc gọi đến này.")
+        # Cuộc gọi ĐẾN được tạo với mic/camera «test» (âm 440 Hz, hình thử): áp thiết bị mặc định đã đặt trước khi nghe máy,
+        # để nguồn mic/camera/loa giống cuộc gọi đi (media chỉ dựng sau khi nghe máy, lúc callStateReady).
+        apply_defaults(c, load_settings())
         await run(c.accept)
         return c.info()
 

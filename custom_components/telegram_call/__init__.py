@@ -23,7 +23,7 @@ from .devices import DeviceDefaults
 from .services import async_register_services
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = ["sensor", "binary_sensor", "select", "text", "button"]
+PLATFORMS = ["sensor", "binary_sensor", "select", "text", "number", "button"]
 TERMINAL = ("ended", "not_answered", "missed", "error")
 
 
@@ -80,6 +80,12 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
                 continue
             self._seen[cid] = state
             self.last_state, self.last_call = state, c
+            # Nghe máy: đặt âm lượng loa (nếu có đặt); kết thúc: trả lại mức cũ.
+            if self.bridge is not None:
+                if state == "answered":
+                    self.hass.async_create_task(self.bridge.start(cid))
+                elif state in TERMINAL:
+                    self.hass.async_create_task(self.bridge.stop(cid))
             # Không đưa URL mic/camera (có thể chứa khoá) lên bus: chỉ thông tin cuộc gọi.
             self.hass.bus.async_fire(EVENT_STATE, {
                 "state": state, "call_id": cid, "user_id": c.get("user_id"), "outgoing": bool(c.get("outgoing")),
@@ -117,4 +123,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if ok:
+        await entry.runtime_data.bridge.async_shutdown()          # trả âm lượng loa của cuộc gọi đang mở
+    return ok

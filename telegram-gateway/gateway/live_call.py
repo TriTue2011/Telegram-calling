@@ -17,6 +17,7 @@ import asyncio
 import base64
 import logging
 import os
+import re
 import shlex
 import threading
 import time
@@ -45,6 +46,41 @@ def mic_command(spec: str, fmt: str = "auto") -> str:
     if spec.startswith(("rtsp://", "rtsps://")):
         return f"{base} -rtsp_transport tcp -i {src} -vn {out}"
     return f"{base} -i {src} -vn {out}"
+
+
+# Loa nhận tiếng bên kia: CHỈ cửa bộ đàm của tích hợp r1_speaker / dahua_talk (`/api/<tích hợp>/<intercom|duplex>/<id>?k=<khoá>`).
+# Không nhận URL tuỳ ý và không chạy lệnh tuỳ ý: gateway tự dựng lệnh ffmpeg cố định từ địa chỉ đã kiểm tra.
+_SPEAKER_RE = re.compile(
+    r"^https?://[A-Za-z0-9.\-]+(?::\d{1,5})?/api/(?:r1_speaker|dahua_talk)/(intercom|duplex)/[A-Za-z0-9_\-]+\?k=[A-Za-z0-9_\-%.~]+$")
+
+
+def valid_speaker_url(url: str) -> bool:
+    return bool(_SPEAKER_RE.match(url or ""))
+
+
+def speaker_command(url: str) -> str:
+    """Lệnh shell nhận PCM16 48 kHz mono ở stdin (tiếng bên kia) và POST lên cửa bộ đàm của loa: A-law 8 kHz cho ``intercom``
+    (nửa song công, HA tự tắt mic loa lúc phát), PCM16 16 kHz thô cho ``duplex`` (song công, loa R1 tự khử vọng)."""
+    m = _SPEAKER_RE.match(url or "")
+    if not m:
+        raise ValueError("speaker không phải địa chỉ cửa bộ đàm r1_speaker / dahua_talk")
+    out = ("-ac 1 -ar 16000 -c:a pcm_s16le -f s16le" if m.group(1) == "duplex"
+           else "-ac 1 -ar 8000 -c:a pcm_alaw -f alaw")
+    return ("ffmpeg -hide_banner -loglevel error -fflags nobuffer -flags low_delay -probesize 32 -analyzeduration 0 "
+            f"-f s16le -ar {SAMPLE_RATE} -ac {CHANNELS} -i pipe:0 {out} -flush_packets 1 -method POST -chunked_post 1 "
+            f"-content_type application/octet-stream {shlex.quote(url)}")
+
+
+def apply_defaults(c, d: dict) -> None:
+    """Áp thiết bị MẶC ĐỊNH (mic, mic_format, camera, speaker, playback) lên một cuộc gọi chưa dựng media.
+
+    Cuộc gọi ĐẾN được tạo với mic/camera «test» (âm 440 Hz, hình thử) nên phải áp mặc định trước khi nghe máy."""
+    c.mic, c.mic_fmt, c.cam = d["mic"], d["mic_format"], d["camera"]
+    if d.get("speaker") and valid_speaker_url(d["speaker"]):
+        c.speaker_url, c.playback_kind = d["speaker"], "push"
+    else:
+        c.speaker_url = ""
+        c.playback_kind = d.get("playback") if d.get("playback") in ("external", "file") else "file"
 
 
 VIDEO_W, VIDEO_H, VIDEO_FPS = 640, 360, 15
@@ -79,6 +115,7 @@ class LiveCall:
         self.frames_in = 0
         self.frame_bytes = 0
         self.playback_kind = "file"
+        self.speaker_url = ""           # địa chỉ cửa bộ đàm của loa khi playback_kind == "push" (KHÔNG đưa ra info/log)
         self.playback_path = os.path.join(runtime.data_dir, "live", self.id + "_in.pcm")
         self.error = ""
         self._ready_done = False
@@ -164,7 +201,7 @@ class LiveCall:
                 cam = nt.VideoDescription(nt.MediaSource.SHELL, VIDEO_W, VIDEO_H, VIDEO_FPS, camera_command(self.cam), True)
             await ntg.set_stream_sources(self.user_id, nt.StreamMode.CAPTURE, nt.MediaDescription(
                 nt.AudioDescription(nt.MediaSource.SHELL, SAMPLE_RATE, CHANNELS, cmd, True), None, cam, None))
-            await self._set_playback(self.playback_kind)
+            await self._set_playback(self.playback_kind, self.speaker_url if self.playback_kind == "push" else "")
             if m["encryption_key"]:
                 self.log("NTgCalls: skip_exchange")
                 await ntg.skip_exchange(self.user_id, m["encryption_key"], self.outgoing)
@@ -178,11 +215,15 @@ class LiveCall:
 
     async def _set_playback(self, kind: str, cmd: str = "") -> None:
         """Cách nhận tiếng bên kia: external (khung về on_frames), file (NTgCalls ghi PCM thô vào tệp),
-        shell (lệnh nhận PCM ở stdin). Đổi được ngay trong lúc gọi để thử."""
+        shell (lệnh nhận PCM ở stdin), push (đẩy thẳng vào cửa bộ đàm của loa; ``cmd`` là địa chỉ đó). Đổi được ngay trong lúc gọi."""
         nt = self.runtime.nt
         os.makedirs(os.path.dirname(self.playback_path), exist_ok=True)
         if kind == "external":
             src, inp = nt.MediaSource.EXTERNAL, ""
+        elif kind == "push":
+            url = cmd or self.speaker_url
+            self.speaker_url = url
+            src, inp = nt.MediaSource.SHELL, speaker_command(url)        # ValueError nếu không phải cửa bộ đàm hợp lệ
         elif kind == "shell":
             src = nt.MediaSource.SHELL
             inp = cmd or ("ffmpeg -hide_banner -loglevel error -f s16le -ar %d -ac %d -i pipe:0 -f wav %s.wav"
@@ -307,11 +348,15 @@ class CallRuntime:
 
     # -- API cho tầng REST -----------------------------------------------------------------------------
     def call_out(self, phone: str, client, user_id: int, video: bool = False, mic: str = "test",
-                 mic_fmt: str = "auto", cam: str = "test", playback: str = "file") -> LiveCall:
+                 mic_fmt: str = "auto", cam: str = "test", playback: str = "file", speaker_url: str = "") -> LiveCall:
         if self.by_user(user_id) is not None:
             raise RuntimeError("đang có cuộc gọi với người này")
         c = LiveCall(self, phone, client, user_id, True, video, mic, mic_fmt, cam)
         c.playback_kind = playback if playback in ("external", "file", "shell") else "file"
+        if speaker_url:
+            if not valid_speaker_url(speaker_url):
+                raise ValueError("speaker không phải địa chỉ cửa bộ đàm r1_speaker / dahua_talk")
+            c.speaker_url, c.playback_kind = speaker_url, "push"
         self.calls[c.id] = c
         new_id = client.create_call(user_id, self.protocol(), video)
         if c.tdlib_call_id is None:

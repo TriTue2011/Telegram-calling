@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install pytest pyyaml
+      - run: pip install pytest pyyaml aiohttp
       - run: python -m compileall -q custom_components/telegram_call
       - name: Test cấu trúc tích hợp (manifest, bản dịch, services.yaml)
         run: python -m pytest tests -q

@@ -1,4 +1,4 @@
-"""Chọn mic và camera mặc định cho cuộc gọi — ngay trên thiết bị (không cần bánh răng). Danh sách lấy từ chính HA:
+"""Chọn mic, camera và loa mặc định cho cuộc gọi — ngay trên thiết bị (không cần bánh răng). Danh sách lấy từ chính HA:
 mic = camera, vệ tinh Assist (loa R1, camera Imou/Dahua) hoặc «URL» (ô Mic URL); camera = mọi camera."""
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from datetime import timedelta
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
 
 from .bridge_core import entity_of_label, label
-from .const import CONF_CAMERA, CONF_MIC, CONF_MIC_URL, MIC_URL_LABEL, NONE_LABEL
+from .const import CONF_CAMERA, CONF_MIC, CONF_MIC_URL, CONF_SPEAKER, MIC_URL_LABEL, NONE_LABEL
 from .entity import TelegramCallEntity
 
 REFRESH = timedelta(minutes=1)
@@ -21,7 +21,8 @@ REFRESH = timedelta(minutes=1)
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddEntitiesCallback) -> None:
     rt = entry.runtime_data
     add([DeviceSelect(hass, entry, rt, CONF_MIC, "Mic mặc định", "mdi:microphone", ("camera", "assist_satellite"), (MIC_URL_LABEL,)),
-         DeviceSelect(hass, entry, rt, CONF_CAMERA, "Camera mặc định", "mdi:cctv", ("camera",))])
+         DeviceSelect(hass, entry, rt, CONF_CAMERA, "Camera mặc định", "mdi:cctv", ("camera",)),
+         DeviceSelect(hass, entry, rt, CONF_SPEAKER, "Loa mặc định", "mdi:speaker", ("media_player",))])
 
 
 class DeviceSelect(TelegramCallEntity, SelectEntity):
@@ -64,4 +65,10 @@ class DeviceSelect(TelegramCallEntity, SelectEntity):
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(self._rt.defaults.add_listener(self.async_write_ha_state))
-        self.async_on_remove(async_track_time_interval(self.hass, lambda _now: self.async_write_ha_state(), REFRESH))
+
+        @callback
+        def _lam_moi(_now) -> None:
+            # PHẢI là @callback: hàm thường bị HA chạy ở luồng nền và async_write_ha_state từ đó gây lỗi mỗi phút (đo 10/11/2026 ở zalo_call).
+            self.async_write_ha_state()
+
+        self.async_on_remove(async_track_time_interval(self.hass, _lam_moi, REFRESH))

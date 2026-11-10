@@ -7,9 +7,11 @@ from typing import Any, Callable
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import CONF_CAMERA, CONF_HA_URL, CONF_MIC, CONF_MIC_URL, DOMAIN, STORAGE_VERSION
+from .const import (CONF_CALL_VOLUME, CONF_CAMERA, CONF_HA_URL, CONF_MIC, CONF_MIC_URL, CONF_SPEAKER, DOMAIN, MAX_CALL_VOLUME,
+                    STORAGE_VERSION)
 
-DEFAULTS: dict[str, Any] = {CONF_MIC: "", CONF_MIC_URL: "", CONF_CAMERA: "", CONF_HA_URL: ""}
+DEFAULTS: dict[str, Any] = {CONF_MIC: "", CONF_MIC_URL: "", CONF_CAMERA: "", CONF_HA_URL: "", CONF_SPEAKER: "", CONF_CALL_VOLUME: 0}
+_TEXT_KEYS = (CONF_MIC, CONF_MIC_URL, CONF_CAMERA, CONF_HA_URL, CONF_SPEAKER)
 
 
 class DeviceDefaults:
@@ -24,9 +26,14 @@ class DeviceDefaults:
             self._merge(saved)
 
     def _merge(self, patch: dict[str, Any]) -> None:
-        for key in DEFAULTS:
+        for key in _TEXT_KEYS:
             if key in patch:
                 self.data[key] = str(patch[key] or "").strip()
+        if CONF_CALL_VOLUME in patch:
+            try:
+                self.data[CONF_CALL_VOLUME] = max(0, min(MAX_CALL_VOLUME, int(patch[CONF_CALL_VOLUME])))
+            except (TypeError, ValueError):
+                pass
         self.data[CONF_HA_URL] = self.data[CONF_HA_URL].rstrip("/")
 
     def get(self, key: str) -> Any:

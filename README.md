@@ -4,7 +4,7 @@ Cổng **Telegram** cho Home Assistant: đăng nhập **tài khoản Telegram ph
 Gồm **gateway** (Docker, TDLib + NTgCalls) và **tích hợp HA** `telegram_call` (HACS).
 
 > ⚠️ **Dùng tài khoản phụ**, không dùng tài khoản chính. Một tài khoản chỉ đăng nhập ở **một nơi**.
-> ⚠️ **Bản xem trước (0.x):** gateway chạy và có test; tích hợp HA đang hoàn thiện, gọi thật chưa kiểm hết.
+> ⚠️ **Bản xem trước (0.x):** gateway và tích hợp đều có test; **cuộc gọi Telegram thật với loa R1/camera chưa kiểm tới nơi tới chốn** — lỗi thì gửi Nhật ký ở Issues.
 > Zalo: kho riêng [Zalo-calling](https://github.com/TriTue2011/Zalo-calling).
 
 ## Thêm nhanh vào Home Assistant
@@ -64,6 +64,21 @@ TELEGRAM_API_HASH=
 
 `docker compose up -d` → mở `http://<máy>:3333/ui/`, dán token → **Kết nối** → thêm tài khoản (số điện thoại → mã OTP → mật khẩu 2 lớp nếu có, hoặc quét QR).
 Hướng dẫn đầy đủ có ảnh: [has-addons / telegram_calling](https://github.com/TriTue2011/has-addons/blob/main/telegram_calling/README.md).
+
+## Dùng
+
+Trên thiết bị **Telegram Call** (cùng kiểu thiết bị của Zalo Call): **Mic**, **Camera**, **Loa mặc định**, **Âm lượng cuộc gọi** (0 = giữ nguyên âm lượng loa;
+đặt lúc nghe máy, trả lại khi kết thúc). Tiếng bên kia ra **loa R1 hoặc loa camera Imou/Dahua** (qua cửa bộ đàm của tích hợp tương ứng);
+loa khác chưa hỗ trợ. Mic lấy từ camera, loa R1 hoặc địa chỉ luồng bất kỳ.
+
+```yaml
+service: telegram_call.make_call
+data: {user_id: 123456789, video: true, volume: 70}   # user_id: số ID Telegram của người nhận
+```
+
+Dịch vụ khác: `answer_call`, `hangup_call`, `send_message`. Sự kiện `telegram_call_call_state` dùng **cùng tên trạng thái** với `zalo_call_call_state`
+(`incoming`, `ringing`, `answered`, `ended`, `not_answered`, `missed`, `error`) nên một automation chạy cho cả hai.
+Không biết `user_id`? Gọi thử bằng nút gọi trong giao diện trò chuyện của gateway (`http://<máy>:3333/ui/`).
 
 ## Cần biết
 
