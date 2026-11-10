@@ -66,7 +66,15 @@ class EdgeTtsSynthesizer(Synthesizer):
 
         with tempfile.TemporaryDirectory() as tmp:
             mp3_path = os.path.join(tmp, "tts.mp3")
-            asyncio.run(_save(mp3_path))
+            # Dịch vụ của Microsoft thỉnh thoảng trả «No audio was received» (đo thật: lần 1 hỏng, lần 2 được): thử lại tối đa 3 lần.
+            for attempt in range(3):
+                try:
+                    asyncio.run(_save(mp3_path))
+                    break
+                except edge_tts.exceptions.NoAudioReceived:
+                    if attempt == 2:
+                        raise
+                    communicate = edge_tts.Communicate(text, voice, rate=rate)
             proc = subprocess.run(
                 ["ffmpeg", "-v", "error", "-i", mp3_path, "-f", "s16le",
                  "-ar", "48000", "-ac", "1", "pipe:1"],

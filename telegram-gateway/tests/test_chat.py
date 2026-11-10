@@ -400,3 +400,22 @@ def test_to_ogg_opus_keeps_ogg_and_reports_ffmpeg_problems():
         raise FileNotFoundError()
     with pytest.raises(ValueError, match="chưa có ffmpeg"):
         mc.to_ogg_opus(b"xxx", runner=missing)
+
+
+def test_pcm_to_ogg_opus_uses_raw_pcm_input_and_reports_problems():
+    from gateway import media_convert as mc
+
+    class P:
+        def __init__(self, rc, out=b"", err=b""):
+            self.returncode, self.stdout, self.stderr = rc, out, err
+    seen = {}
+
+    def runner(cmd, **kw):
+        seen["cmd"], seen["input"] = cmd, kw["input"]
+        return P(0, b"OggSok")
+    assert mc.pcm_to_ogg_opus(b"\x01\x02" * 10, runner=runner) == b"OggSok"
+    assert "s16le" in seen["cmd"] and "48000" in seen["cmd"] and seen["input"] == b"\x01\x02" * 10
+    with pytest.raises(ValueError, match="không trả âm thanh"):
+        mc.pcm_to_ogg_opus(b"")
+    with pytest.raises(ValueError, match="không đổi được PCM"):
+        mc.pcm_to_ogg_opus(b"x", runner=lambda *a, **k: P(1, b"", b"boom"))

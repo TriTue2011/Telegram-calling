@@ -40,7 +40,7 @@ from fastapi.responses import JSONResponse
 from .audio import AudioHub, resample_pcm
 from .calls import CallManager
 from .config import Config
-from .media_convert import to_ogg_opus
+from .media_convert import pcm_to_ogg_opus, to_ogg_opus
 from .errors import (ApiError, account_busy, account_offline, bad_request,
                      endpoint_busy, flood_wait, media_engine_error,
                      not_found, not_implemented_yet)
@@ -293,11 +293,19 @@ def build_app(cfg: Config, store: AccountStore | None = None,
             elif body.get("tts_text") and synthesizer is not None:
                 # Bộ tổng hợp chạy đồng bộ (edge-tts dùng asyncio.run): phải ở luồng riêng, gọi thẳng trong vòng lặp
                 # của FastAPI thì «asyncio.run() cannot be called from a running event loop» (gặp thật).
-                pcm = await asyncio.to_thread(synthesizer.synthesize, body["tts_text"],
-                                              body.get("tts_voice", ""), body.get("tts_rate", ""))
-                with tempfile.NamedTemporaryFile(suffix=".raw",
+                try:
+                    pcm = await asyncio.to_thread(synthesizer.synthesize, body["tts_text"],
+                                                  body.get("tts_voice", ""), body.get("tts_rate", ""))
+                    ogg = await asyncio.to_thread(pcm_to_ogg_opus, pcm)       # bộ tổng hợp trả PCM thô; tin thoại phải là ogg/opus
+                except ValueError as exc:
+                    raise media_engine_error(str(exc))
+                except RuntimeError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - lỗi của engine giọng (mạng, dịch vụ) -> 502 rõ ràng, không để thành 500
+                    raise media_engine_error("tổng hợp giọng thất bại: %s" % (str(exc) or type(exc).__name__)[:160])
+                with tempfile.NamedTemporaryFile(suffix=".ogg",
                                                  delete=False) as tf:
-                    tf.write(pcm)
+                    tf.write(ogg)
                     tmp_path = tf.name
             else:
                 raise bad_request("Thiếu audio_b64 hoặc tts_text.")

@@ -559,9 +559,12 @@ def test_p1_send_voice_tts_text_runs_synthesizer_off_the_event_loop(tmp_path):
     client, _, _ = make_client_p1(tmp_path, factory=factory, synthesizer=AsyncioRunSynthesizer())
     login_id = client.post("/ui/api/accounts", headers=auth(), json={"phone": "+84000000001"}).json()["login_id"]
     client.post(f"/ui/api/accounts/{login_id}/code", headers=auth(), json={"code": "12345"})
+    import gateway.routes as routes_mod
+    seen = {}
+    routes_mod.pcm_to_ogg_opus = lambda pcm: (seen.setdefault("pcm", pcm), b"OggS" + pcm)[1]      # máy thử không có ffmpeg
     r = client.post("/api/send_voice", headers=auth(), json={"peer": "p", "tts_text": "xin chao"})
     assert r.status_code == 200, r.text
-    assert r.json()["mock"] is False
+    assert r.json()["mock"] is False and seen["pcm"] == b"\x01\x02" * 500, "bộ tổng hợp trả PCM thô phải được đổi sang ogg trước khi gửi"
 
 
 def test_p1_no_login_endpoint_under_api(tmp_path):
@@ -1050,3 +1053,16 @@ def test_real_tdlib_returns_a_scannable_qr_link(tmp_path):
     link = c.request_qr(timeout=30)
     c.close()
     assert link.startswith("tg://login?token="), "link QR rỗng hoặc sai dạng"
+
+
+class FlakyEngineSynthesizer:
+    def synthesize(self, text, voice="", rate=""):
+        raise ConnectionError("dịch vụ giọng không phản hồi")
+
+
+def test_p1_send_voice_engine_failure_is_502_not_500(tmp_path):
+    client, _, _ = make_client_p1(tmp_path, factory=FakeTdlibFactory(), synthesizer=FlakyEngineSynthesizer())
+    login_id = client.post("/ui/api/accounts", headers=auth(), json={"phone": "+84000000001"}).json()["login_id"]
+    client.post(f"/ui/api/accounts/{login_id}/code", headers=auth(), json={"code": "12345"})
+    r = client.post("/api/send_voice", headers=auth(), json={"peer": "p", "tts_text": "xin chao"})
+    assert r.status_code == 502 and "tổng hợp giọng thất bại" in r.text, (r.status_code, r.text)
