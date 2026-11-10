@@ -543,6 +543,27 @@ def test_p1_send_media_voice_real(tmp_path):
     assert r.json()["tin_id"] == "1003"
 
 
+class AsyncioRunSynthesizer:
+    """Như EdgeTtsSynthesizer thật: tổng hợp đồng bộ nhưng bên trong gọi asyncio.run."""
+    def synthesize(self, text, voice="", rate=""):
+        import asyncio
+
+        async def _go():
+            return b"\x01\x02" * 500
+        return asyncio.run(_go())
+
+
+def test_p1_send_voice_tts_text_runs_synthesizer_off_the_event_loop(tmp_path):
+    """Gọi synthesizer thẳng trong vòng lặp FastAPI làm «asyncio.run() cannot be called from a running event loop»."""
+    factory = FakeTdlibFactory()
+    client, _, _ = make_client_p1(tmp_path, factory=factory, synthesizer=AsyncioRunSynthesizer())
+    login_id = client.post("/ui/api/accounts", headers=auth(), json={"phone": "+84000000001"}).json()["login_id"]
+    client.post(f"/ui/api/accounts/{login_id}/code", headers=auth(), json={"code": "12345"})
+    r = client.post("/api/send_voice", headers=auth(), json={"peer": "p", "tts_text": "xin chao"})
+    assert r.status_code == 200, r.text
+    assert r.json()["mock"] is False
+
+
 def test_p1_no_login_endpoint_under_api(tmp_path):
     client, app, _ = make_client(tmp_path)
     api_paths = [getattr(rt, "path", "") for rt in app.routes

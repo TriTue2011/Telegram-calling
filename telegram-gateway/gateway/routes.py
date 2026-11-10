@@ -25,6 +25,7 @@ Bảng đường (ngữ nghĩa + mã lỗi theo thiết kế module, §4):
   Đường lạ -> 404, sai phương thức -> 405, thân POST không phải dict -> 400.
 """
 
+import asyncio
 import base64
 import binascii
 import os
@@ -251,8 +252,8 @@ def build_app(cfg: Config, store: AccountStore | None = None,
             tf.write(raw)
             tmp_path = tf.name
         try:
-            tin_id = client.send_media(peer, tmp_path,
-                                       body.get("caption", ""))
+            tin_id = await asyncio.to_thread(client.send_media, peer, tmp_path,
+                                             body.get("caption", ""))
         except TelegramError as exc:
             raise _telegram_to_api(exc)
         finally:
@@ -285,16 +286,17 @@ def build_app(cfg: Config, store: AccountStore | None = None,
                     tf.write(raw)
                     tmp_path = tf.name
             elif body.get("tts_text") and synthesizer is not None:
-                pcm = synthesizer.synthesize(body["tts_text"],
-                                             body.get("tts_voice", ""),
-                                             body.get("tts_rate", ""))
+                # Bộ tổng hợp chạy đồng bộ (edge-tts dùng asyncio.run): phải ở luồng riêng, gọi thẳng trong vòng lặp
+                # của FastAPI thì «asyncio.run() cannot be called from a running event loop» (gặp thật).
+                pcm = await asyncio.to_thread(synthesizer.synthesize, body["tts_text"],
+                                              body.get("tts_voice", ""), body.get("tts_rate", ""))
                 with tempfile.NamedTemporaryFile(suffix=".raw",
                                                  delete=False) as tf:
                     tf.write(pcm)
                     tmp_path = tf.name
             else:
                 raise bad_request("Thiếu audio_b64 hoặc tts_text.")
-            tin_id = client.send_voice(peer, tmp_path)
+            tin_id = await asyncio.to_thread(client.send_voice, peer, tmp_path)
         except TelegramError as exc:
             raise _telegram_to_api(exc)
         except RuntimeError as exc:

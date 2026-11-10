@@ -286,3 +286,37 @@ def test_send_result_updates_reach_the_feed():
     ok, bad = svc.feed.since(0)["items"]
     assert ok["type"] == "send_ok" and ok["old_id"] == 77 and ok["message"]["id"] == 900
     assert bad["type"] == "send_failed" and bad["old_id"] == 78 and "FILE_PART" in bad["error"]
+
+
+def test_provisional_message_id_is_swapped_for_the_real_one_before_edit_react_delete_forward():
+    """sendMessage trả id TẠM; sửa/xoá/phản ứng/chuyển tiếp bằng id tạm thì Telegram báo «Message not found» (gặp thật)."""
+    td = FakeTd()
+    svc = chat.ChatService(td)
+    tmp, real = 1789919233, 1789919232 + 1048576            # tạm: không phải bội của 2^20; thật: bội của 2^20
+    svc.handle_update({"@type": "updateMessageSendSucceeded", "old_message_id": tmp,
+                       "message": {"id": real, "chat_id": 100, "date": 5, "is_outgoing": True,
+                                   "content": {"@type": "messageText", "text": {"text": "ok"}}}})
+    svc.react(100, tmp, "👍")
+    svc.forward(100, 100, [tmp])
+    svc.delete(100, [tmp])
+    ids = [(c["@type"], c.get("message_id") or c.get("message_ids")) for c in td.calls
+           if c["@type"] in ("addMessageReaction", "forwardMessages", "deleteMessages")]
+    assert ids == [("addMessageReaction", real), ("forwardMessages", [real]), ("deleteMessages", [real])], ids
+    svc.react(100, 2 * 1048576, "👍")                        # id thật đưa vào thì giữ nguyên
+    assert td.calls[-1]["message_id"] == 2 * 1048576
+
+
+def test_provisional_id_waits_for_send_succeeded_then_gives_up_without_guessing():
+    svc = chat.ChatService(FakeTd())
+    tmp, real = 5, 3 * 1048576
+    threading.Timer(0.2, lambda: svc._remember_sent(tmp, real)).start()
+    t0 = time.time()
+    assert svc.final_id(tmp, wait=3) == real and time.time() - t0 < 2          # đợi update tới rồi dùng
+    assert svc.final_id(6, wait=0.2) == 6                                        # không có thì trả nguyên id, không đoán
+
+
+def test_sent_id_map_is_bounded():
+    svc = chat.ChatService(FakeTd())
+    for i in range(1, 700):
+        svc._remember_sent(i, i * 1048576)
+    assert len(svc._sent_ids) == 500 and 1 not in svc._sent_ids and 699 in svc._sent_ids

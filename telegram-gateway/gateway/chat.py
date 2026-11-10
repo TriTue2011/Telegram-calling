@@ -152,6 +152,35 @@ class ChatService:
         self._users: dict[int, dict] = {}
         self._lock = threading.Lock()
         self.me_id: int | None = None
+        # id tạm (do sendMessage trả) -> id thật (do updateMessageSendSucceeded); có trần để không phình mãi.
+        self._sent_ids: collections.OrderedDict[int, int] = collections.OrderedDict()
+        self._sent_cv = threading.Condition()
+
+    def final_id(self, message_id: int, wait: float = 8.0) -> int:
+        """sendMessage trả tin TẠM: id tạm không sửa/xoá/phản ứng/chuyển tiếp được («Message not found»). Id thật của
+        máy chủ luôn là bội của 2^20; id khác thì đợi tối đa ``wait`` giây cho updateMessageSendSucceeded rồi đổi sang id thật.
+        Hết hạn mà chưa có thì trả đúng id đã cho (để Telegram tự báo lỗi, không đoán)."""
+        mid = int(message_id)
+        deadline = time.time() + wait
+        with self._sent_cv:
+            while True:
+                if mid in self._sent_ids:
+                    return self._sent_ids[mid]
+                if mid & 0xFFFFF == 0:
+                    return mid
+                left = deadline - time.time()
+                if left <= 0:
+                    return mid
+                self._sent_cv.wait(left)
+
+    def _remember_sent(self, old_id, new_id) -> None:
+        if not old_id or not new_id:
+            return
+        with self._sent_cv:
+            self._sent_ids[int(old_id)] = int(new_id)
+            while len(self._sent_ids) > 500:
+                self._sent_ids.popitem(last=False)
+            self._sent_cv.notify_all()
 
     # -- người dùng ---------------------------------------------------
     def user(self, user_id: int) -> dict:
@@ -270,22 +299,22 @@ class ChatService:
 
     def edit_text(self, chat_id: int, message_id: int, text: str) -> dict:
         return normalize_message(self.client.call({
-            "@type": "editMessageText", "chat_id": int(chat_id), "message_id": int(message_id),
+            "@type": "editMessageText", "chat_id": int(chat_id), "message_id": self.final_id(message_id),
             "input_message_content": {"@type": "inputMessageText",
                                       "text": {"@type": "formattedText", "text": text, "entities": []}}}), "")
 
     def delete(self, chat_id: int, message_ids: list[int], revoke: bool = True) -> None:
         self.client.call({"@type": "deleteMessages", "chat_id": int(chat_id),
-                          "message_ids": [int(i) for i in message_ids], "revoke": bool(revoke)})
+                          "message_ids": [self.final_id(i) for i in message_ids], "revoke": bool(revoke)})
 
     def forward(self, to_chat_id: int, from_chat_id: int, message_ids: list[int]) -> None:
         self.client.call({"@type": "forwardMessages", "chat_id": int(to_chat_id), "from_chat_id": int(from_chat_id),
-                          "message_ids": [int(i) for i in message_ids]})
+                          "message_ids": [self.final_id(i) for i in message_ids]})
 
     def react(self, chat_id: int, message_id: int, emoji: str, on: bool = True) -> None:
         typ = {"@type": "reactionTypeEmoji", "emoji": emoji}
         self.client.call({"@type": "addMessageReaction" if on else "removeMessageReaction",
-                          "chat_id": int(chat_id), "message_id": int(message_id), "reaction_type": typ,
+                          "chat_id": int(chat_id), "message_id": self.final_id(message_id), "reaction_type": typ,
                           **({"is_big": False, "update_recent_reactions": True} if on else {})})
 
     # -- danh bạ, tìm kiếm --------------------------------------------
@@ -332,6 +361,7 @@ class ChatService:
         elif t == "updateMessageSendSucceeded":
             # sendMessage trả tin TẠM (id tạm); gửi xong TDLib đổi sang id thật bằng update này.
             m = obj.get("message") or {}
+            self._remember_sent(obj.get("old_message_id"), m.get("id"))
             self.feed.push("send_ok", chat_id=m.get("chat_id"), old_id=obj.get("old_message_id"),
                            message=normalize_message(m, self._cached_sender(m)))
         elif t == "updateMessageSendFailed":
