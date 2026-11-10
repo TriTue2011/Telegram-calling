@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+httpx
+tdjson==1.8.69
+ntgcalls==3.0.6
+edge-tts

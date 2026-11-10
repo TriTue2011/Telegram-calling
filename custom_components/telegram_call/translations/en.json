@@ -1,0 +1,153 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect the Telegram gateway",
+        "description": "telegram-gateway address and GATEWAY_TOKEN (see the gateway .env).",
+        "data": {
+          "url": "Gateway address",
+          "token": "Gateway token"
+        }
+      },
+      "account": {
+        "title": "Choose the Telegram account",
+        "data": {
+          "account": "Account"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Enter the gateway token again",
+        "description": "Gateway {url} rejected the token.",
+        "data": {
+          "token": "Gateway token"
+        }
+      },
+      "reconfigure": {
+        "title": "Change gateway address / token",
+        "data": {
+          "url": "Gateway address",
+          "token": "Gateway token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the gateway",
+      "invalid_auth": "The gateway rejected the token",
+      "no_account": "The gateway has no logged-in Telegram account"
+    },
+    "abort": {
+      "already_configured": "This account is already added",
+      "reauth_successful": "Token updated",
+      "reconfigure_successful": "Updated"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "call_state": {
+        "name": "Call",
+        "state": {
+          "idle": "Idle",
+          "incoming": "Incoming call",
+          "ringing": "Ringing",
+          "connecting": "Connecting",
+          "answered": "In call",
+          "ended": "Ended",
+          "not_answered": "Not answered",
+          "missed": "Missed",
+          "error": "Error"
+        }
+      }
+    },
+    "binary_sensor": {
+      "in_call": {
+        "name": "In call"
+      },
+      "gateway": {
+        "name": "Gateway"
+      }
+    },
+    "button": {
+      "hangup": {
+        "name": "Hang up"
+      }
+    }
+  },
+  "services": {
+    "make_call": {
+      "name": "Call",
+      "description": "Place a voice or video call to a Telegram user.",
+      "fields": {
+        "user_id": {
+          "name": "User ID",
+          "description": "Telegram user ID of the callee."
+        },
+        "video": {
+          "name": "Video",
+          "description": "Video call instead of voice."
+        },
+        "mic": {
+          "name": "Mic",
+          "description": "Override the default mic (camera or Assist satellite, e.g. an R1 speaker)."
+        },
+        "mic_url": {
+          "name": "Mic URL",
+          "description": "Override with a mic URL (rtsp/http…)."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "Override the default camera (video calls)."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "answer_call": {
+      "name": "Answer",
+      "description": "Answer an incoming call (default: the ringing one).",
+      "fields": {
+        "call_id": {
+          "name": "Call ID",
+          "description": "Leave empty if only one incoming call."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several accounts."
+        }
+      }
+    },
+    "hangup_call": {
+      "name": "Hang up",
+      "description": "End a call (default: the ongoing one).",
+      "fields": {
+        "call_id": {
+          "name": "Call ID",
+          "description": "Leave empty if only one call."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several accounts."
+        }
+      }
+    },
+    "send_message": {
+      "name": "Send message",
+      "description": "Send a text message to a Telegram chat.",
+      "fields": {
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "For private chats, the user ID."
+        },
+        "text": {
+          "name": "Text",
+          "description": "Up to 4096 characters."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several accounts."
+        }
+      }
+    }
+  }
+}

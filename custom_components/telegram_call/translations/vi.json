@@ -1,0 +1,33 @@
+{
+  "config": {
+    "step": {
+      "user": {"title": "Kết nối gateway Telegram", "description": "Địa chỉ telegram-gateway và GATEWAY_TOKEN (xem file .env của gateway).",
+               "data": {"url": "Địa chỉ gateway", "token": "Token gateway"}},
+      "account": {"title": "Chọn tài khoản Telegram", "data": {"account": "Tài khoản"}},
+      "reauth_confirm": {"title": "Nhập lại token gateway", "description": "Gateway {url} từ chối token.", "data": {"token": "Token gateway"}},
+      "reconfigure": {"title": "Đổi địa chỉ / token gateway", "data": {"url": "Địa chỉ gateway", "token": "Token gateway"}}
+    },
+    "error": {"cannot_connect": "Không nối được gateway", "invalid_auth": "Gateway từ chối token", "no_account": "Gateway chưa có tài khoản Telegram nào đăng nhập"},
+    "abort": {"already_configured": "Tài khoản này đã được thêm", "reauth_successful": "Đã cập nhật token", "reconfigure_successful": "Đã cập nhật"}
+  },
+  "entity": {
+    "sensor": {"call_state": {"name": "Cuộc gọi", "state": {"idle": "Rảnh", "incoming": "Có cuộc gọi đến", "ringing": "Đang đổ chuông", "connecting": "Đang nối",
+               "answered": "Đang nói", "ended": "Đã kết thúc", "not_answered": "Không nghe máy", "missed": "Nhỡ", "error": "Lỗi"}}},
+    "binary_sensor": {"in_call": {"name": "Đang gọi"}, "gateway": {"name": "Gateway"}},
+    "button": {"hangup": {"name": "Cúp máy"}}
+  },
+  "services": {
+    "make_call": {"name": "Gọi", "description": "Gọi thoại hoặc video tới một người dùng Telegram.",
+      "fields": {"user_id": {"name": "ID người dùng", "description": "Số ID Telegram của người nhận."}, "video": {"name": "Video", "description": "Gọi video thay vì thoại."},
+                 "mic": {"name": "Mic", "description": "Ghi đè mic mặc định (camera hoặc vệ tinh Assist, ví dụ loa R1)."},
+                 "mic_url": {"name": "Mic URL", "description": "Ghi đè bằng một URL mic (rtsp/http…)."}, "camera": {"name": "Camera", "description": "Ghi đè camera mặc định (gọi video)."},
+                 "config_entry_id": {"name": "Tài khoản", "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."}}},
+    "answer_call": {"name": "Nghe máy", "description": "Nghe cuộc gọi đến (mặc định: cuộc gọi đang đổ chuông).",
+      "fields": {"call_id": {"name": "ID cuộc gọi", "description": "Bỏ trống nếu chỉ có một cuộc gọi đến."}, "config_entry_id": {"name": "Tài khoản", "description": "Chỉ cần khi có nhiều tài khoản."}}},
+    "hangup_call": {"name": "Cúp máy", "description": "Kết thúc cuộc gọi (mặc định: cuộc gọi đang diễn ra).",
+      "fields": {"call_id": {"name": "ID cuộc gọi", "description": "Bỏ trống nếu chỉ có một cuộc gọi."}, "config_entry_id": {"name": "Tài khoản", "description": "Chỉ cần khi có nhiều tài khoản."}}},
+    "send_message": {"name": "Gửi tin nhắn", "description": "Gửi tin nhắn văn bản tới một cuộc trò chuyện Telegram.",
+      "fields": {"chat_id": {"name": "ID cuộc trò chuyện", "description": "Với chat riêng, bằng ID người dùng."}, "text": {"name": "Nội dung", "description": "Tối đa 4096 ký tự."},
+                 "config_entry_id": {"name": "Tài khoản", "description": "Chỉ cần khi có nhiều tài khoản."}}}
+  }
+}

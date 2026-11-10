@@ -1,0 +1,45 @@
+# Đẩy thẻ vX.Y.Z -> kiểm thẻ khớp version trong manifest -> GitHub Release kèm telegram_call.zip.
+# Ảnh Docker có workflow riêng (image.yml). Bản 0.x đánh dấu «bản xem trước».
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Thẻ phát hành (đã tồn tại), ví dụ v0.1.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - id: t
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.t.outputs.tag }}
+      - name: Thẻ phải khớp version trong manifest
+        run: |
+          V=$(python3 -c "import json;print(json.load(open('custom_components/telegram_call/manifest.json'))['version'])")
+          test "$V" = "${{ steps.t.outputs.version }}" || { echo "manifest=$V khác thẻ=${{ steps.t.outputs.version }}"; exit 1; }
+      - name: Gói tích hợp HA
+        run: |
+          cd custom_components/telegram_call
+          zip -r ../../telegram_call.zip . -x '__pycache__/*' '*.pyc'
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.t.outputs.tag }}
+          prerelease: ${{ startsWith(steps.t.outputs.version, '0.') }}
+          generate_release_notes: true
+          files: telegram_call.zip
+          body: |
+            **Tích hợp HA**: cập nhật bằng HACS, hoặc giải nén `telegram_call.zip` vào `custom_components/telegram_call`.
+            **Gateway (ảnh Docker)**: `ghcr.io/tritue2011/telegram-calling:${{ steps.t.outputs.version }}` do workflow «Image» dựng riêng.

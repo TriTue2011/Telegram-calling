@@ -1,0 +1,65 @@
+make_call:
+  fields:
+    user_id:
+      required: true
+      example: 123456789
+      selector:
+        number:
+          min: 1
+          max: 9007199254740991
+          mode: box
+    video:
+      default: false
+      selector:
+        boolean:
+    mic:
+      selector:
+        entity:
+          domain: [camera, assist_satellite]
+    mic_url:
+      selector:
+        text:
+    camera:
+      selector:
+        entity:
+          domain: camera
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+answer_call:
+  fields:
+    call_id:
+      selector:
+        text:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+hangup_call:
+  fields:
+    call_id:
+      selector:
+        text:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+send_message:
+  fields:
+    chat_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 9007199254740991
+          mode: box
+    text:
+      required: true
+      selector:
+        text:
+          multiline: true
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call

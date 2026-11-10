@@ -1,0 +1,31 @@
+services:
+  telegram-gateway:
+    build: .
+    # Ảnh phát hành (amd64 + arm64) do CI dựng khi đẩy tag vX. `build: .` giữ lại để tự dựng từ mã nguồn.
+    image: ghcr.io/tritue2011/telegram-calling:latest
+    container_name: telegram-gateway
+    restart: unless-stopped
+    # Mặc định: HA và gateway cùng server -> chỉ bind loopback.
+    # Nếu HA ở máy khác trong LAN: đổi thành "IP_LAN_CUA_SERVER:3333:3333"
+    # kèm rule firewall chỉ cho IP của HA. KHÔNG bind 0.0.0.0 không kèm
+    # firewall, KHÔNG port-forward ra Internet.
+    ports:
+      - "127.0.0.1:3333:3333"
+    volumes:
+      # Thư mục data RIÊNG của gateway này, không dùng chung với zalobot
+      # hay bất kỳ gateway nào khác.
+      - ./data:/data
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3333/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Chỉ khi dùng mic/loa USB gắn vào server mới cần map device:
+    # devices:
+    #   - /dev/snd:/dev/snd

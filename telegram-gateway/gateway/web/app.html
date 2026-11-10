@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telegram</title>
+<style>
+  :root { color-scheme: light dark; --bg:#eef1f5; --panel:#fff; --fg:#17212b; --mut:#6b7a8a; --line:#e1e6ec;
+          --acc:#2a7de1; --in:#fff; --out:#d6eafd; --badge:#2a7de1; --mute:#9aa7b4; --err:#c62828; --ok:#1e8e4e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e1621; --panel:#17212b; --fg:#e8eef4; --mut:#8a9bab;
+          --line:#26323f; --acc:#5aa2ff; --in:#1f2c3a; --out:#2b5278; --badge:#3b82d9; --mute:#5f7080; --err:#ef6c6c; --ok:#4cc27f; } }
+  * { box-sizing:border-box; }
+  html, body { height:100%; margin:0; }
+  body { background:var(--bg); color:var(--fg); font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  #app { display:flex; height:100%; max-width:1280px; margin:0 auto; background:var(--panel); }
+  aside { width:340px; border-right:1px solid var(--line); display:flex; flex-direction:column; min-width:0; }
+  main { flex:1; display:flex; flex-direction:column; min-width:0; background:var(--bg); }
+  .bar { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line); background:var(--panel); }
+  .bar h1 { font-size:16px; margin:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bar small { color:var(--mut); display:block; font-weight:400; font-size:12px; }
+  input[type=text], input[type=password], textarea { width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:9px;
+          background:var(--bg); color:var(--fg); font:inherit; }
+  textarea { resize:none; max-height:140px; }
+  input:focus-visible, textarea:focus-visible, button:focus-visible, .chat:focus-visible { outline:2px solid var(--acc); outline-offset:1px; }
+  button { padding:8px 12px; border:0; border-radius:9px; background:var(--acc); color:#fff; font:inherit; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--acc); padding:6px 9px; }
+  button.icon { background:transparent; color:var(--mut); padding:6px 9px; font-size:18px; line-height:1; }
+  button:disabled { opacity:.5; cursor:default; }
+  .tabs { display:flex; border-bottom:1px solid var(--line); }
+  .tabs button { flex:1; background:transparent; color:var(--mut); border-radius:0; border-bottom:2px solid transparent; }
+  .tabs button.on { color:var(--acc); border-bottom-color:var(--acc); }
+  #list { flex:1; overflow-y:auto; }
+  .chat { display:flex; gap:10px; padding:9px 12px; cursor:pointer; align-items:center; }
+  .chat:hover, .chat.on { background:var(--bg); }
+  .av { width:44px; height:44px; border-radius:50%; flex:none; display:grid; place-items:center; color:#fff; font-weight:600; overflow:hidden; position:relative; }
+  .av img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .meta { flex:1; min-width:0; }
+  .row { display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+  .t { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .d { color:var(--mut); font-size:12px; flex:none; }
+  .p { color:var(--mut); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
+  .badge { background:var(--badge); color:#fff; border-radius:99px; padding:0 7px; font-size:12px; min-width:20px; text-align:center; flex:none; }
+  .badge.mute { background:var(--mute); }
+  #msgs { flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:4px; }
+  .day { align-self:center; color:var(--mut); font-size:12px; background:var(--panel); border-radius:99px; padding:2px 10px; margin:8px 0; }
+  .m { max-width:min(78%,560px); padding:6px 10px 4px; border-radius:12px; background:var(--in); word-wrap:break-word; overflow-wrap:anywhere; position:relative; }
+  .m.out { align-self:flex-end; background:var(--out); }
+  .m .who { font-size:13px; font-weight:600; color:var(--acc); }
+  .m .txt { white-space:pre-wrap; }
+  .m .foot { color:var(--mut); font-size:11px; text-align:right; margin-top:1px; }
+  .m .rep { border-left:3px solid var(--acc); padding:1px 8px; margin-bottom:3px; color:var(--mut); font-size:13px; }
+  .m img.pic, .m video { max-width:100%; max-height:340px; border-radius:8px; display:block; cursor:pointer; }
+  .m audio { max-width:100%; }
+  .m a { color:var(--acc); }
+  .rx { display:flex; gap:4px; flex-wrap:wrap; margin-top:3px; }
+  .rx span { background:var(--bg); border:1px solid var(--line); border-radius:99px; padding:0 7px; font-size:13px; cursor:pointer; }
+  .rx span.mine { border-color:var(--acc); }
+  .acts { display:none; position:absolute; top:-14px; right:8px; background:var(--panel); border:1px solid var(--line); border-radius:9px; padding:1px 3px; z-index:2; }
+  .m:hover .acts, .m:focus-within .acts { display:flex; }
+  .acts button { background:transparent; color:var(--mut); padding:2px 6px; font-size:13px; }
+  #typing { height:18px; padding:0 14px; color:var(--mut); font-size:12px; }
+  #composer { display:flex; gap:8px; padding:8px 10px; border-top:1px solid var(--line); background:var(--panel); align-items:flex-end; }
+  #reply { display:none; padding:4px 12px; background:var(--panel); border-top:1px solid var(--line); color:var(--mut); font-size:13px; }
+  #more { align-self:center; margin:6px 0; }
+  .empty { margin:auto; color:var(--mut); text-align:center; padding:24px; }
+  #gate { margin:auto; padding:24px; max-width:420px; width:100%; }
+  .back { display:none; }
+  #callbar { display:none; position:fixed; left:50%; top:12px; transform:translateX(-50%); z-index:8; background:#1b2733; color:#fff;
+             border-radius:14px; padding:12px 16px; min-width:min(92vw,360px); box-shadow:0 8px 28px rgba(0,0,0,.35); }
+  #callbar .cn { font-weight:600; font-size:16px; } #callbar .cs { color:#b8c7d6; font-size:13px; margin:2px 0 8px; }
+  #callbar .cb { display:flex; gap:8px; } #callbar button { flex:1; } .green { background:#2e9b57; } .red { background:#d64545; }
+  .lazy { display:inline-flex; gap:8px; align-items:center; margin:2px 0; }
+  #toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:#222; color:#fff; padding:8px 14px; border-radius:9px; display:none; z-index:9; max-width:90%; }
+  @media (max-width:760px) {
+    aside { width:100%; border-right:0; }
+    #app.chatting aside { display:none; }
+    #app:not(.chatting) main { display:none; }
+    .back { display:inline-block; }
+    .m { max-width:88%; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="bar"><h1 id="me">Telegram<small id="mesub"></small></h1><a class="ghost" href="index.html" style="color:var(--acc);font-size:13px">Tài khoản</a></div>
+    <div style="padding:8px 12px"><input id="q" type="text" placeholder="Tìm hội thoại…" autocomplete="off" aria-label="Tìm hội thoại"></div>
+    <div class="tabs" role="tablist"><button id="t-chats" class="on" role="tab">Hội thoại</button><button id="t-contacts" role="tab">Danh bạ</button></div>
+    <div id="list" role="list"></div>
+  </aside>
+  <main>
+    <div class="bar" id="head" hidden><button class="icon back" id="back" aria-label="Quay lại">←</button><h1 id="title"></h1><button class="icon" id="call-a" aria-label="Gọi thoại" title="Gọi thoại">📞</button><button class="icon" id="call-v" aria-label="Gọi video" title="Gọi video">🎥</button></div>
+    <div id="gate">
+      <h1 style="font-size:18px">Telegram Gateway</h1>
+      <p class="d">Dán token của gateway (<code>GATEWAY_TOKEN</code>) để vào. Trình duyệt chỉ nhớ trong phiên đang mở.</p>
+      <input id="token" type="password" autocomplete="off" aria-label="Token">
+      <button id="btn-token" style="margin-top:10px">Kết nối</button>
+      <p id="gate-msg" class="err" role="status"></p>
+    </div>
+    <div id="placeholder" class="empty" hidden>Chọn một hội thoại ở bên trái.</div>
+    <div id="msgs" hidden></div>
+    <div id="typing" hidden></div>
+    <div id="reply"><span id="reply-txt"></span> <button class="ghost" id="reply-x" aria-label="Bỏ trả lời">✕</button></div>
+    <div id="composer" hidden>
+      <button class="icon" id="attach" aria-label="Đính kèm tệp">📎</button><input id="file" type="file" hidden>
+      <textarea id="text" rows="1" placeholder="Nhập tin nhắn…" aria-label="Tin nhắn"></textarea>
+      <button id="send">Gửi</button>
+    </div>
+  </main>
+</div>
+<div id="callbar" role="dialog" aria-live="polite"><div class="cn" id="cn"></div><div class="cs" id="cs"></div><div class="cb" id="cbtn"></div></div>
+<div id="toast" role="alert"></div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const COLORS = ["#e17076", "#7bc862", "#e5ca77", "#65aadd", "#a695e7", "#ee7aae", "#6ec9cb", "#faa774"];
+  let chats = [], cur = null, curKind = "", feedCursor = 0, replyTo = 0, tab = "chats", oldest = 0;
+  const rendered = new Map(), blobs = new Map(), msgData = new Map();
+  let myId = null, listTimer = null, typingTimer = null, unreadTotal = 0;
+
+  // ---- tiện ích -------------------------------------------------------------------------------
+  function tok() { try { return sessionStorage.getItem("gw_token") || ""; } catch (e) { return ""; } }
+  function setTok(v) { try { sessionStorage.setItem("gw_token", v); } catch (e) {} }
+  function toast(t) { const el = $("toast"); el.textContent = t; el.style.display = "block"; clearTimeout(toast.h); toast.h = setTimeout(() => { el.style.display = "none"; }, 4000); }
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+  function hhmm(ts) { const d = new Date(ts * 1000); return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }); }
+  function dayLabel(ts) { const d = new Date(ts * 1000), n = new Date(); const same = (a, b) => a.toDateString() === b.toDateString();
+    const y = new Date(n); y.setDate(n.getDate() - 1); return same(d, n) ? "Hôm nay" : same(d, y) ? "Hôm qua" : d.toLocaleDateString("vi-VN"); }
+  function listTime(ts) { if (!ts) return ""; const d = new Date(ts * 1000), n = new Date();
+    return d.toDateString() === n.toDateString() ? hhmm(ts) : d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }); }
+  function initials(s) { const w = (s || "?").trim().split(/\s+/); return ((w[0] || "?")[0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase(); }
+
+  async function api(method, path, body, raw) {
+    const h = { "Authorization": "Bearer " + tok() };
+    if (body !== undefined && !raw) h["Content-Type"] = "application/json";
+    let res;
+    try { res = await fetch(path, { method: method, headers: h, body: raw ? body : (body === undefined ? undefined : JSON.stringify(body)) }); }
+    catch (e) { throw new Error("Không gọi được gateway (mất mạng?)."); }
+    let data = null; try { data = await res.json(); } catch (e) { data = null; }
+    if (!res.ok) { const er = data && (data.error || (data.detail && data.detail.error)); const err = new Error(er && er.message ? er.message : "Lỗi HTTP " + res.status); err.status = res.status; err.code = er && er.code; throw err; }
+    return data || {};
+  }
+  // Tệp (ảnh, âm thanh, video) cần Authorization nên tải bằng fetch rồi dựng blob URL.
+  async function blobUrl(fileId) {
+    if (blobs.has(fileId)) return blobs.get(fileId);
+    const p = fetch("/api/file/" + fileId, { headers: { "Authorization": "Bearer " + tok() } })
+      .then((r) => { if (!r.ok) throw new Error("Tệp chưa tải được"); return r.blob(); }).then((b) => URL.createObjectURL(b));
+    blobs.set(fileId, p); p.catch(() => blobs.delete(fileId)); return p;
+  }
+  const avQueue = []; let avBusy = 0;
+  function loadAvatar(box, fileId) {
+    if (!fileId) return; avQueue.push([box, fileId]); pumpAv();
+  }
+  function pumpAv() {
+    while (avBusy < 3 && avQueue.length) { const [box, id] = avQueue.shift(); avBusy++;
+      blobUrl(id).then((u) => { const i = new Image(); i.alt = ""; i.src = u; box.appendChild(i); }).catch(() => {}).finally(() => { avBusy--; pumpAv(); }); }
+  }
+  function avatar(title, id, fileId) {
+    const a = el("div", "av", initials(title)); a.style.background = COLORS[Math.abs(Number(id) || 0) % COLORS.length]; loadAvatar(a, fileId); return a;
+  }
+
+  // ---- danh sách hội thoại ---------------------------------------------------------------------
+  function renderList(items, isContacts) {
+    const box = $("list"); box.textContent = "";
+    if (!items.length) { box.appendChild(el("div", "empty", isContacts ? "Chưa có liên hệ." : "Không có hội thoại.")); return; }
+    items.forEach((c) => {
+      const row = el("div", "chat" + (cur === c.id ? " on" : "")); row.tabIndex = 0; row.setAttribute("role", "listitem");
+      row.appendChild(avatar(c.title || c.name, c.id, c.avatar_file));
+      const meta = el("div", "meta"), r1 = el("div", "row"), r2 = el("div", "row");
+      r1.appendChild(el("span", "t", (c.pinned ? "📌 " : "") + (c.title || c.name)));
+      if (!isContacts) r1.appendChild(el("span", "d", c.last ? listTime(c.last.date) : ""));
+      r2.appendChild(el("span", "p", isContacts ? (c.username ? "@" + c.username : c.phone || "") : (c.last ? (c.last.outgoing ? "Bạn: " : "") + c.last.text : "")));
+      if (!isContacts && c.unread) r2.appendChild(el("span", "badge" + (c.muted ? " mute" : ""), c.unread > 999 ? "999+" : String(c.unread)));
+      meta.appendChild(r1); meta.appendChild(r2); row.appendChild(meta);
+      const go = () => isContacts ? openContact(c) : openChat(c);
+      row.addEventListener("click", go); row.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+      box.appendChild(row);
+    });
+  }
+  function updateTitleBadge() { unreadTotal = chats.reduce((s, c) => s + (c.muted ? 0 : c.unread || 0), 0); document.title = (unreadTotal ? "(" + unreadTotal + ") " : "") + "Telegram"; }
+  async function loadChats() {
+    const r = await api("GET", "/api/chats?limit=80"); chats = r.chats || []; updateTitleBadge();
+    if (tab === "chats" && !$("q").value.trim()) renderList(chats, false);
+  }
+  function scheduleChats() { if (listTimer) return; listTimer = setTimeout(() => { listTimer = null; loadChats().catch(() => {}); }, 1200); }
+
+  // ---- tin nhắn --------------------------------------------------------------------------------
+  const URL_RE = /(https?:\/\/[^\s<>"']+)/g;
+  function linkify(parent, text) {
+    text.split(URL_RE).forEach((part, i) => { if (i % 2) { const a = el("a", "", part); a.href = part; a.target = "_blank"; a.rel = "noopener noreferrer"; parent.appendChild(a); } else if (part) parent.appendChild(document.createTextNode(part)); });
+  }
+  function fileSize(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB"; }
+
+  function renderMessage(m) {
+    const group = curKind !== "private";
+    const w = el("div", "m" + (m.outgoing ? " out" : "")); w.dataset.id = m.id; w.tabIndex = 0;
+    if (group && !m.outgoing && m.sender) w.appendChild(el("div", "who", m.sender));
+    if (m.reply_to) { const src = msgData.get(m.reply_to); w.appendChild(el("div", "rep", src ? (src.sender ? src.sender + ": " : "") + (src.text || src.summary).slice(0, 80) : "↩ Trả lời tin trước")); }
+    const f = m.file;
+    if (f && f.id && m.kind === "photo") { const i = el("img", "pic"); i.alt = "Ảnh"; blobUrl(f.id).then((u) => { i.src = u; i.onclick = () => window.open(u, "_blank"); }).catch(() => { i.replaceWith(el("div", "txt", m.summary)); }); w.appendChild(i); }
+    else if (f && f.id && (m.kind === "voice" || m.kind === "audio" || m.kind === "video" || m.kind === "animation" || m.kind === "video_note")) {
+      const isVid = !(m.kind === "voice" || m.kind === "audio");
+      const label = isVid ? "🎬 Video" + (f.size ? " · " + fileSize(f.size) : "") : (m.kind === "voice" ? "🎤 " : "🎵 ") + (f.name || "Âm thanh") + (f.duration ? " · " + f.duration + " giây" : "");
+      const row = el("div", "lazy"); const b = el("button", "", "▶ " + (isVid ? "Xem" : "Nghe")); row.appendChild(b); row.appendChild(el("span", "", label));
+      b.addEventListener("click", () => { b.disabled = true; b.textContent = "Đang tải…";
+        blobUrl(f.id).then((u) => { const mEl = el(isVid ? "video" : "audio"); mEl.controls = true; mEl.autoplay = true; mEl.src = u; if (isVid) mEl.playsInline = true; row.replaceWith(mEl); })
+          .catch(() => { b.disabled = false; b.textContent = "▶ Thử lại"; toast("Chưa tải được tệp (còn đang tải về gateway?)"); }); });
+      w.appendChild(row); }
+    else if (f && f.id && m.kind === "document") { const a = el("a", "", "📎 " + (f.name || "Tệp") + (f.size ? " (" + fileSize(f.size) + ")" : "")); a.href = "#"; a.addEventListener("click", (e) => { e.preventDefault(); blobUrl(f.id).then((u) => { const d = document.createElement("a"); d.href = u; d.download = f.name || "tep"; d.click(); }).catch(() => toast("Chưa tải được tệp")); }); w.appendChild(a); }
+    else if (m.kind !== "text") w.appendChild(el("div", "txt", m.summary));
+    if (m.text) { const t = el("div", "txt"); linkify(t, m.text); w.appendChild(t); }
+    if (m.reactions && m.reactions.length) { const rx = el("div", "rx"); m.reactions.forEach((r) => { const s = el("span", r.mine ? "mine" : "", r.emoji + " " + r.count); s.addEventListener("click", () => react(m, r.emoji, !r.mine)); rx.appendChild(s); }); w.appendChild(rx); }
+    w.appendChild(el("div", "foot", hhmm(m.date) + (m.edit_date ? " · đã sửa" : "")));
+    const acts = el("div", "acts");
+    const add = (label, title, fn) => { const b = el("button", "", label); b.title = title; b.setAttribute("aria-label", title); b.addEventListener("click", (e) => { e.stopPropagation(); fn(); }); acts.appendChild(b); };
+    add("↩", "Trả lời", () => setReply(m)); add("👍", "Thích", () => react(m, "👍", true));
+    if (m.text) add("⧉", "Chép", () => { navigator.clipboard && navigator.clipboard.writeText(m.text).then(() => toast("Đã chép")); });
+    if (m.outgoing && m.kind === "text") add("✎", "Sửa", () => editMsg(m));
+    add("🗑", "Xoá", () => delMsg(m)); w.appendChild(acts);
+    return w;
+  }
+  let lastDay = null;      // nhãn ngày của tin cuối đã vẽ (để không lặp dải «Hôm nay» khi thêm tin mới)
+  function appendMessages(list, prepend) {
+    const box = $("msgs"); const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    const prevH = box.scrollHeight;
+    const frag = document.createDocumentFragment(); let day = prepend ? null : lastDay; let added = 0;
+    list.forEach((m) => {
+      if (rendered.has(m.id)) return; msgData.set(m.id, m); added++;
+      const d = dayLabel(m.date); if (d !== day) { frag.appendChild(el("div", "day", d)); day = d; }
+      const node = renderMessage(m); rendered.set(m.id, node); frag.appendChild(node);
+    });
+    if (!added) return;
+    const more = $("more");
+    if (prepend) {
+      const firstSep = box.querySelector(".day");                      // tin cũ cùng ngày với dải đầu hiện tại: bỏ dải đó
+      if (firstSep && firstSep.textContent === day) firstSep.remove();
+      box.insertBefore(frag, more ? more.nextSibling : box.firstChild); box.scrollTop += box.scrollHeight - prevH;
+    } else { lastDay = day; box.appendChild(frag); if (atBottom) box.scrollTop = box.scrollHeight; }
+  }
+  async function openChat(c) {
+    cur = c.id; curKind = c.kind; replyTo = 0; $("reply").style.display = "none";
+    $("app").classList.add("chatting"); $("gate").hidden = true; $("placeholder").hidden = true; $("head").hidden = false; $("msgs").hidden = false; $("typing").hidden = false; $("composer").hidden = false;
+    $("title").textContent = c.title; $("call-a").hidden = $("call-v").hidden = c.kind !== "private"; renderList(chats.length ? chats : [c], false);
+    const box = $("msgs"); box.textContent = ""; rendered.clear(); msgData.clear(); lastDay = null;
+    try {
+      const r = await api("GET", "/api/chats/" + c.id + "/messages?limit=40"); const msgs = r.messages || [];
+      if (cur !== c.id) return; oldest = msgs.length ? msgs[0].id : 0;
+      if (msgs.length >= 30) { const b = el("button", "ghost", "Tải tin cũ hơn"); b.id = "more"; b.addEventListener("click", loadOlder); box.appendChild(b); }
+      appendMessages(msgs, false); box.scrollTop = box.scrollHeight;
+      markRead(c.id, msgs);
+    } catch (e) { toast(e.message); }
+    $("text").focus();
+  }
+  async function loadOlder() {
+    if (!cur || !oldest) return; const b = $("more"); b.disabled = true;
+    try { const r = await api("GET", "/api/chats/" + cur + "/messages?limit=40&before=" + oldest); const msgs = r.messages || [];
+      if (msgs.length) { oldest = msgs[0].id; appendMessages(msgs, true); } if (msgs.length < 5) b.remove(); else b.disabled = false; }
+    catch (e) { toast(e.message); b.disabled = false; }
+  }
+  function markRead(chatId, msgs) {
+    const ids = msgs.filter((m) => !m.outgoing).slice(-20).map((m) => m.id);
+    if (!ids.length) return; api("POST", "/api/chats/" + chatId + "/read", { message_ids: ids }).then(scheduleChats).catch(() => {});
+  }
+  async function openContact(u) {
+    try { const r = await api("POST", "/api/contacts/open", { user_id: u.id }); await loadChats();
+      openChat(chats.find((c) => c.id === r.chat_id) || { id: r.chat_id, title: u.name, kind: "private" }); }
+    catch (e) { toast(e.message); }
+  }
+
+  // ---- gửi / sửa / xoá --------------------------------------------------------------------------
+  function setReply(m) { replyTo = m.id; $("reply").style.display = "block"; $("reply-txt").textContent = "↩ " + ((m.text || m.summary).slice(0, 60)); $("text").focus(); }
+  $("reply-x").addEventListener("click", () => { replyTo = 0; $("reply").style.display = "none"; });
+  async function send() {
+    const t = $("text"), text = t.value; if (!text.trim() || !cur) return; $("send").disabled = true;
+    try { const m = await api("POST", "/api/chats/" + cur + "/send", { text: text, reply_to: replyTo }); t.value = ""; t.style.height = "auto";
+      replyTo = 0; $("reply").style.display = "none"; if (m && m.id) appendMessages([Object.assign({}, m, { outgoing: true, date: m.date || Date.now() / 1000 })], false); scheduleChats(); }
+    catch (e) { toast(e.message); } finally { $("send").disabled = false; t.focus(); }
+  }
+  $("send").addEventListener("click", send);
+  $("text").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+  $("text").addEventListener("input", (e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px"; });
+  $("attach").addEventListener("click", () => $("file").click());
+  $("file").addEventListener("change", async (e) => {
+    const f = e.target.files[0]; e.target.value = ""; if (!f || !cur) return;
+    if (f.size > 64 * 1024 * 1024) { toast("Tệp vượt 64 MB"); return; }
+    const kind = f.type.startsWith("image/") ? "photo" : f.type.startsWith("video/") ? "video" : f.type.startsWith("audio/") ? "audio" : "document";
+    toast("Đang gửi " + f.name + "…");
+    try { const buf = await f.arrayBuffer(); await api("POST", "/api/chats/" + cur + "/send_file?kind=" + kind + "&name=" + encodeURIComponent(f.name), buf, true); toast("Đã gửi"); scheduleChats(); }
+    catch (er) { toast(er.message); }
+  });
+  async function react(m, emoji, on) { try { await api("POST", "/api/messages/react", { chat_id: m.chat_id, message_id: m.id, emoji: emoji, on: on }); } catch (e) { toast(e.message); } }
+  async function editMsg(m) { const t = prompt("Sửa tin nhắn:", m.text); if (t === null || !t.trim() || t === m.text) return;
+    try { await api("POST", "/api/messages/edit", { chat_id: m.chat_id, message_id: m.id, text: t }); reloadCurrent(); } catch (e) { toast(e.message); } }
+  async function delMsg(m) { if (!confirm("Xoá tin nhắn này" + (m.outgoing ? " (với cả hai bên)" : "") + "?")) return;
+    try { await api("POST", "/api/messages/delete", { chat_id: m.chat_id, message_ids: [m.id], revoke: true }); removeMsg(m.id); } catch (e) { toast(e.message); } }
+  function removeMsg(id) { const n = rendered.get(id); if (n) { n.remove(); rendered.delete(id); } }
+  async function reloadCurrent() { if (!cur) return; const c = chats.find((x) => x.id === cur); if (c) { const keep = $("msgs").scrollTop; await openChat(c); $("msgs").scrollTop = keep; } }
+
+  // ---- cập nhật theo thời gian thực -------------------------------------------------------------
+  async function pump() {
+    for (;;) {
+      try {
+        const r = await api("GET", "/api/feed?since=" + feedCursor + "&wait=20");
+        if (r.reset) { feedCursor = r.cursor; await loadChats(); await reloadCurrent(); continue; }
+        feedCursor = r.cursor;
+        r.items.forEach(onFeed);
+      } catch (e) { if (e.status === 401) { showGate("Token sai hoặc hết hạn."); return; } await new Promise((res) => setTimeout(res, 3000)); }
+    }
+  }
+  function onFeed(it) {
+    if (it.type === "message") {
+      if (it.chat_id === cur && it.message) { appendMessages([it.message], false); if (!it.message.outgoing) markRead(cur, [it.message]); }
+      else if (it.message && !it.message.outgoing && document.hidden === false) { /* thông báo nhẹ ở danh sách */ }
+      scheduleChats();
+    } else if (it.type === "chat") scheduleChats();
+    else if (it.type === "send_ok") { if (it.chat_id === cur) { removeMsg(it.old_id); if (it.message) appendMessages([it.message], false); } scheduleChats(); }
+    else if (it.type === "send_failed") { toast("Gửi không được: " + it.error); const n = rendered.get(it.old_id); if (n) { n.style.opacity = ".5"; n.title = "Gửi không được: " + it.error; } }
+    else if (it.type === "call") onCallEvent(it);
+    else if (it.type === "deleted" && it.chat_id === cur) it.ids.forEach(removeMsg);
+    else if (it.type === "message_changed" && it.chat_id === cur) { reloadSoon(); }
+    else if (it.type === "typing" && it.chat_id === cur) { $("typing").textContent = it.action === "chatActionCancel" ? "" : "đang gõ…"; clearTimeout(typingTimer); typingTimer = setTimeout(() => { $("typing").textContent = ""; }, 5000); }
+  }
+  let reloadH = null; function reloadSoon() { clearTimeout(reloadH); reloadH = setTimeout(reloadCurrent, 600); }
+
+  // ---- tìm kiếm, tab ------------------------------------------------------------------------------
+  let qh = null;
+  $("q").addEventListener("input", () => { clearTimeout(qh); qh = setTimeout(async () => {
+    const q = $("q").value.trim().toLowerCase();
+    if (tab === "contacts") { renderList(contacts.filter((c) => (c.name + " " + (c.username || "") + (c.phone || "")).toLowerCase().includes(q)), true); return; }
+    if (!q) { renderList(chats, false); return; }
+    const local = chats.filter((c) => c.title.toLowerCase().includes(q)); renderList(local, false);
+    if (q.length >= 2) { try { const r = await api("GET", "/api/search?q=" + encodeURIComponent(q)); if ($("q").value.trim().toLowerCase() === q) { const seen = new Set(local.map((c) => c.id)); renderList(local.concat((r.chats || []).filter((c) => !seen.has(c.id))), false); } } catch (e) {} }
+  }, 250); });
+  let contacts = [];
+  async function showTab(t) {
+    tab = t; $("t-chats").classList.toggle("on", t === "chats"); $("t-contacts").classList.toggle("on", t === "contacts"); $("q").value = "";
+    if (t === "chats") renderList(chats, false);
+    else { $("list").textContent = "Đang tải…"; try { contacts = (await api("GET", "/api/contacts")).contacts || []; renderList(contacts, true); } catch (e) { toast(e.message); } }
+  }
+  $("t-chats").addEventListener("click", () => showTab("chats")); $("t-contacts").addEventListener("click", () => showTab("contacts"));
+  $("back").addEventListener("click", () => { $("app").classList.remove("chatting"); cur = null; renderList(chats, false); });
+
+  // ---- cuộc gọi thoại / video --------------------------------------------------------------------------
+  let callId = null, callPoll = null, callName = "";
+  const CALL_TEXT = { dialing: "Đang gọi…", ringing: "Đang đổ chuông…", connecting: "Đang kết nối…", active: "Đang trong cuộc gọi", ended: "Đã kết thúc" };
+  function mmss(sec) { sec = Math.max(0, Math.round(sec)); return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); }
+  function renderCall(info) {
+    const bar = $("callbar"); bar.style.display = "block";
+    $("cn").textContent = (info.video ? "🎥 " : "📞 ") + callName;
+    let st = CALL_TEXT[info.state] || info.state;
+    if (info.state === "active") st += " · " + mmss(info.seconds) + (info.emojis && info.emojis.length ? " · " + info.emojis.join("") : "");
+    if (info.state === "ringing" && !info.outgoing) st = "Cuộc gọi đến…";
+    if (info.error) st += " · " + info.error;
+    $("cs").textContent = st;
+    const box = $("cbtn"); box.textContent = "";
+    const btn = (label, cls, fn) => { const b = el("button", cls, label); b.addEventListener("click", fn); box.appendChild(b); };
+    if (info.state === "ended") { setTimeout(() => { if (callId === info.id) hideCall(); }, 3000); return; }
+    if (info.state === "ringing" && !info.outgoing) btn("Nghe", "green", () => callAct("accept"));
+    btn(info.state === "ringing" && !info.outgoing ? "Từ chối" : "Cúp máy", "red", () => callAct("hangup"));
+  }
+  function hideCall() { $("callbar").style.display = "none"; clearInterval(callPoll); callPoll = null; callId = null; }
+  async function callAct(what) { if (!callId) return; try { renderCall(await api("POST", "/api/live/" + what, { id: callId })); } catch (e) { toast(e.message); } }
+  function watchCall() {
+    clearInterval(callPoll);
+    callPoll = setInterval(async () => {
+      if (!callId) return clearInterval(callPoll);
+      try { const r = await api("GET", "/api/live/calls"); const c = (r.calls || []).find((x) => x.id === callId); if (c) renderCall(c); }
+      catch (e) { /* mạng chập chờn: thử lại ở nhịp sau */ }
+    }, 1500);
+  }
+  async function startCall(video) {
+    const c = chats.find((x) => x.id === cur);
+    if (!c || c.kind !== "private" || !c.user_id) { toast("Chỉ gọi được ở hội thoại riêng tư."); return; }
+    try { const r = await api("POST", "/api/live/call", { user_id: c.user_id, video: !!video }); callId = r.id; callName = c.title; renderCall(r); watchCall(); }
+    catch (e) { toast(e.message); }
+  }
+  $("call-a").addEventListener("click", () => startCall(false));
+  $("call-v").addEventListener("click", () => startCall(true));
+  function onCallEvent(it) {
+    const c = it.call; if (!c) return;
+    if (it.event === "incoming" && !callId) {
+      const who = chats.find((x) => x.user_id === c.user_id); callId = c.id; callName = who ? who.title : "Người gọi"; renderCall(c); watchCall();
+      if (window.Notification && Notification.permission === "granted") new Notification("Cuộc gọi đến", { body: callName });
+    }
+  }
+
+  // ---- khởi động ------------------------------------------------------------------------------------
+  function showGate(msg) { $("placeholder").hidden = true; $("gate").hidden = false; $("msgs").hidden = $("composer").hidden = $("head").hidden = $("typing").hidden = true; $("gate-msg").textContent = msg || ""; }
+  async function start() {
+    try {
+      const me = await api("GET", "/api/me"); myId = me.id; $("me").firstChild.textContent = me.name; $("mesub").textContent = me.phone ? "+" + me.phone.replace(/^\+/, "") : "";
+      $("gate").hidden = true; $("gate-msg").textContent = ""; $("placeholder").hidden = false;
+      $("list").textContent = "Đang tải…";
+      await loadChats(); feedCursor = (await api("GET", "/api/feed?since=0")).cursor; pump();
+    } catch (e) {
+      if (e.status === 401 || !tok()) showGate(tok() ? "Token sai." : ""); else if (e.code === "ACCOUNT_OFFLINE") showGate("Chưa có tài khoản Telegram đăng nhập. Vào «Tài khoản» để đăng nhập."); else showGate(e.message);
+      $("list").textContent = "";
+    }
+  }
+  $("btn-token").addEventListener("click", () => { setTok($("token").value.trim()); location.reload(); });
+  $("token").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btn-token").click(); });
+  // Mở bằng địa chỉ có #k=<token> (đánh dấu trang): lưu vào phiên rồi xoá khỏi thanh địa chỉ (không gửi lên máy chủ).
+  if (location.hash.indexOf("#k=") === 0) { setTok(decodeURIComponent(location.hash.slice(3))); history.replaceState(null, "", location.pathname + location.search); }
+  start();
+})();
+</script>
+</body>
+</html>

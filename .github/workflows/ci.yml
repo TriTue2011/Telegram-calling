@@ -1,0 +1,36 @@
+# Test gateway Telegram (FastAPI + TDLib/NTgCalls giả lập) và cấu trúc tích hợp HA telegram_call.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r telegram-gateway/requirements.txt pytest anyio
+      - name: Test gateway
+        working-directory: telegram-gateway
+        run: python -m pytest tests -q
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pytest pyyaml
+      - run: python -m compileall -q custom_components/telegram_call
+      - name: Test cấu trúc tích hợp (manifest, bản dịch, services.yaml)
+        run: python -m pytest tests -q

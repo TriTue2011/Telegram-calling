@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telegram Gateway</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f4f6f8; --card:#fff; --fg:#1b2430; --mut:#5d6b7a;
+          --line:#dbe1e8; --acc:#2a7de1; --ok:#1e8e4e; --warn:#b26a00; --err:#c62828; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12161b; --card:#1b2129; --fg:#e6ebf0;
+          --mut:#93a1b0; --line:#2b3440; --acc:#5aa2ff; --ok:#4cc27f; --warn:#e0a030; --err:#ef6c6c; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:640px; margin:0 auto; padding:20px 16px 48px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:0 0 10px; }
+  .sub { color:var(--mut); margin:0 0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px;
+          padding:14px 16px; margin-bottom:14px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:8px 0 4px; }
+  input { width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:7px;
+          background:var(--bg); color:var(--fg); font:inherit; }
+  input:focus-visible, button:focus-visible { outline:2px solid var(--acc); outline-offset:1px; }
+  button { padding:9px 14px; border:0; border-radius:7px; background:var(--acc); color:#fff;
+           font:inherit; cursor:pointer; margin-top:10px; }
+  button.sec { background:transparent; color:var(--acc); border:1px solid var(--line); }
+  button.del { background:transparent; color:var(--err); border:1px solid var(--line);
+               padding:4px 10px; margin:0; }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .row > * { flex:1 1 140px; }
+  .badge { display:inline-block; padding:1px 8px; border-radius:99px; font-size:12px;
+           border:1px solid var(--line); color:var(--mut); }
+  .ok { color:var(--ok); } .warn { color:var(--warn); } .err { color:var(--err); }
+  .msg { margin:10px 0 0; min-height:1.4em; }
+  .acc { display:flex; align-items:center; justify-content:space-between; gap:8px;
+         padding:8px 0; border-top:1px solid var(--line); }
+  .acc:first-of-type { border-top:0; }
+  .acc small { color:var(--mut); display:block; }
+  code { background:var(--bg); padding:1px 5px; border-radius:4px; word-break:break-all; }
+  #qr { margin:10px 0; } #qr img, #qr svg { max-width:220px; background:#fff; padding:8px; border-radius:8px; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Telegram Gateway</h1>
+  <p class="sub">Trang quản lý nội bộ, chỉ dùng trong mạng LAN. <a href="app.html">Mở giao diện trò chuyện →</a></p>
+
+  <section class="card" id="connect">
+    <h2>Kết nối</h2>
+    <label for="token">Token của gateway (<code>GATEWAY_TOKEN</code> trong <code>/opt/telegram-gateway/.env</code>)</label>
+    <input id="token" type="password" autocomplete="off" placeholder="Dán token rồi bấm Kết nối">
+    <button id="btn-connect">Kết nối</button>
+    <p class="msg" id="connect-msg" role="status"></p>
+  </section>
+
+  <section class="card" id="status" hidden>
+    <h2>Trạng thái</h2>
+    <p id="status-line"></p>
+    <p class="warn" id="mock-warn" hidden>
+      Gateway đang ở chế độ <strong>giả lập</strong>: đăng nhập và gọi chưa thật. Muốn chạy thật, ghi
+      <code>TELEGRAM_API_ID</code>, <code>TELEGRAM_API_HASH</code> vào <code>.env</code>, đặt
+      <code>GATEWAY_MOCK=0</code> rồi khởi động lại container.
+    </p>
+  </section>
+
+  <section class="card" id="accounts" hidden>
+    <h2>Tài khoản</h2>
+    <div id="acc-list"><p class="sub">Chưa có tài khoản nào.</p></div>
+  </section>
+
+  <section class="card" id="login" hidden>
+    <h2>Thêm tài khoản phụ</h2>
+    <p class="sub">Dùng tài khoản <strong>phụ</strong>, không dùng tài khoản chính.
+       Mã OTP và mật khẩu 2FA chỉ nhập ở đây, không qua Home Assistant.</p>
+
+    <div id="step-phone">
+      <label for="phone">Số điện thoại (kèm mã nước, ví dụ +84901234567)</label>
+      <input id="phone" type="tel" autocomplete="off" placeholder="+84…">
+      <div class="row">
+        <button id="btn-phone">Gửi mã</button>
+        <button id="btn-qr" class="sec">Đăng nhập bằng QR</button>
+      </div>
+    </div>
+
+    <div id="step-code" hidden>
+      <label for="code">Mã OTP (5–6 chữ số, Telegram gửi vào ứng dụng hoặc SMS)</label>
+      <input id="code" inputmode="numeric" autocomplete="one-time-code">
+      <button id="btn-code">Xác nhận mã</button>
+    </div>
+
+    <div id="step-pass" hidden>
+      <label for="pass">Mật khẩu hai bước (2FA)</label>
+      <input id="pass" type="password" autocomplete="off">
+      <button id="btn-pass">Xác nhận mật khẩu</button>
+    </div>
+
+    <div id="step-qr" hidden>
+      <p>Mở Telegram trên điện thoại của tài khoản phụ → Cài đặt → Thiết bị → Liên kết thiết bị, rồi quét mã:</p>
+      <div id="qr"></div>
+      <p>Hoặc mở liên kết: <code id="qr-link"></code></p>
+      <p class="sub">Mã tự đổi sau ~30 giây; quét xong trang tự nhận, không cần bấm gì. Quét từ màn hình lớn, phóng to trang (Ctrl và +) nếu máy ảnh khó lấy nét.</p>
+      <button id="btn-qr-done" class="sec">Tôi đã quét xong (nếu trang chưa tự nhận)</button>
+    </div>
+
+    <p class="msg" id="login-msg" role="status"></p>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" defer></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  let loginId = null;
+  let isMock = true;     // gateway giả lập: KHÔNG có mã OTP nào được gửi thật
+
+  function store(key, val) { try { val === null ? sessionStorage.removeItem(key) : sessionStorage.setItem(key, val); } catch (e) {} }
+  function load(key) { try { return sessionStorage.getItem(key) || ""; } catch (e) { return ""; } }
+
+  function say(id, text, cls) {
+    const el = $(id); el.textContent = text || ""; el.className = "msg " + (cls || "");
+  }
+
+  function errText(status, body) {
+    const e = body && (body.error || (body.detail && body.detail.error));
+    if (e && e.message) {
+      return e.message + (e.retry_after_seconds ? " (chờ " + e.retry_after_seconds + " giây)" : "");
+    }
+    if (status === 401) return "Sai token hoặc thiếu token.";
+    return "Lỗi HTTP " + status;
+  }
+
+  async function api(method, path, body) {
+    let res;
+    try {
+      res = await fetch(path, {
+        method: method,
+        headers: Object.assign({ "Authorization": "Bearer " + load("gw_token") },
+                               body === undefined ? {} : { "Content-Type": "application/json" }),
+        body: body === undefined ? undefined : JSON.stringify(body)
+      });
+    } catch (e) {
+      throw new Error("Không gọi được gateway (mất mạng?).");
+    }
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!res.ok) throw new Error(errText(res.status, data));
+    return data || {};
+  }
+
+  async function refresh() {
+    const health = await (await fetch("/health")).json();
+    $("status").hidden = false;
+    $("status-line").innerHTML = "";
+    const parts = [
+      "Phiên bản " + health.version,
+      "tài khoản " + health.accounts_online + "/" + health.accounts_total + " trực tuyến",
+      "trạng thái: " + health.status
+    ];
+    $("status-line").textContent = parts.join(" · ");
+    isMock = !!health.mock_mode;
+    $("mock-warn").hidden = !isMock;
+    const list = (await api("GET", "/api/accounts")).tai_khoan || [];
+    const box = $("acc-list"); box.textContent = "";
+    if (!list.length) {
+      const p = document.createElement("p"); p.className = "sub"; p.textContent = "Chưa có tài khoản nào."; box.appendChild(p);
+    }
+    list.forEach(function (a) {
+      const row = document.createElement("div"); row.className = "acc";
+      const who = document.createElement("div");
+      who.textContent = a.display_name || a.phone;
+      const small = document.createElement("small");
+      small.textContent = a.phone + " · " + a.status; who.appendChild(small);
+      const del = document.createElement("button"); del.className = "del"; del.textContent = "Xoá";
+      del.addEventListener("click", async function () {
+        if (!confirm("Xoá tài khoản " + a.phone + " và phiên đăng nhập của nó khỏi gateway?")) return;
+        try { await api("DELETE", "/ui/api/accounts/" + encodeURIComponent(a.phone)); await refresh(); }
+        catch (e) { say("login-msg", e.message, "err"); }
+      });
+      row.appendChild(who); row.appendChild(del); box.appendChild(row);
+    });
+    $("accounts").hidden = false; $("login").hidden = false;
+  }
+
+  let qrTimer = null, qrShown = "";
+  function stopQrPoll() { if (qrTimer) { clearInterval(qrTimer); qrTimer = null; } }
+
+  function showStep(name) {
+    if (name !== "qr") stopQrPoll();
+    ["phone", "code", "pass", "qr"].forEach(function (s) { $("step-" + s).hidden = (s !== name); });
+  }
+
+  function drawQr(link) {
+    if (!link) { $("qr").textContent = "Đang chờ mã QR từ Telegram…"; return; }
+    if (link === qrShown) return;
+    qrShown = link;
+    $("qr-link").textContent = link;
+    $("qr").textContent = "";
+    if (window.qrcode) {
+      const q = window.qrcode(0, "M"); q.addData(link); q.make();
+      $("qr").innerHTML = q.createSvgTag({ cellSize: 7, margin: 4, scalable: true });
+    } else { $("qr").textContent = "(Không tải được thư viện vẽ QR; dùng liên kết bên dưới.)"; }
+  }
+
+  // Telegram đổi mã QR sau ~30 giây: hỏi gateway 2,5 giây một lần, vẽ lại khi mã đổi, tự hoàn tất khi đã quét.
+  function startQrPoll() {
+    stopQrPoll();
+    qrTimer = setInterval(async function () {
+      if (!loginId) { stopQrPoll(); return; }
+      try {
+        const r = await api("GET", "/ui/api/accounts/" + encodeURIComponent(loginId));
+        if (r.stage === "done") { stopQrPoll(); await loginDone(r); }
+        else if (r.stage === "password") { stopQrPoll(); showStep("pass"); say("login-msg", "Đã quét. Tài khoản bật hai bước: nhập mật khẩu.", "warn"); $("pass").focus(); }
+        else if (r.stage === "qr") { drawQr(r.qr_link); }
+      } catch (e) { stopQrPoll(); say("login-msg", e.message + " Bấm «Đăng nhập bằng QR» để tạo lại.", "err"); }
+    }, 2500);
+  }
+
+  function loginDone(r) {
+    showStep("phone"); loginId = null;
+    $("code").value = ""; $("pass").value = "";
+    say("login-msg", r && r.mock ? "Xong (tài khoản giả lập, chưa phải đăng nhập thật)." : "Đã đăng nhập tài khoản.", "ok");
+    return refresh();
+  }
+
+  $("btn-connect").addEventListener("click", async function () {
+    store("gw_token", $("token").value.trim());
+    say("connect-msg", "Đang kết nối…");
+    try { await refresh(); say("connect-msg", "Đã kết nối.", "ok"); }
+    catch (e) { $("status").hidden = $("accounts").hidden = $("login").hidden = true; say("connect-msg", e.message, "err"); }
+  });
+
+  $("btn-phone").addEventListener("click", async function () {
+    const phone = $("phone").value.trim();
+    if (!phone) { say("login-msg", "Nhập số điện thoại.", "err"); return; }
+    say("login-msg", "Đang gửi mã…");
+    try { loginId = (await api("POST", "/ui/api/accounts", { phone: phone })).login_id; showStep("code");
+      say("login-msg", isMock
+        ? "Chế độ giả lập: KHÔNG có mã nào được gửi đến Telegram. Nhập 5–6 chữ số bất kỳ chỉ để thử giao diện (tạo tài khoản giả)."
+        : "Đã yêu cầu Telegram gửi mã. Mã hiện trong ứng dụng Telegram đang đăng nhập tài khoản này (hoặc SMS).",
+        isMock ? "warn" : "ok");
+      $("code").focus(); }
+    catch (e) { say("login-msg", e.message, "err"); }
+  });
+
+  $("btn-code").addEventListener("click", async function () {
+    say("login-msg", "Đang xác nhận…");
+    try {
+      const r = await api("POST", "/ui/api/accounts/" + encodeURIComponent(loginId) + "/code", { code: $("code").value.trim() });
+      if (r.needs_password) { showStep("pass"); say("login-msg", "Tài khoản bật hai bước: nhập mật khẩu.", "warn"); $("pass").focus(); }
+      else { await loginDone(r); }
+    } catch (e) { say("login-msg", e.message, "err"); }
+  });
+
+  $("btn-pass").addEventListener("click", async function () {
+    say("login-msg", "Đang xác nhận…");
+    try { await loginDone(await api("POST", "/ui/api/accounts/" + encodeURIComponent(loginId) + "/password", { password: $("pass").value })); }
+    catch (e) { say("login-msg", e.message, "err"); }
+  });
+
+  $("btn-qr").addEventListener("click", async function () {
+    const qrPhone = $("phone").value.trim();
+    if (qrPhone.length < 6) { say("login-msg", "Nhập số điện thoại của tài khoản phụ trước (dùng để đặt tên phiên), rồi bấm QR.", "err"); return; }
+    say("login-msg", "Đang tạo mã QR…");
+    try {
+      const r = await api("POST", "/ui/api/accounts/qr", { phone: qrPhone });
+      loginId = r.login_id; qrShown = ""; showStep("qr");
+      drawQr(r.qr_link);
+      startQrPoll();
+      say("login-msg", "");
+    } catch (e) { say("login-msg", e.message, "err"); }
+  });
+
+  $("btn-qr-done").addEventListener("click", async function () {
+    say("login-msg", "Đang kiểm tra…");
+    try { await loginDone(await api("POST", "/ui/api/accounts/" + encodeURIComponent(loginId) + "/qr-confirm")); }
+    catch (e) { say("login-msg", e.message, "err"); }
+  });
+
+  // Phiên trình duyệt còn token thì tự kết nối lại.
+  if (load("gw_token")) { $("token").value = load("gw_token"); $("btn-connect").click(); }
+})();
+</script>
+</body>
+</html>
