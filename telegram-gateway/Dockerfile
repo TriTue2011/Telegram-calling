@@ -14,6 +14,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY gateway/ ./gateway/
+COPY VERSION ./VERSION
 COPY docker-entrypoint.py /usr/local/bin/docker-entrypoint.py
 
 ENV DATA_DIR=/data

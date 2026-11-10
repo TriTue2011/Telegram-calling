@@ -246,3 +246,11 @@ def test_integration_intercom_url_is_accepted_by_gateway():
                 u = core.intercom_url("http://172.16.10.200:8123/", domain, entry_id, key, kind)
                 assert live_call.valid_speaker_url(u), u
                 live_call.speaker_command(u)                                  # không ném lỗi
+
+
+def test_gateway_version_comes_from_version_file(tmp_path):
+    import os
+    want = open(os.path.join(os.path.dirname(__file__), "..", "VERSION"), encoding="utf-8").read().strip()
+    assert want and Config(data_dir=str(tmp_path), gateway_token="tk").version == want
+    c = _client(tmp_path)
+    assert c.get("/health").json()["version"] == want

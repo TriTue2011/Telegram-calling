@@ -9,6 +9,15 @@ import os
 from dataclasses import dataclass, field
 
 
+def _doc_phien_ban() -> str:
+    """Phiên bản từ tệp VERSION cạnh gói gateway (một nguồn duy nhất, trùng version của tích hợp telegram_call); thiếu thì «dev»."""
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "VERSION"), encoding="utf-8") as fh:
+            return fh.read().strip() or "dev"
+    except OSError:
+        return "dev"
+
+
 def _int(name: str, default: int) -> int:
     try:
         return int(os.environ.get(name, default))
@@ -37,7 +46,7 @@ class Config:
     api_id: str = os.environ.get("TELEGRAM_API_ID", "")
     api_hash: str = os.environ.get("TELEGRAM_API_HASH", "")
     rate_limit_per_minute: int = _int("RATE_LIMIT_PER_MINUTE", 120)
-    version: str = "0.1.0"
+    version: str = _doc_phien_ban()
     # Chế độ mock: True = mọi tác vụ cần tài khoản thật trả mock/501 theo
     # bảng giai đoạn. Bước P1 bật engine thật thì đặt GATEWAY_MOCK=0.
     mock_mode: bool = os.environ.get("GATEWAY_MOCK", "1") != "0"
