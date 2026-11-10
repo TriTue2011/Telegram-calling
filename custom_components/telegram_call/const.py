@@ -15,6 +15,9 @@ MAX_CALL_VOLUME = 100
 CONF_HA_URL = "ha_url"            # địa chỉ HA mà gateway (container) gọi tới được; trống = URL nội bộ của HA
 
 EVENT_STATE = "telegram_call_call_state"
+EVENT_MESSAGE = "telegram_call_message"                  # tin NHẬN được (không bắn lại tin mình gửi)
+EVENT_SEND_FAILED = "telegram_call_send_failed"          # tin mình gửi mà Telegram từ chối sau đó
+SIGNAL_MESSAGE = "telegram_call_message_{}"              # định dạng theo entry_id; cảm biến «Tin nhắn gần nhất» nghe tín hiệu này
 
 STORAGE_VERSION = 1
 NONE_LABEL = "Không"

@@ -15,6 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 
 from .chat import ChatService, Feed
+from .media_convert import to_ogg_opus
 from .live_call import CallRuntime, apply_defaults, sweep_stale_audio, valid_speaker_url
 from .errors import ApiError, bad_request, not_found
 from .tdclient import TelegramError
@@ -116,7 +117,8 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
             raise bad_request("Thiếu nội dung tin.")
         if len(text) > 4096:
             raise bad_request("Tin quá dài (tối đa 4096 ký tự).")
-        return await run(service(acct(request)).send_text, chat_id, text, int(body.get("reply_to") or 0))
+        return await run(service(acct(request)).send_text, chat_id, text, int(body.get("reply_to") or 0),
+                         str(body.get("parse_mode") or ""))
 
     @app.post("/api/chats/{chat_id}/send_file")
     async def send_file(request: Request, chat_id: int):
@@ -130,13 +132,20 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
             raise bad_request("Tệp rỗng.")
         if len(raw) > MAX_UPLOAD_BYTES:
             raise bad_request("Tệp vượt 64 MB.")
+        if kind == "voice":
+            # Telegram chỉ nhận tin thoại là OGG/Opus: đổi mp3/m4a/wav... (ffmpeg, ngoài vòng lặp sự kiện).
+            try:
+                raw = await asyncio.to_thread(to_ogg_opus, raw)
+            except ValueError as exc:
+                raise bad_request(str(exc))
         name = os.path.basename(request.query_params.get("name", "") or "tep") or "tep"
         path = os.path.join(uploads, uuid.uuid4().hex + "_" + name.replace("/", "_"))
         with open(path, "wb") as fh:
             fh.write(raw)
         _sweep_uploads()
         return await run(service(acct(request)).send_file, chat_id, path, kind,
-                         request.query_params.get("caption", ""))
+                         request.query_params.get("caption", ""), int_arg(request, "reply_to"),
+                         request.query_params.get("parse_mode", ""))
 
     def _sweep_uploads() -> None:
         """Tệp tải lên phải còn tới khi TDLib gửi xong; dọn tệp quá một ngày."""
@@ -164,7 +173,30 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         b = await body_dict(request)
         if not str(b.get("text") or "").strip():
             raise bad_request("Thiếu nội dung mới.")
-        return await run(service(acct(request)).edit_text, int(b["chat_id"]), int(b["message_id"]), str(b["text"]))
+        return await run(service(acct(request)).edit_text, int(b["chat_id"]), int(b["message_id"]), str(b["text"]),
+                         str(b.get("parse_mode") or ""))
+
+    @app.post("/api/resolve")
+    async def resolve(request: Request):
+        """Người nhận -> chat_id: ID số, ``@username``, hoặc ``+số điện thoại``. Số âm là chat_id sẵn của nhóm/kênh."""
+        auth(request)
+        b = await body_dict(request)
+        peer = str(b.get("peer") or "").strip()
+        if not peer:
+            raise bad_request("Thiếu peer (@username, +số điện thoại hoặc ID số).")
+        try:
+            return {"chat_id": await run(clients[_phone_of(request)].resolve_chat, peer)}
+        except ValueError as exc:
+            raise bad_request(str(exc))
+
+    @app.post("/api/translate")
+    async def translate(request: Request):
+        auth(request)
+        b = await body_dict(request)
+        try:
+            return {"text": await run(service(acct(request)).translate, str(b.get("text") or ""), str(b.get("to_language_code") or ""))}
+        except ValueError as exc:
+            raise bad_request(str(exc))
 
     @app.post("/api/messages/delete")
     async def delete(request: Request):

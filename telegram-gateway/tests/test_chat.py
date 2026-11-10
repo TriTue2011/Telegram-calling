@@ -172,6 +172,15 @@ class FakeTd:
             if req["from_message_id"] == 0:
                 return {"messages": [self._msg(5), self._msg(4)]}
             return {"messages": [self._msg(3)]}
+        if t == "parseTextEntities":
+            if "BAD" in req["text"]:
+                from gateway.tdclient import TelegramError
+                raise TelegramError(400, "Can't parse entities: unsupported")
+            kind = "Bold" if req["parse_mode"]["@type"] == "textParseModeMarkdown" else "Italic"
+            return {"@type": "formattedText", "text": req["text"].strip("*<>bi/"),
+                    "entities": [{"@type": "textEntity", "offset": 0, "length": 3, "type": {"@type": "textEntityType" + kind}}]}
+        if t == "translateText":
+            return {"@type": "formattedText", "text": "Hello (" + req["to_language_code"] + ")", "entities": []}
         if t == "sendMessage":
             return {"id": 77, "chat_id": req["chat_id"], "date": 1, "is_outgoing": True,
                     "content": {"@type": "messageText", "text": {"text": (req["input_message_content"].get("text") or {}).get("text", "")}}}
@@ -192,9 +201,9 @@ def test_chat_service_lists_chats_history_and_sends():
     h = svc.history(100, limit=3)
     assert [m["id"] for m in h] == [3, 4, 5] and h[0]["sender"] == "Bình Lê"          # tăng dần, có tên người gửi
     assert sum(1 for c in td.calls if c["@type"] == "getUser") == 1                    # tên người gửi được nhớ
-    out = svc.send_text(100, "chào", reply_to=4)
+    out = svc.send_text(100, "chào", reply_to=4 << 20)
     sent = [c for c in td.calls if c["@type"] == "sendMessage"][0]
-    assert sent["reply_to"]["message_id"] == 4 and out["outgoing"] and out["text"] == "chào"
+    assert sent["reply_to"]["message_id"] == 4 << 20 and out["outgoing"] and out["text"] == "chào"
     svc.send_file(100, "/data/uploads/a.jpg", "photo", "đây")
     last = [c for c in td.calls if c["@type"] == "sendMessage"][-1]
     assert last["input_message_content"]["@type"] == "inputMessagePhoto"
@@ -320,3 +329,74 @@ def test_sent_id_map_is_bounded():
     for i in range(1, 700):
         svc._remember_sent(i, i * 1048576)
     assert len(svc._sent_ids) == 500 and 1 not in svc._sent_ids and 699 in svc._sent_ids
+
+
+def test_formatted_text_uses_tdlib_parser_and_rejects_unknown_mode():
+    td = FakeTd()
+    svc = chat.ChatService(td)
+    assert svc.formatted("a", "") == {"@type": "formattedText", "text": "a", "entities": []}
+    assert not [c for c in td.calls if c["@type"] == "parseTextEntities"]                 # plain: không hỏi TDLib
+    md = svc.formatted("**xin** chào", "markdown")
+    assert md["entities"][0]["type"]["@type"] == "textEntityTypeBold"
+    assert td.calls[-1]["parse_mode"] == {"@type": "textParseModeMarkdown", "version": 2}
+    assert svc.formatted("<i>x</i>", "HTML")["entities"][0]["type"]["@type"] == "textEntityTypeItalic"
+    with pytest.raises(ValueError):
+        svc.formatted("a", "bbcode")
+    from gateway.tdclient import TelegramError
+    with pytest.raises(TelegramError):                                                      # cú pháp sai: TDLib báo, không gửi
+        svc.send_text(100, "BAD **", parse_mode="markdown")
+    assert not [c for c in td.calls if c["@type"] == "sendMessage"]
+
+
+def test_send_text_file_and_edit_carry_parse_mode_and_reply():
+    td = FakeTd()
+    svc = chat.ChatService(td)
+    svc.send_text(100, "**x**", parse_mode="markdown")
+    assert td.calls[-1]["input_message_content"]["text"]["entities"]
+    svc.send_file(100, "/data/uploads/a.jpg", "photo", "**ảnh**", reply_to=5 << 20, parse_mode="markdown")
+    last = td.calls[-1]
+    assert last["input_message_content"]["caption"]["entities"] and last["reply_to"]["message_id"] == 5 << 20
+    svc.edit_text(100, 6 << 20, "<i>sửa</i>", parse_mode="html")
+    assert td.calls[-1]["@type"] == "editMessageText" and td.calls[-1]["input_message_content"]["text"]["entities"]
+
+
+def test_translate_text():
+    svc = chat.ChatService(FakeTd())
+    assert svc.translate("Xin chào", "EN") == "Hello (en)"
+    for bad in (("", "en"), ("a", ""), ("   ", "vi")):
+        with pytest.raises(ValueError):
+            svc.translate(*bad)
+
+
+def test_resolve_chat_accepts_group_id_user_id_phone_and_username():
+    from gateway.tdclient import TdlibClient
+    cl = object.__new__(TdlibClient)
+    seen = []
+
+    def call(req, timeout=30):
+        seen.append(req)
+        return {"createPrivateChat": {"id": req.get("user_id")},
+                "searchUserByPhoneNumber": {"@type": "user", "id": 55},
+                "searchPublicChat": {"id": -1001, "type": {"@type": "chatTypeSupergroup"}}}[req["@type"]]
+    cl.call = call
+    assert cl.resolve_chat("-1001234") == -1001234 and seen == []                           # nhóm: dùng thẳng
+    assert cl.resolve_chat("77") == 77 and seen[-1]["@type"] == "createPrivateChat"
+    assert cl.resolve_chat("+84 912 345 678") == 55 and seen[-1] == {"@type": "createPrivateChat", "user_id": 55, "force": False}
+    assert cl.resolve_chat("@kenh_tin") == -1001                                           # kênh/nhóm công khai
+
+
+def test_to_ogg_opus_keeps_ogg_and_reports_ffmpeg_problems():
+    from gateway import media_convert as mc
+    assert mc.to_ogg_opus(b"OggS....") == b"OggS...."                                       # đã là Ogg: giữ nguyên
+
+    class P:
+        def __init__(self, rc, out=b"", err=b""):
+            self.returncode, self.stdout, self.stderr = rc, out, err
+    assert mc.to_ogg_opus(b"ID3mp3", runner=lambda *a, **k: P(0, b"OggSxx")) == b"OggSxx"
+    with pytest.raises(ValueError, match="ffmpeg không đọc được"):
+        mc.to_ogg_opus(b"xxx", runner=lambda *a, **k: P(1, b"", b"line1\nInvalid data found\n"))
+
+    def missing(*a, **k):
+        raise FileNotFoundError()
+    with pytest.raises(ValueError, match="chưa có ffmpeg"):
+        mc.to_ogg_opus(b"xxx", runner=missing)

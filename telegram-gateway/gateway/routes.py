@@ -40,6 +40,7 @@ from fastapi.responses import JSONResponse
 from .audio import AudioHub, resample_pcm
 from .calls import CallManager
 from .config import Config
+from .media_convert import to_ogg_opus
 from .errors import (ApiError, account_busy, account_offline, bad_request,
                      endpoint_busy, flood_wait, media_engine_error,
                      not_found, not_implemented_yet)
@@ -281,6 +282,10 @@ def build_app(cfg: Config, store: AccountStore | None = None,
                     raw = base64.b64decode(body["audio_b64"], validate=True)
                 except (binascii.Error, ValueError):
                     raise bad_request("audio_b64 không phải base64 hợp lệ.")
+                try:
+                    raw = await asyncio.to_thread(to_ogg_opus, raw)        # tin thoại Telegram phải là OGG/Opus
+                except ValueError as exc:
+                    raise bad_request(str(exc))
                 with tempfile.NamedTemporaryFile(suffix=".ogg",
                                                  delete=False) as tf:
                     tf.write(raw)

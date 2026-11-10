@@ -93,9 +93,31 @@ data: {peer: "@ten_dang_nhap", video: true, volume: 70}   # gọi bằng tên đ
 chỉ được khi họ cho phép tìm bằng số; không tìm thấy thì gateway báo lỗi 404. Người nhận phải để Telegram cho phép **cuộc gọi từ bạn**
 (Cài đặt → Quyền riêng tư → Cuộc gọi) và **không** là chính tài khoản phụ đang đăng nhập. Kênh/nhóm không gọi được.
 
-Dịch vụ khác: `answer_call`, `hangup_call`, `send_message`. Sự kiện `telegram_call_call_state` dùng **cùng tên trạng thái** với `zalo_call_call_state`
-(`incoming`, `ringing`, `answered`, `ended`, `not_answered`, `missed`, `error`) nên một automation chạy cho cả hai.
-Không biết `user_id`? Gọi thử bằng nút gọi trong giao diện trò chuyện của gateway (`http://<máy>:3333/ui/`).
+### Nhắn tin (giống bộ dịch vụ của Zalo Call)
+
+Người nhận: `chat_id` (số; âm = nhóm/kênh) **hoặc** `peer` (`@username`, `+số điện thoại`, ID số). Mọi dịch vụ có ô chọn trong HA.
+
+| Dịch vụ | Làm gì |
+|---|---|
+| `send_message` | Gửi chữ; `format`: `plain` / `markdown` (MarkdownV2 của Telegram) / `html`; `reply_to` trả lời một tin |
+| `send_photo` · `send_video` · `send_audio` · `send_file` | Gửi ảnh / video / file âm thanh / tệp từ đường dẫn HA, URL hoặc `media-source://`, kèm `caption` |
+| `send_voice` | Tin thoại: từ tệp (mp3, m4a, wav… **tự đổi sang ogg/opus**) hoặc để gateway **đọc chữ thành giọng** (TTS) |
+| `edit_message` · `delete_message` · `forward_message` · `add_reaction` · `mark_read` | Sửa, xoá, chuyển tiếp, thả/gỡ emoji, đánh dấu đã đọc |
+| `get_history` · `get_chats` · `find_chat` · `get_contacts` | Đọc lịch sử, danh sách hội thoại, tìm theo tên, danh bạ (trả về cho automation bằng `response_variable`) |
+| `translate_text` | Dịch chữ bằng bộ dịch của Telegram (`to_language`: vi, en, ja…) |
+| `download_file` | Lưu tệp đính kèm của tin nhận được vào thư mục HA cho phép |
+
+```yaml
+service: telegram_call.send_message
+data: {peer: "@ten_dang_nhap", message: "*Cảnh báo:* cửa mở", format: markdown}
+```
+
+**Nhận tin:** sự kiện `telegram_call_message` (tin đến: `chat_id`, `message_id`, `sender`, `kind`, `text`, `file_id`…) và cảm biến **Tin nhắn gần nhất**;
+`telegram_call_send_failed` khi Telegram từ chối tin bạn gửi. Tin do chính bạn gửi không bắn sự kiện. Gọi: `make_call`, `answer_call`, `hangup_call`;
+sự kiện `telegram_call_call_state` dùng **cùng tên trạng thái** với `zalo_call_call_state` (`incoming`, `ringing`, `answered`, `ended`, `not_answered`, `missed`, `error`).
+Không biết ID? `get_contacts` / `find_chat`, hoặc trang `http://<máy>:3333/ui/`.
+
+> Chưa có: nhận dạng giọng nói (Telegram chỉ cho tài khoản Premium) và gọi nhóm.
 
 ## Máy yếu (Raspberry Pi, NAS nhỏ)
 

@@ -127,3 +127,24 @@ class PushPolicy:
 
     def pushed(self, ok: bool) -> None:
         self.pushed_ok = bool(ok)
+
+
+def message_event(item: dict) -> dict | None:
+    """Một dòng của ``/api/feed`` -> nội dung sự kiện HA, hoặc None nếu không cần báo (tin mình gửi, dòng không phải tin).
+
+    Chỉ đưa thông tin tin nhắn; KHÔNG đưa đường dẫn/khoá. Tệp đính kèm chỉ có ``file_id`` (tải bằng dịch vụ ``download_file``)."""
+    if not isinstance(item, dict) or item.get("type") != "message":
+        return None
+    m = item.get("message") or {}
+    if m.get("outgoing"):
+        return None
+    f = m.get("file") or {}
+    return {"chat_id": m.get("chat_id"), "message_id": m.get("id"), "sender": m.get("sender") or "", "kind": m.get("kind") or "text",
+            "text": m.get("text") or "", "summary": m.get("summary") or "", "reply_to": m.get("reply_to") or 0,
+            "date": m.get("date") or 0, "file_id": f.get("id"), "file_name": f.get("name") or "", "mime": f.get("mime") or ""}
+
+
+def send_failed_event(item: dict) -> dict | None:
+    if not isinstance(item, dict) or item.get("type") != "send_failed":
+        return None
+    return {"chat_id": item.get("chat_id"), "old_message_id": item.get("old_id"), "error": redact(str(item.get("error") or ""))}

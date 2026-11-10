@@ -398,6 +398,17 @@ class TdlibClient:
             raise TelegramError(404, "USERNAME_NOT_USER")           # kênh/nhóm, không gọi được
         return int(kind["user_id"])
 
+    def resolve_chat(self, peer) -> int:
+        """peer -> chat_id cho dịch vụ nhắn tin: số âm = chat_id sẵn có (nhóm/kênh); số dương = ID người dùng; ``+số``
+        = số điện thoại; còn lại = @username (người dùng, nhóm hoặc kênh công khai)."""
+        p = str(peer).strip()
+        if re.fullmatch(r"-\d+", p):
+            return int(p)
+        if p.startswith("+") or p.isdigit():
+            uid = self.resolve_user_id(p)
+            return int(self.call({"@type": "createPrivateChat", "user_id": uid, "force": False})["id"])
+        return self.resolve_chat_id(p)
+
     def send_message(self, peer: str, text: str) -> int:
         chat_id = self.resolve_chat_id(peer)
         resp = self.call({

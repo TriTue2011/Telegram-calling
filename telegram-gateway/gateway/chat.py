@@ -268,18 +268,38 @@ class ChatService:
                               "source": {"@type": "messageSourceChatHistory"}, "force_read": True})
 
     # -- gửi ----------------------------------------------------------
-    def send_text(self, chat_id: int, text: str, reply_to: int = 0) -> dict:
+    def formatted(self, text: str, parse_mode: str = "") -> dict:
+        """Chữ có định dạng. ``parse_mode``: plain (mặc định) | markdown (MarkdownV2 của Telegram) | html. Do TDLib tự phân tích
+        (parseTextEntities) nên đúng luật của Telegram; chữ sai cú pháp thì TDLib báo 400 kèm lý do."""
+        mode = (parse_mode or "plain").strip().lower()
+        if mode == "plain":
+            return {"@type": "formattedText", "text": text, "entities": []}
+        parsers = {"markdown": {"@type": "textParseModeMarkdown", "version": 2}, "html": {"@type": "textParseModeHTML"}}
+        if mode not in parsers:
+            raise ValueError("parse_mode phải là plain, markdown hoặc html")
+        return self.client.call({"@type": "parseTextEntities", "text": text, "parse_mode": parsers[mode]})
+
+    def translate(self, text: str, to_language_code: str) -> str:
+        """Dịch bằng bộ dịch của Telegram (translateText). Mã ngôn ngữ ISO 639-1, ví dụ vi, en, ja."""
+        code = (to_language_code or "").strip().lower()
+        if not code or not text.strip():
+            raise ValueError("cần text và to_language_code (ví dụ vi, en)")
+        out = self.client.call({"@type": "translateText", "text": {"@type": "formattedText", "text": text, "entities": []},
+                                "to_language_code": code}, timeout=30)
+        return str(out.get("text") or "")
+
+    def send_text(self, chat_id: int, text: str, reply_to: int = 0, parse_mode: str = "") -> dict:
         req = {"@type": "sendMessage", "chat_id": int(chat_id),
                "input_message_content": {"@type": "inputMessageText",
-                                         "text": {"@type": "formattedText", "text": text, "entities": []},
+                                         "text": self.formatted(text, parse_mode),
                                          "link_preview_options": {"@type": "linkPreviewOptions", "is_disabled": False}}}
         if reply_to:
-            req["reply_to"] = {"@type": "inputMessageReplyToMessage", "message_id": int(reply_to)}
+            req["reply_to"] = {"@type": "inputMessageReplyToMessage", "message_id": self.final_id(reply_to)}
         return normalize_message(self.client.call(req), "")
 
-    def send_file(self, chat_id: int, path: str, kind: str, caption: str = "") -> dict:
+    def send_file(self, chat_id: int, path: str, kind: str, caption: str = "", reply_to: int = 0, parse_mode: str = "") -> dict:
         """kind: photo | video | document | voice | audio."""
-        cap = {"@type": "formattedText", "text": caption, "entities": []}
+        cap = self.formatted(caption, parse_mode)
         f = {"@type": "inputFileLocal", "path": path}
         # TDLib >= 1.8.x bọc tệp trong lớp riêng (inputPhoto/inputVideo/...): đưa thẳng inputFileLocal vào
         # thì lỗi "InputFile is not specified" (đã gặp thật).
@@ -294,14 +314,15 @@ class ChatService:
                       "audio": {"@type": "inputAudio", "audio": f}},
         }.get(kind) or {"@type": "inputMessageDocument", "caption": cap,
                         "document": {"@type": "inputDocument", "document": f}}
-        return normalize_message(self.client.call({"@type": "sendMessage", "chat_id": int(chat_id),
-                                                   "input_message_content": content}, timeout=60), "")
+        req = {"@type": "sendMessage", "chat_id": int(chat_id), "input_message_content": content}
+        if reply_to:
+            req["reply_to"] = {"@type": "inputMessageReplyToMessage", "message_id": self.final_id(reply_to)}
+        return normalize_message(self.client.call(req, timeout=60), "")
 
-    def edit_text(self, chat_id: int, message_id: int, text: str) -> dict:
+    def edit_text(self, chat_id: int, message_id: int, text: str, parse_mode: str = "") -> dict:
         return normalize_message(self.client.call({
             "@type": "editMessageText", "chat_id": int(chat_id), "message_id": self.final_id(message_id),
-            "input_message_content": {"@type": "inputMessageText",
-                                      "text": {"@type": "formattedText", "text": text, "entities": []}}}), "")
+            "input_message_content": {"@type": "inputMessageText", "text": self.formatted(text, parse_mode)}}), "")
 
     def delete(self, chat_id: int, message_ids: list[int], revoke: bool = True) -> None:
         self.client.call({"@type": "deleteMessages", "chat_id": int(chat_id),

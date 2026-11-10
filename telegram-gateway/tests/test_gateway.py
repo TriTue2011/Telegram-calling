@@ -538,7 +538,7 @@ def test_p1_send_media_voice_real(tmp_path):
     assert r.json()["tin_id"] == "1002" and r.json()["mock"] is False
     r = client.post("/api/send_voice", headers=auth(),
                     json={"peer": "p", "audio_b64": base64.b64encode(
-                        b"fake-ogg").decode()})
+                        b"OggS-fake-ogg").decode()})                 # đầu OggS: đã là ogg nên không qua ffmpeg
     assert r.status_code == 200
     assert r.json()["tin_id"] == "1003"
 

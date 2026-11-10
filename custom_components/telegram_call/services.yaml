@@ -1,9 +1,9 @@
 make_call:
   fields:
     peer:
-      example: "@ten_dang_nhap"
+      example: '@ten_dang_nhap'
       selector:
-        text:
+        text: null
     user_id:
       example: 123456789
       selector:
@@ -14,14 +14,16 @@ make_call:
     video:
       default: false
       selector:
-        boolean:
+        boolean: null
     mic:
       selector:
         entity:
-          domain: [camera, assist_satellite]
+          domain:
+          - camera
+          - assist_satellite
     mic_url:
       selector:
-        text:
+        text: null
     camera:
       selector:
         entity:
@@ -36,7 +38,7 @@ make_call:
           min: 0
           max: 100
           mode: slider
-          unit_of_measurement: "%"
+          unit_of_measurement: '%'
     config_entry_id:
       selector:
         config_entry:
@@ -45,7 +47,7 @@ answer_call:
   fields:
     call_id:
       selector:
-        text:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -54,7 +56,7 @@ hangup_call:
   fields:
     call_id:
       selector:
-        text:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -62,18 +64,311 @@ hangup_call:
 send_message:
   fields:
     chat_id:
+      selector: &id002
+        number:
+          min: -9007199254740991
+          max: 9007199254740991
+          mode: box
+    peer:
+      selector: &id001
+        text: null
+    message:
       required: true
-      selector:
+      example: Xin chào
+      selector: &id003
+        text:
+          multiline: true
+    reply_to:
+      selector: &id004
         number:
           min: 1
           max: 9007199254740991
           mode: box
+    format:
+      default: plain
+      selector: &id005
+        select:
+          options:
+          - plain
+          - markdown
+          - html
+          mode: dropdown
+    config_entry_id:
+      selector: *id001
+send_file:
+  fields:
+    chat_id:
+      selector: *id002
+    peer:
+      selector: *id001
+    file:
+      required: true
+      selector: *id001
+    caption:
+      default: ''
+      selector: *id003
+    kind:
+      default: document
+      selector:
+        select:
+          options:
+          - document
+          - photo
+          - video
+          - audio
+          - voice
+          mode: dropdown
+    reply_to:
+      selector: *id004
+    format:
+      default: plain
+      selector: *id005
+    config_entry_id:
+      selector: *id001
+send_photo:
+  fields:
+    chat_id:
+      selector: *id002
+    peer:
+      selector: *id001
+    file:
+      required: true
+      selector: *id001
+    caption:
+      default: ''
+      selector: *id003
+    reply_to:
+      selector: *id004
+    format:
+      default: plain
+      selector: *id005
+    config_entry_id:
+      selector: *id001
+send_video:
+  fields:
+    chat_id:
+      selector: *id002
+    peer:
+      selector: *id001
+    file:
+      required: true
+      selector: *id001
+    caption:
+      default: ''
+      selector: *id003
+    reply_to:
+      selector: *id004
+    format:
+      default: plain
+      selector: *id005
+    config_entry_id:
+      selector: *id001
+send_audio:
+  fields:
+    chat_id:
+      selector: *id002
+    peer:
+      selector: *id001
+    file:
+      required: true
+      selector: *id001
+    caption:
+      default: ''
+      selector: *id003
+    reply_to:
+      selector: *id004
+    format:
+      default: plain
+      selector: *id005
+    config_entry_id:
+      selector: *id001
+send_voice:
+  fields:
+    chat_id:
+      selector: *id002
+    peer:
+      selector: *id001
+    file:
+      selector: *id001
+    message:
+      selector: *id003
+    voice:
+      selector: *id001
+    rate:
+      selector: *id001
+    reply_to:
+      selector: *id004
+    config_entry_id:
+      selector: *id001
+edit_message:
+  fields:
+    chat_id:
+      selector: *id002
+    peer:
+      selector: *id001
+    message_id:
+      required: true
+      selector: *id004
+    message:
+      required: true
+      selector: *id003
+    format:
+      default: plain
+      selector: *id005
+    config_entry_id:
+      selector: *id001
+delete_message:
+  fields:
+    chat_id:
+      selector: *id002
+    peer:
+      selector: *id001
+    message_ids:
+      required: true
+      selector: *id001
+    revoke:
+      default: true
+      selector:
+        boolean: null
+    config_entry_id:
+      selector: *id001
+forward_message:
+  fields:
+    chat_id:
+      selector: *id002
+    peer:
+      selector: *id001
+    from_chat_id:
+      required: true
+      selector: *id002
+    message_ids:
+      required: true
+      selector: *id001
+    config_entry_id:
+      selector: *id001
+add_reaction:
+  fields:
+    chat_id:
+      selector: *id002
+    peer:
+      selector: *id001
+    message_id:
+      required: true
+      selector: *id004
+    emoji:
+      default: 👍
+      selector:
+        select:
+          options:
+          - 👍
+          - 👎
+          - ❤
+          - 🔥
+          - 🥰
+          - 👏
+          - 😁
+          - 🤔
+          - 😢
+          - 🎉
+          - 🤩
+          - 🙏
+          - 👌
+          - 😱
+          - 💯
+          - 😍
+          mode: dropdown
+          custom_value: true
+    remove:
+      default: false
+      selector:
+        boolean: null
+    config_entry_id:
+      selector: *id001
+mark_read:
+  fields:
+    chat_id:
+      selector: *id002
+    peer:
+      selector: *id001
+    message_ids:
+      selector: *id001
+    config_entry_id:
+      selector: *id001
+get_history:
+  fields:
+    chat_id:
+      selector: *id002
+    peer:
+      selector: *id001
+    limit:
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: box
+    before:
+      selector: *id004
+    config_entry_id:
+      selector: *id001
+get_chats:
+  fields:
+    limit:
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 200
+          mode: box
+    config_entry_id:
+      selector: *id001
+find_chat:
+  fields:
+    query:
+      required: true
+      selector: *id001
+    config_entry_id:
+      selector: *id001
+get_contacts:
+  fields:
+    query:
+      selector: *id001
+    config_entry_id:
+      selector: *id001
+translate_text:
+  fields:
     text:
       required: true
+      selector: *id003
+    to_language:
+      required: true
+      default: vi
       selector:
-        text:
-          multiline: true
+        select:
+          options:
+          - vi
+          - en
+          - zh
+          - ja
+          - ko
+          - fr
+          - de
+          - es
+          - ru
+          - th
+          - id
+          mode: dropdown
+          custom_value: true
     config_entry_id:
-      selector:
-        config_entry:
-          integration: telegram_call
+      selector: *id001
+download_file:
+  fields:
+    file_id:
+      required: true
+      selector: *id004
+    path:
+      required: true
+      example: /config/www/anh.jpg
+      selector: *id001
+    config_entry_id:
+      selector: *id001

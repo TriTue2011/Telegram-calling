@@ -56,6 +56,9 @@
           "missed": "Nhỡ",
           "error": "Lỗi"
         }
+      },
+      "last_message": {
+        "name": "Tin nhắn gần nhất"
       }
     },
     "binary_sensor": {
@@ -145,19 +148,447 @@
     },
     "send_message": {
       "name": "Gửi tin nhắn",
-      "description": "Gửi tin nhắn văn bản tới một cuộc trò chuyện Telegram.",
+      "description": "Gửi tin nhắn văn bản (có thể định dạng, trả lời một tin) tới một người hoặc nhóm Telegram.",
       "fields": {
         "chat_id": {
           "name": "ID cuộc trò chuyện",
-          "description": "Với chat riêng, bằng ID người dùng."
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
         },
-        "text": {
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "message": {
           "name": "Nội dung",
-          "description": "Tối đa 4096 ký tự."
+          "description": "Nội dung tin nhắn (tối đa 4096 ký tự)."
+        },
+        "reply_to": {
+          "name": "Trả lời tin số",
+          "description": "ID tin nhắn muốn trả lời (trích dẫn)."
+        },
+        "format": {
+          "name": "Định dạng chữ",
+          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
         },
         "config_entry_id": {
           "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản."
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "send_file": {
+      "name": "Gửi tệp",
+      "description": "Gửi tệp (ảnh, video, âm thanh, tin thoại hoặc tài liệu) từ đường dẫn HA, URL hoặc media-source.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "file": {
+          "name": "Tệp",
+          "description": "Đường dẫn trong HA (thư mục được phép), URL http(s) hoặc media-source://."
+        },
+        "caption": {
+          "name": "Chú thích",
+          "description": "Chú thích kèm tệp (hỗ trợ định dạng như ô Định dạng chữ)."
+        },
+        "kind": {
+          "name": "Loại",
+          "description": "document (mặc định), photo, video, audio hoặc voice (tin thoại)."
+        },
+        "reply_to": {
+          "name": "Trả lời tin số",
+          "description": "ID tin nhắn muốn trả lời (trích dẫn)."
+        },
+        "format": {
+          "name": "Định dạng chữ",
+          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "send_photo": {
+      "name": "Gửi ảnh",
+      "description": "Gửi một ảnh.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "file": {
+          "name": "Tệp",
+          "description": "Đường dẫn trong HA (thư mục được phép), URL http(s) hoặc media-source://."
+        },
+        "caption": {
+          "name": "Chú thích",
+          "description": "Chú thích kèm tệp (hỗ trợ định dạng như ô Định dạng chữ)."
+        },
+        "reply_to": {
+          "name": "Trả lời tin số",
+          "description": "ID tin nhắn muốn trả lời (trích dẫn)."
+        },
+        "format": {
+          "name": "Định dạng chữ",
+          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "send_video": {
+      "name": "Gửi video",
+      "description": "Gửi một video.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "file": {
+          "name": "Tệp",
+          "description": "Đường dẫn trong HA (thư mục được phép), URL http(s) hoặc media-source://."
+        },
+        "caption": {
+          "name": "Chú thích",
+          "description": "Chú thích kèm tệp (hỗ trợ định dạng như ô Định dạng chữ)."
+        },
+        "reply_to": {
+          "name": "Trả lời tin số",
+          "description": "ID tin nhắn muốn trả lời (trích dẫn)."
+        },
+        "format": {
+          "name": "Định dạng chữ",
+          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "send_audio": {
+      "name": "Gửi file âm thanh",
+      "description": "Gửi một tệp âm thanh (nhạc, file ghi âm, TTS) dạng trình phát nhạc.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "file": {
+          "name": "Tệp",
+          "description": "Đường dẫn trong HA (thư mục được phép), URL http(s) hoặc media-source://."
+        },
+        "caption": {
+          "name": "Chú thích",
+          "description": "Chú thích kèm tệp (hỗ trợ định dạng như ô Định dạng chữ)."
+        },
+        "reply_to": {
+          "name": "Trả lời tin số",
+          "description": "ID tin nhắn muốn trả lời (trích dẫn)."
+        },
+        "format": {
+          "name": "Định dạng chữ",
+          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "send_voice": {
+      "name": "Gửi tin thoại",
+      "description": "Gửi tin nhắn thoại: từ tệp âm thanh (mp3, m4a, wav… tự đổi sang ogg/opus) hoặc để gateway đọc một đoạn chữ thành giọng (chỉ cho người dùng).",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "file": {
+          "name": "Tệp âm thanh",
+          "description": "Đường dẫn, URL hoặc media-source://. Bỏ trống thì dùng ô Nội dung đọc."
+        },
+        "message": {
+          "name": "Nội dung đọc",
+          "description": "Chữ để gateway đọc thành giọng (TTS) khi không có tệp."
+        },
+        "voice": {
+          "name": "Giọng",
+          "description": "Tên giọng edge-tts, ví dụ vi-VN-HoaiMyNeural (bỏ trống = mặc định)."
+        },
+        "rate": {
+          "name": "Tốc độ",
+          "description": "Ví dụ +10% hoặc -20% (bỏ trống = mặc định)."
+        },
+        "reply_to": {
+          "name": "Trả lời tin số",
+          "description": "ID tin nhắn muốn trả lời (trích dẫn)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "edit_message": {
+      "name": "Sửa tin nhắn",
+      "description": "Sửa nội dung một tin nhắn đã gửi.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "message_id": {
+          "name": "ID tin nhắn",
+          "description": "ID của tin nhắn (lấy từ sự kiện telegram_call_message hoặc kết quả get_history)."
+        },
+        "message": {
+          "name": "Nội dung mới",
+          "description": "Nội dung thay thế."
+        },
+        "format": {
+          "name": "Định dạng chữ",
+          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "delete_message": {
+      "name": "Xoá tin nhắn",
+      "description": "Xoá một hay nhiều tin nhắn (mặc định xoá cả phía người nhận).",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "message_ids": {
+          "name": "Các ID tin nhắn",
+          "description": "Một hoặc nhiều ID, cách nhau dấu phẩy (tối đa 100)."
+        },
+        "revoke": {
+          "name": "Xoá cả phía người nhận",
+          "description": "Tắt thì chỉ xoá phía bạn."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "forward_message": {
+      "name": "Chuyển tiếp tin nhắn",
+      "description": "Chuyển tiếp tin từ một cuộc trò chuyện sang người/nhóm khác.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "from_chat_id": {
+          "name": "Từ cuộc trò chuyện (ID)",
+          "description": "chat_id của nơi có tin gốc."
+        },
+        "message_ids": {
+          "name": "Các ID tin nhắn",
+          "description": "Một hoặc nhiều ID, cách nhau dấu phẩy (tối đa 100)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "add_reaction": {
+      "name": "Thả cảm xúc",
+      "description": "Thả (hoặc gỡ) một emoji cảm xúc vào tin nhắn.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "message_id": {
+          "name": "ID tin nhắn",
+          "description": "ID của tin nhắn (lấy từ sự kiện telegram_call_message hoặc kết quả get_history)."
+        },
+        "emoji": {
+          "name": "Emoji",
+          "description": "Chọn trong bảng hoặc gõ emoji Telegram cho phép làm phản ứng."
+        },
+        "remove": {
+          "name": "Gỡ phản ứng",
+          "description": "Bật để gỡ thay vì thả."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "mark_read": {
+      "name": "Đánh dấu đã đọc",
+      "description": "Đánh dấu đã đọc các tin của một cuộc trò chuyện.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "message_ids": {
+          "name": "Các ID tin nhắn",
+          "description": "ID các tin đã xem, cách nhau dấu phẩy."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "get_history": {
+      "name": "Lịch sử trò chuyện",
+      "description": "Trả về các tin gần nhất của một cuộc trò chuyện (dùng trong automation với response_variable).",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "@tên_đăng_nhập, +số điện thoại (có mã nước) hoặc ID số của người dùng."
+        },
+        "limit": {
+          "name": "Số tin",
+          "description": "1–100, mặc định 20."
+        },
+        "before": {
+          "name": "Trước tin số",
+          "description": "Chỉ lấy các tin cũ hơn ID này."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "get_chats": {
+      "name": "Danh sách trò chuyện",
+      "description": "Trả về các cuộc trò chuyện gần nhất (id, tên, loại, chưa đọc).",
+      "fields": {
+        "limit": {
+          "name": "Số lượng",
+          "description": "1–200, mặc định 30."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "find_chat": {
+      "name": "Tìm cuộc trò chuyện",
+      "description": "Tìm cuộc trò chuyện theo tên.",
+      "fields": {
+        "query": {
+          "name": "Từ khoá",
+          "description": "Một phần tên."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "get_contacts": {
+      "name": "Danh bạ",
+      "description": "Trả về danh bạ Telegram (id, tên, @username), có thể lọc theo tên.",
+      "fields": {
+        "query": {
+          "name": "Lọc",
+          "description": "Một phần tên hoặc @username (bỏ trống = tất cả)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "translate_text": {
+      "name": "Dịch văn bản",
+      "description": "Dịch một đoạn chữ bằng bộ dịch của Telegram.",
+      "fields": {
+        "text": {
+          "name": "Văn bản",
+          "description": "Chữ cần dịch."
+        },
+        "to_language": {
+          "name": "Dịch sang",
+          "description": "Mã ngôn ngữ ISO 639-1."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "download_file": {
+      "name": "Tải tệp về",
+      "description": "Lưu tệp đính kèm của một tin nhận được (file_id trong sự kiện telegram_call_message) vào thư mục được phép của HA.",
+      "fields": {
+        "file_id": {
+          "name": "ID tệp",
+          "description": "file_id trong sự kiện hoặc cảm biến Tin nhắn gần nhất."
+        },
+        "path": {
+          "name": "Lưu vào",
+          "description": "Đường dẫn đầy đủ, ví dụ /config/www/anh.jpg."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
         }
       }
     }

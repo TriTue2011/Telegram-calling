@@ -20,6 +20,7 @@ from .bridge import CallBridge
 from .bridge_core import derive_state, redact
 from .const import CONF_ACCOUNT, CONF_TOKEN, CONF_URL, DOMAIN, EVENT_STATE, POLL_BUSY_S, POLL_IDLE_S
 from .devices import DeviceDefaults
+from .messages import MessageFeed
 from .services import async_register_services
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ class TelegramCallData:
     coordinator: "TelegramCallCoordinator"
     bridge: CallBridge
     defaults: DeviceDefaults
+    messages: MessageFeed
 
 
 class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
@@ -115,10 +117,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await defaults.async_load()
     bridge = CallBridge(hass, api, defaults)
     coordinator.bridge = bridge
-    entry.runtime_data = TelegramCallData(api, coordinator, bridge, defaults)
+    messages = MessageFeed(hass, api, entry.entry_id)
+    entry.runtime_data = TelegramCallData(api, coordinator, bridge, defaults, messages)
     await coordinator.async_config_entry_first_refresh()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     hass.async_create_task(bridge.async_push_defaults())
+    entry.async_create_background_task(hass, messages.run(), f"{DOMAIN}_messages")       # huỷ tự động khi gỡ mục cấu hình
     return True
 
 
