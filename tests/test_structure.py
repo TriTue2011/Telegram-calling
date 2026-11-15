@@ -27,7 +27,7 @@ def test_manifest_hop_le():
         assert k in m, k
     assert m["domain"] == "telegram_call" and m["config_flow"] is True
     assert "Telegram-calling" in m["documentation"] and "Telegram-calling" in m["issue_tracker"]
-    assert m["version"].count(".") == 2
+    assert m["version"].count(".") == 3 and all(p.isdigit() for p in m["version"].split(".")), m["version"]      # AAAA.MM.NN.N như Zalo-calling
 
 
 def test_ban_dich_khop_strings():
@@ -67,3 +67,19 @@ def test_lich_cap_nhat_trang_thai_phai_la_callback():
                 if isinstance(arg, ast.Lambda) and any(getattr(n, "attr", "") == "async_write_ha_state" for n in ast.walk(arg)):
                     bad.append("%s:%d" % (os.path.basename(path), arg.lineno))
     assert not bad, "lambda gọi async_write_ha_state sẽ chạy ở luồng nền: %s" % bad
+
+
+def test_khong_boc_callback_len_phuong_thuc_da_gan():
+    """`callback(self.async_write_ha_state)` làm HA mới (Python 3.14) báo «'method' object has no attribute '_hass_callback'» và THỰC THỂ KHÔNG ĐƯỢC THÊM
+    (cảm biến/sự kiện biến mất, không tạo được automation; đo 10–15/11/2026 ở telegram_call 0.4.1). Phương thức của HA đã là callback sẵn:
+    truyền thẳng; chỉ hàm thường/lambda mới được bọc bằng callback()."""
+    import ast
+    bad = []
+    for path in sorted(glob.glob(os.path.join(INT, "*.py"))):
+        tree = ast.parse(open(path, encoding="utf-8").read())
+        for call in ast.walk(tree):
+            if isinstance(call, ast.Call) and getattr(call.func, "id", "") == "callback":
+                for arg in call.args:
+                    if isinstance(arg, ast.Attribute):
+                        bad.append("%s:%d" % (os.path.basename(path), arg.lineno))
+    assert not bad, "callback() bọc lên phương thức đã gắn: %s" % bad

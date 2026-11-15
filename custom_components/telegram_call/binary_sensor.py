@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .entity import TelegramCallEntity
@@ -19,7 +19,7 @@ class _Base(TelegramCallEntity, BinarySensorEntity):
         self._coordinator = entry.runtime_data.coordinator
 
     async def async_added_to_hass(self) -> None:
-        self.async_on_remove(self._coordinator.async_add_listener(callback(self.async_write_ha_state)))
+        self.async_on_remove(self._coordinator.async_add_listener(self.async_write_ha_state))
 
 
 class InCallSensor(_Base):
