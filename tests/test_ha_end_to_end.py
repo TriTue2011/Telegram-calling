@@ -275,3 +275,25 @@ async def test_send_failed_item_fires_event(hass, setup, gw):
             break
         await asyncio.sleep(0.1)
     assert events and events[0].data == {"chat_id": 42, "old_message_id": 9, "error": "FILE_PART_INVALID"}
+
+
+async def test_send_services_take_the_same_data_as_telegram_bot_so_one_blueprint_template_serves_both(hass, setup, gw, tmp_path):
+    """Blueprint gửi qua telegram_bot dùng mẫu {config_entry_id, chat_id, message_thread_id, parse_mode, file, caption}: telegram_call phải nhận cùng mẫu
+    (bỏ qua thread, đổi parse_mode), và có send_media_group (gửi lần lượt từng tệp)."""
+    await call(hass, "send_message", {"config_entry_id": "", "chat_id": 42, "message": "Có người", "parse_mode": "plain_text", "message_thread_id": ""})
+    assert gw.last("/send")["json"]["text"] == "Có người"
+    f1, f2 = tmp_path / "a.jpg", tmp_path / "b.jpg"
+    f1.write_bytes(b"A" * 10)
+    f2.write_bytes(b"B" * 10)
+    before = len([r for r in gw.requests if r["path"].endswith("/send_file")])
+    res = await call(hass, "send_media_group", {"chat_id": 42, "media": [{"media_type": "photo", "file": str(f1), "caption": "một"},
+                                                                       {"media_type": "photo", "file": str(f2)}], "message_thread_id": ""})
+    assert res["count"] == 2
+    assert len([r for r in gw.requests if r["path"].endswith("/send_file")]) - before == 2
+
+
+async def test_send_message_accepts_telegram_bot_target_as_chat_id(hass, setup, gw):
+    """calendar_weather_notification gửi bằng ``target`` (telegram_bot.send_message): telegram_call coi là chat_id (lấy phần tử đầu của danh sách)."""
+    await call(hass, "send_message", {"config_entry_id": "", "target": [-100777, -100888], "message": "chào", "parse_mode": "html"})
+    assert gw.last("/send")["json"]["text"] == "chào"
+    assert "-100777" in gw.last("/send")["path"], gw.last("/send")["path"]

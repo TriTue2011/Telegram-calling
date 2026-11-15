@@ -19,7 +19,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 
 from .api import TelegramCallError, TelegramGatewayApi
-from .bridge_core import (PushPolicy, dahua_mic_url, entity_of_label, host_of, intercom_url, localize_url, mic_format_for_url,
+from .bridge_core import (DEVICE_KEYS, PushPolicy, dahua_mic_url, entity_of_label, host_of, intercom_url, localize_url, mic_format_for_url,
                           pick_devices, r1_mic_url, redact, valid_url)
 from .const import CONF_CALL_VOLUME, CONF_HA_URL, MAX_CALL_VOLUME
 from .devices import DeviceDefaults
@@ -44,6 +44,7 @@ class CallBridge:
         self._push_thieu_lan = 0
         self._pending: dict[str, tuple[float, dict]] = {}
         self._running: dict[str, _Running] = {}
+        self._restore_defaults: set[str] = set()      # cuộc gọi đã đặt thiết bị RIÊNG cho gateway: kết thúc thì trả mặc định
 
     def devices_for(self, override: dict[str, Any] | None = None) -> dict[str, str]:
         return pick_devices(self.defaults.data, override)
@@ -180,6 +181,19 @@ class CallBridge:
             self.policy.pushed(False)
 
     # -- âm lượng loa theo cuộc gọi -------------------------------------------------------------------------
+    async def async_apply_override(self, call_id: Any, override: dict[str, Any]) -> None:
+        """Nghe máy một cuộc gọi ĐẾN bằng thiết bị riêng (loa/mic/camera/âm lượng do automation chọn): đặt chúng làm thiết bị hiện hành của gateway TRƯỚC khi nghe máy
+        (cuộc gọi đến luôn dùng thiết bị hiện hành), nhớ để trả về mặc định khi cuộc gọi kết thúc (``stop``)."""
+        self.remember(call_id, override)
+        if not any(override.get(k) for k in DEVICE_KEYS):
+            return                                              # chỉ có âm lượng: không đụng thiết bị của gateway
+        devices = self.devices_for(override)
+        res = await self.async_resolve(devices)
+        payload: dict[str, Any] = {"mic": res["mic_url"] or "test", "mic_format": res["mic_format"], "camera": res["camera_url"] or "test",
+                                   "speaker": res["speaker_url"]}
+        await self.api.set_live_settings(payload)
+        self._restore_defaults.add(str(call_id))
+
     def remember(self, call_id: Any, override: dict[str, Any]) -> None:
         """Ghi đè (loa, âm lượng…) của cuộc gọi sắp nối máy. call_id None = cuộc gọi kế tiếp (chưa biết mã lúc gọi dịch vụ)."""
         self._pending[str(call_id) if call_id is not None else "*"] = (time.monotonic(), dict(override))
@@ -216,6 +230,10 @@ class CallBridge:
         run = self._running.pop(str(call_id), None)
         if run is not None:
             await self._async_restore_volume(run)
+        if str(call_id) in self._restore_defaults:
+            self._restore_defaults.discard(str(call_id))
+            if not self._restore_defaults:
+                await self.async_push_defaults()                # thiết bị riêng của cuộc này không được rò sang cuộc sau
 
     async def async_shutdown(self) -> None:
         for key in list(self._running):

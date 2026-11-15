@@ -56,6 +56,15 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
     def live_calls(self) -> list[dict]:
         return [c for c in (self.data or {}).get("calls", []) if self.is_live(c)]
 
+    def current_state(self) -> tuple[str, dict]:
+        """(trạng thái, cuộc gọi) ĐANG diễn ra, hoặc ("idle", {}) khi không có. Cảm biến dùng cái này để automation hỏi «đang có cuộc gọi không?»
+        (trước đây cảm biến giữ mãi trạng thái cuối như «missed» cho tới cuộc gọi sau, nên không phân biệt được rảnh với vừa nhỡ)."""
+        live = self.live_calls()
+        if not live:
+            return "idle", {}
+        c = live[0]
+        return derive_state(c, str(c.get("id")) in self._was_active) or "idle", c
+
     async def _async_update_data(self) -> dict:
         try:
             calls = await self.api.live_calls()
@@ -67,12 +76,21 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
             raise UpdateFailed(str(err)) from err
         if self.bridge is not None and self.bridge.policy.poll(True):
             self.hass.async_create_task(self.bridge.async_push_defaults())
-        self._on_calls(calls)
+        events = self._on_calls(calls)
         busy = any(self.is_live(c) for c in calls)
         self.update_interval = timedelta(seconds=POLL_BUSY_S if busy else POLL_IDLE_S)
+        # Bắn sự kiện SAU khi cảm biến đã có trạng thái mới (dữ liệu được đặt và các thực thể được ghi ngay sau khi hàm này trả về, cùng một lượt của vòng lặp):
+        # automation bắt sự kiện rồi đọc cảm biến (blueprint tự nghe máy, nút bấm) phải thấy trạng thái MỚI, không phải trạng thái cũ.
+        if events:
+            self.hass.loop.call_soon(self._fire, events)
         return {"calls": calls}
 
-    def _on_calls(self, calls: list[dict]) -> None:
+    def _fire(self, events: list[dict]) -> None:
+        for event in events:
+            self.hass.bus.async_fire(EVENT_STATE, event)
+
+    def _on_calls(self, calls: list[dict]) -> list[dict]:
+        events: list[dict] = []
         for c in calls:
             cid = str(c.get("id"))
             if c.get("state") == "active":
@@ -89,13 +107,14 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
                 elif state in TERMINAL:
                     self.hass.async_create_task(self.bridge.stop(cid))
             # Không đưa URL mic/camera (có thể chứa khoá) lên bus: chỉ thông tin cuộc gọi.
-            self.hass.bus.async_fire(EVENT_STATE, {
+            events.append({
                 "state": state, "call_id": cid, "user_id": c.get("user_id"), "outgoing": bool(c.get("outgoing")),
                 "video": bool(c.get("video")), "seconds": c.get("seconds"), "error": redact(str(c.get("error") or ""))})
         ids = {str(c.get("id")) for c in calls}
         for old in [k for k in self._seen if k not in ids]:           # gateway chỉ giữ 10 cuộc gần nhất
             self._seen.pop(old, None)
             self._was_active.discard(old)
+        return events
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

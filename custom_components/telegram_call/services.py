@@ -35,14 +35,35 @@ MAKE_CALL = vol.All(cv.has_at_least_one_key("user_id", "peer"), vol.Schema({
     vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
 }))
 CALL_ID = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string})
+ANSWER_CALL = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string,                  # thiết bị riêng cho cuộc gọi này (như make_call)
+                          vol.Optional("mic"): cv.string, vol.Optional("mic_url"): cv.string, vol.Optional("camera"): cv.string,
+                          vol.Optional("speaker"): cv.string,
+                          vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100))})
 
-_TARGET = {vol.Optional("chat_id"): vol.Coerce(int), vol.Optional("peer"): cv.string}
+# Tương thích với dịch vụ gửi tin của ``telegram_bot`` của HA: cùng một mẫu dữ liệu dùng được cho cả hai (blueprint gửi qua bot và qua Telegram Call).
+# ``message_thread_id`` (chủ đề trong nhóm) chưa hỗ trợ nên bỏ qua; ``parse_mode`` đổi thành ``format``.
+_TARGET = {vol.Optional("chat_id"): vol.Coerce(int), vol.Optional("peer"): cv.string,
+           vol.Optional("message_thread_id"): vol.Any(None, "", vol.Coerce(int)), vol.Optional("parse_mode"): cv.string,
+           vol.Optional("target"): vol.Any(vol.Coerce(int), [vol.Coerce(int)])}       # ``telegram_bot.send_message`` dùng ``target`` (số hoặc danh sách) thay cho chat_id
+_PARSE_MODES = {"plain_text": "plain", "plain": "plain", "markdown": "markdown", "markdownv2": "markdown", "html": "html"}
+
+
+def _compat(data: dict) -> dict:
+    """Mẫu dữ liệu kiểu ``telegram_bot`` → của tích hợp: ``parse_mode`` → ``format`` (chuỗi lạ thì ``plain``); ``target`` (số hoặc danh sách; chỉ lấy
+    người/nhóm ĐẦU TIÊN) → ``chat_id`` khi chưa có chat_id/peer. Chạy TRƯỚC khi kiểm lược đồ."""
+    data = dict(data)
+    if data.get("parse_mode"):
+        data["format"] = _PARSE_MODES.get(str(data["parse_mode"]).lower(), "plain")
+    tgt = data.pop("target", None)
+    if tgt not in (None, "", []) and "chat_id" not in data and "peer" not in data:
+        data["chat_id"] = tgt[0] if isinstance(tgt, (list, tuple)) else tgt
+    return data
 _FMT = {vol.Optional("format", default="plain"): vol.In(FORMATS)}
 _REPLY = {vol.Optional("reply_to"): vol.All(vol.Coerce(int), vol.Range(min=1))}
 
 
 def _target(schema: dict) -> vol.Schema:
-    return vol.All(cv.has_at_least_one_key("chat_id", "peer"), vol.Schema({**_ENTRY, **_TARGET, **schema}))
+    return vol.All(_compat, cv.has_at_least_one_key("chat_id", "peer"), vol.Schema({**_ENTRY, **_TARGET, **schema}))
 
 
 def _ids(value: Any) -> list[int]:
@@ -59,6 +80,9 @@ def _ids(value: Any) -> list[int]:
 # Tương thích bản trước: dịch vụ send_message nhận ``text`` (nay là ``message``, vẫn nhận cả hai).
 SEND = vol.All(cv.has_at_least_one_key("message", "text"), _target({
     vol.Optional("message"): cv.string, vol.Optional("text"): cv.string, **_REPLY, **_FMT}))
+MEDIA_GROUP = _target({vol.Required("media"): vol.All(cv.ensure_list, [vol.Schema({
+    vol.Optional("media_type", default="photo"): vol.In(KINDS), vol.Required("file"): cv.string, vol.Optional("caption", default=""): cv.string,
+    vol.Optional("parse_mode"): cv.string}, extra=vol.ALLOW_EXTRA)]), **_REPLY, **_FMT})
 SEND_FILE = _target({vol.Required("file"): cv.string, vol.Optional("caption", default=""): cv.string, **_REPLY, **_FMT,
                      vol.Optional("kind", default="document"): vol.In(KINDS)})
 SEND_VOICE = vol.All(cv.has_at_least_one_key("file", "message"), _target({
@@ -175,8 +199,13 @@ def async_register_services(hass: HomeAssistant) -> None:
         return str(live[0]["id"])
 
     async def answer_call(call: ServiceCall) -> ServiceResponse:
+        override = {k: call.data[k] for k in ("mic", "mic_url", "camera", "speaker", "volume") if k in call.data}
+
         async def go(rt):
-            return _public(await rt.api.accept(await _pick(rt, call, True)))
+            cid = await _pick(rt, call, True)
+            if override:
+                await rt.bridge.async_apply_override(cid, override)      # loa/mic/âm lượng riêng cuộc này, đặt TRƯỚC khi nghe máy
+            return _public(await rt.api.accept(cid))
         res = await run(call, go)
         await _refresh(hass, call)
         return res
@@ -207,6 +236,19 @@ def async_register_services(hass: HomeAssistant) -> None:
             name, data = await _read_source(hass, call.data["file"])
             return _msg(await rt.api.send_file(await chat_of(rt, call.data), kind, name, data, call.data["caption"],
                                                call.data.get("reply_to", 0), call.data["format"]))
+        return await run(call, go)
+
+    async def send_media_group(call: ServiceCall) -> ServiceResponse:
+        """Nhiều ảnh/video MỘT lệnh (cùng dạng ``telegram_bot.send_media_group``). Gateway chưa gửi được album thật nên gửi lần lượt từng tệp, đúng thứ tự;
+        một tệp lỗi thì dừng và báo lỗi (các tệp trước đã gửi)."""
+        async def go(rt):
+            chat = await chat_of(rt, call.data)
+            sent = []
+            for item in call.data["media"]:
+                name, data = await _read_source(hass, item["file"])
+                fmt = _PARSE_MODES.get(str(item.get("parse_mode") or "").lower(), call.data["format"])
+                sent.append(_msg(await rt.api.send_file(chat, item["media_type"], name, data, item["caption"], call.data.get("reply_to", 0), fmt)))
+            return {"messages": sent, "count": len(sent)}
         return await run(call, go)
 
     async def send_file(call: ServiceCall) -> ServiceResponse:
@@ -301,13 +343,14 @@ def async_register_services(hass: HomeAssistant) -> None:
 
     R = SupportsResponse.OPTIONAL
     for name, fn, schema, resp in (("make_call", make_call, MAKE_CALL, R),
-                                   ("answer_call", answer_call, CALL_ID, R),
+                                   ("answer_call", answer_call, ANSWER_CALL, R),
                                    ("hangup_call", hangup_call, CALL_ID, R),
                                    ("send_message", send_message, SEND, R),
                                    ("send_file", send_file, SEND_FILE, R),
                                    ("send_photo", fixed_kind("photo"), SEND_FILE, R),
                                    ("send_video", fixed_kind("video"), SEND_FILE, R),
                                    ("send_audio", fixed_kind("audio"), SEND_FILE, R),
+                                   ("send_media_group", send_media_group, MEDIA_GROUP, R),
                                    ("send_voice", send_voice, SEND_VOICE, R),
                                    ("edit_message", edit_message, EDIT, R),
                                    ("delete_message", delete_message, DELETE, SupportsResponse.NONE),

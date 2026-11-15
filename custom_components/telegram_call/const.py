@@ -23,5 +23,6 @@ STORAGE_VERSION = 1
 NONE_LABEL = "Không"
 MIC_URL_LABEL = "URL (ô Mic URL)"
 
-POLL_IDLE_S = 5                   # gateway giới hạn 120 yêu cầu/phút/token (dùng chung với trang web)
-POLL_BUSY_S = 2                   # có cuộc gọi đang diễn ra: hỏi dày để báo trạng thái kịp
+POLL_IDLE_S = 1.5                 # cuộc gọi ĐẾN phải kích hoạt automation trong ~1,5 giây (trước đây 5). Gateway giới hạn 120 yêu cầu/phút/token (dùng chung với
+                                  # trang web): 40 lần/phút khi rảnh + 3 lần/phút của bộ nghe tin vẫn còn dư xa
+POLL_BUSY_S = 1                   # có cuộc gọi đang diễn ra: hỏi dày để báo trạng thái kịp (60 lần/phút)

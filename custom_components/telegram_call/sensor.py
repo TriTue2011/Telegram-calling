@@ -28,13 +28,17 @@ class CallStateSensor(TelegramCallEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return self._coordinator.last_state
+        return self._coordinator.current_state()[0]
 
     @property
     def extra_state_attributes(self) -> dict:
-        c = self._coordinator.last_call
-        return {"call_id": c.get("id"), "user_id": c.get("user_id"), "outgoing": c.get("outgoing"), "video": c.get("video"),
-                "seconds": c.get("seconds"), "error": redact(str(c.get("error") or "")) or None} if c else {}
+        state, c = self._coordinator.current_state()
+        if not c:                                       # rảnh: giữ thông tin cuộc gọi vừa xong để xem lại
+            c = self._coordinator.last_call
+        out = {"call_id": c.get("id"), "user_id": c.get("user_id"), "outgoing": c.get("outgoing"), "video": c.get("video"),
+               "seconds": c.get("seconds"), "error": redact(str(c.get("error") or "")) or None} if c else {}
+        out["last_state"] = self._coordinator.last_state            # trạng thái của lần đổi gần nhất (kể cả ended / missed / not_answered)
+        return out
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(self._coordinator.async_add_listener(self.async_write_ha_state))

@@ -15,24 +15,24 @@ make_call:
       default: false
       selector:
         boolean: null
-    mic:
+    mic: &id001
       selector:
         entity:
           domain:
           - camera
           - assist_satellite
-    mic_url:
+    mic_url: &id002
       selector:
         text: null
-    camera:
+    camera: &id003
       selector:
         entity:
           domain: camera
-    speaker:
+    speaker: &id004
       selector:
         entity:
           domain: media_player
-    volume:
+    volume: &id005
       selector:
         number:
           min: 0
@@ -48,10 +48,16 @@ answer_call:
     call_id:
       selector:
         text: null
+      description: Bỏ trống = cuộc gọi đến đang đổ chuông (phải có đúng một).
     config_entry_id:
       selector:
         config_entry:
           integration: telegram_call
+    mic: *id001
+    mic_url: *id002
+    camera: *id003
+    speaker: *id004
+    volume: *id005
 hangup_call:
   fields:
     call_id:
@@ -64,29 +70,29 @@ hangup_call:
 send_message:
   fields:
     chat_id:
-      selector: &id002
+      selector: &id007
         number:
           min: -9007199254740991
           max: 9007199254740991
           mode: box
     peer:
-      selector: &id001
+      selector: &id006
         text: null
     message:
       required: true
       example: Xin chào
-      selector: &id003
+      selector: &id008
         text:
           multiline: true
     reply_to:
-      selector: &id004
+      selector: &id009
         number:
           min: 1
           max: 9007199254740991
           mode: box
     format:
       default: plain
-      selector: &id005
+      selector: &id010
         select:
           options:
           - plain
@@ -94,19 +100,19 @@ send_message:
           - html
           mode: dropdown
     config_entry_id:
-      selector: *id001
+      selector: *id006
 send_file:
   fields:
     chat_id:
-      selector: *id002
+      selector: *id007
     peer:
-      selector: *id001
+      selector: *id006
     file:
       required: true
-      selector: *id001
+      selector: *id006
     caption:
       default: ''
-      selector: *id003
+      selector: *id008
     kind:
       default: document
       selector:
@@ -119,142 +125,153 @@ send_file:
           - voice
           mode: dropdown
     reply_to:
-      selector: *id004
+      selector: *id009
     format:
       default: plain
-      selector: *id005
+      selector: *id010
     config_entry_id:
-      selector: *id001
+      selector: *id006
 send_photo:
   fields:
-    chat_id:
-      selector: *id002
-    peer:
-      selector: *id001
+    chat_id: &id011
+      selector: *id007
+    peer: &id012
+      selector: *id006
     file:
       required: true
-      selector: *id001
+      selector: *id006
     caption:
       default: ''
-      selector: *id003
-    reply_to:
-      selector: *id004
-    format:
+      selector: *id008
+    reply_to: &id013
+      selector: *id009
+    format: &id014
       default: plain
-      selector: *id005
-    config_entry_id:
-      selector: *id001
+      selector: *id010
+    config_entry_id: &id015
+      selector: *id006
 send_video:
   fields:
     chat_id:
-      selector: *id002
+      selector: *id007
     peer:
-      selector: *id001
+      selector: *id006
     file:
       required: true
-      selector: *id001
+      selector: *id006
     caption:
       default: ''
-      selector: *id003
+      selector: *id008
     reply_to:
-      selector: *id004
+      selector: *id009
     format:
       default: plain
-      selector: *id005
+      selector: *id010
     config_entry_id:
-      selector: *id001
+      selector: *id006
 send_audio:
   fields:
     chat_id:
-      selector: *id002
+      selector: *id007
     peer:
-      selector: *id001
+      selector: *id006
     file:
       required: true
-      selector: *id001
+      selector: *id006
     caption:
       default: ''
-      selector: *id003
+      selector: *id008
     reply_to:
-      selector: *id004
+      selector: *id009
     format:
       default: plain
-      selector: *id005
+      selector: *id010
     config_entry_id:
-      selector: *id001
+      selector: *id006
+send_media_group:
+  fields:
+    chat_id: *id011
+    peer: *id012
+    media:
+      required: true
+      selector:
+        object: null
+    reply_to: *id013
+    format: *id014
+    config_entry_id: *id015
 send_voice:
   fields:
     chat_id:
-      selector: *id002
+      selector: *id007
     peer:
-      selector: *id001
+      selector: *id006
     file:
-      selector: *id001
+      selector: *id006
     message:
-      selector: *id003
+      selector: *id008
     voice:
-      selector: *id001
+      selector: *id006
     rate:
-      selector: *id001
+      selector: *id006
     reply_to:
-      selector: *id004
+      selector: *id009
     config_entry_id:
-      selector: *id001
+      selector: *id006
 edit_message:
   fields:
     chat_id:
-      selector: *id002
+      selector: *id007
     peer:
-      selector: *id001
+      selector: *id006
     message_id:
       required: true
-      selector: *id004
+      selector: *id009
     message:
       required: true
-      selector: *id003
+      selector: *id008
     format:
       default: plain
-      selector: *id005
+      selector: *id010
     config_entry_id:
-      selector: *id001
+      selector: *id006
 delete_message:
   fields:
     chat_id:
-      selector: *id002
+      selector: *id007
     peer:
-      selector: *id001
+      selector: *id006
     message_ids:
       required: true
-      selector: *id001
+      selector: *id006
     revoke:
       default: true
       selector:
         boolean: null
     config_entry_id:
-      selector: *id001
+      selector: *id006
 forward_message:
   fields:
     chat_id:
-      selector: *id002
+      selector: *id007
     peer:
-      selector: *id001
+      selector: *id006
     from_chat_id:
       required: true
-      selector: *id002
+      selector: *id007
     message_ids:
       required: true
-      selector: *id001
+      selector: *id006
     config_entry_id:
-      selector: *id001
+      selector: *id006
 add_reaction:
   fields:
     chat_id:
-      selector: *id002
+      selector: *id007
     peer:
-      selector: *id001
+      selector: *id006
     message_id:
       required: true
-      selector: *id004
+      selector: *id009
     emoji:
       default: 👍
       selector:
@@ -283,23 +300,23 @@ add_reaction:
       selector:
         boolean: null
     config_entry_id:
-      selector: *id001
+      selector: *id006
 mark_read:
   fields:
     chat_id:
-      selector: *id002
+      selector: *id007
     peer:
-      selector: *id001
+      selector: *id006
     message_ids:
-      selector: *id001
+      selector: *id006
     config_entry_id:
-      selector: *id001
+      selector: *id006
 get_history:
   fields:
     chat_id:
-      selector: *id002
+      selector: *id007
     peer:
-      selector: *id001
+      selector: *id006
     limit:
       default: 20
       selector:
@@ -308,9 +325,9 @@ get_history:
           max: 100
           mode: box
     before:
-      selector: *id004
+      selector: *id009
     config_entry_id:
-      selector: *id001
+      selector: *id006
 get_chats:
   fields:
     limit:
@@ -321,25 +338,25 @@ get_chats:
           max: 200
           mode: box
     config_entry_id:
-      selector: *id001
+      selector: *id006
 find_chat:
   fields:
     query:
       required: true
-      selector: *id001
+      selector: *id006
     config_entry_id:
-      selector: *id001
+      selector: *id006
 get_contacts:
   fields:
     query:
-      selector: *id001
+      selector: *id006
     config_entry_id:
-      selector: *id001
+      selector: *id006
 translate_text:
   fields:
     text:
       required: true
-      selector: *id003
+      selector: *id008
     to_language:
       required: true
       default: vi
@@ -360,15 +377,15 @@ translate_text:
           mode: dropdown
           custom_value: true
     config_entry_id:
-      selector: *id001
+      selector: *id006
 download_file:
   fields:
     file_id:
       required: true
-      selector: *id004
+      selector: *id009
     path:
       required: true
       example: /config/www/anh.jpg
-      selector: *id001
+      selector: *id006
     config_entry_id:
-      selector: *id001
+      selector: *id006

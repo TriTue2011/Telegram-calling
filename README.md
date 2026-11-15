@@ -125,6 +125,16 @@ automation:
       - action: telegram_call.answer_call
 ```
 
+**Kịp thời và đúng trạng thái.** Tích hợp hỏi gateway mỗi 1,5 giây khi rảnh (1 giây khi có cuộc gọi) nên cuộc gọi đến kích hoạt automation trong khoảng 1,5 giây. Sự kiện luôn bắn **sau** khi cảm biến *Cuộc gọi* đã đổi (automation đọc cảm biến thấy trạng thái mới). Cảm biến là `idle` khi không có cuộc gọi nào đang diễn ra; kết quả của cuộc vừa xong (`ended`, `missed`, `not_answered`…) nằm ở thuộc tính `last_state`.
+
+**Nghe máy bằng thiết bị riêng.** `answer_call` nhận `speaker`, `mic` (hoặc `mic_url`), `camera`, `volume` như `make_call`: đặt cho cuộc này trước khi nghe, hết cuộc tự trả về thiết bị mặc định.
+
+#### Blueprint (giống Zalo Call)
+
+Hai blueprint trong kho [Blueprint](https://github.com/TriTue2011/Blueprint) cho Telegram Call: **Quy tắc cho cuộc gọi đến** (`telegram_call_incoming_rule.yaml`: mỗi cuộc gọi đến kích hoạt automation, báo ra loa, tự nghe máy sau số giây đã đặt, chỉ người bạn liệt kê) và **Một nút bấm** (`telegram_call_nut_bam.yaml`: nghe / cúp / gọi đi). Các blueprint thông báo có Telegram Bot (`alarm_person_camera` 1–4, `calendar_weather_notification`, `ai_creat_image_weather_3`) có thêm ô **«Telegram Calling»** để gửi ảnh, video, tin nhắn qua tài khoản Telegram thật.
+
+Dịch vụ gửi tin nhận cùng mẫu dữ liệu với `telegram_bot` (`config_entry_id` rỗng, `chat_id` hoặc `target`, `message_thread_id` được bỏ qua, `parse_mode` đổi thành `format`) và có `send_media_group` (nhiều ảnh/video một lệnh, gửi lần lượt từng tệp), nên một mẫu dùng được cho cả hai.
+
 Loa, mic, camera, âm lượng mặc định đặt ngay trên thiết bị **Telegram Call** (ô chọn *Loa mặc định*, *Mic*, *Camera*, *Âm lượng cuộc gọi*), `make_call`/`answer_call` chỉ cần ghi đè khi muốn khác.
 
 ### Nhắn tin và nhận tin
