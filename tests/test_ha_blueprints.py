@@ -72,39 +72,70 @@ async def _wait(cond, within=4.0):
     return False
 
 
-def _rule(hass, setup, alias, **inputs):
-    return {"alias": alias, "use_blueprint": {"path": "TriTue2011/telegram_call_incoming_rule.yaml",
-                                              "input": {"cam_bien": _sensor(hass, setup), **inputs}}}
+def _rule(setup, alias, **inputs):
+    setup.runtime_data.voice.decide_grace = 0.4                                    # chờ chốt ngắn cho test (mặc định 1 giây)
+    return {"alias": alias, "use_blueprint": {"path": "TriTue2011/telegram_call_incoming_rule.yaml", "input": inputs}}
 
 
-async def test_incoming_rule_answers_only_the_listed_caller_with_the_chosen_devices(hass, setup, gw):
-    await _load(hass, _rule(hass, setup, "Tele A", nguoi_goi=["5"], nghe_sau=0, mic="", am_luong=0))
+def _settings(gw):
+    return [r["json"] for r in gw.requests if r["path"] == "/api/live/settings"]
+
+
+async def test_incoming_rule_answers_only_the_listed_caller_per_call_with_the_chosen_devices(hass, setup, gw):
+    triggered = []
+    hass.bus.async_listen("automation_triggered", lambda e: triggered.append(e.data["entity_id"]))
+    await _load(hass, _rule(setup, "Tele A", pham_vi="thread", them_theo_id=["5"], tu_nghe_may=True, nghe_sau=0, noi_ngay=["speaker"]))
     gw.calls = [dict(RINGING, id="x1", user_id=77)]                              # người lạ không có trong danh sách
     await asyncio.sleep(3.0)
     assert not _accepts(gw)
     gw.calls = [dict(RINGING, id="12345", user_id=5)]            # id toàn chữ số: HA đọc mẫu thành SỐ, blueprint phải ép chuỗi hai vế
-    assert await _wait(lambda: _accepts(gw)), "không nghe máy cho người trong danh sách"
-    assert _accepts(gw)[-1]["json"] == {"id": "12345"}
-    assert len(_accepts(gw)) == 1
+    assert await _wait(lambda: _accepts(gw), 8), "không nghe máy cho người trong danh sách"
+    assert _accepts(gw)[-1]["json"] == {"id": "12345"} and len(_accepts(gw)) == 1
+    assert "automation.tele_a" in triggered                                      # mỗi cuộc gọi có lượt chạy automation
+    held = _settings(gw)[-1]
+    assert held["mic"] == "silence", held                                        # không tích «mic» thì mic im lặng, không phải âm thử
 
 
 async def test_incoming_rule_waits_the_set_seconds_and_does_not_answer_a_call_that_was_dropped(hass, setup, gw):
-    await _load(hass, _rule(hass, setup, "Tele B", moi_nguoi=True, nghe_sau=3))
-    gw.calls = [dict(RINGING, id="y1", user_id=9)]
+    await _load(hass, _rule(setup, "Tele B", pham_vi="contacts", tu_nghe_may=True, nghe_sau=3))
+    gw.calls = [dict(RINGING, id="y1", user_id=1)]                               # ID 1 có trong danh bạ giả của gateway
     await asyncio.sleep(2.0)
     assert not _accepts(gw), "nghe máy quá sớm (chưa hết 3 giây)"
-    gw.calls = [dict(RINGING, id="y1", user_id=9, state="ended")]                  # người gọi cúp trong lúc chờ
+    gw.calls = [dict(RINGING, id="y1", user_id=1, state="ended")]                  # người gọi cúp trong lúc chờ
     await asyncio.sleep(3.5)
     assert not _accepts(gw)
 
 
 async def test_incoming_rule_off_or_disabled_does_nothing(hass, setup, gw):
-    await _load(hass, _rule(hass, setup, "Tele C", moi_nguoi=True, nghe_sau=0, bat_quy_tac=False),
-                _rule(hass, setup, "Tele D", moi_nguoi=True, nghe_sau=0))
+    await _load(hass, _rule(setup, "Tele C", pham_vi="contacts", nghe_sau=0, bat_quy_tac=False),
+                _rule(setup, "Tele D", pham_vi="contacts", nghe_sau=0))
     await hass.services.async_call("automation", "turn_off", {"entity_id": "automation.tele_d"}, blocking=True)
-    gw.calls = [dict(RINGING, id="z1", user_id=5)]
+    gw.calls = [dict(RINGING, id="z1", user_id=1)]
     await asyncio.sleep(3.0)
     assert not _accepts(gw)
+
+
+async def test_scopes_contacts_and_strangers_use_the_event_and_a_person_rule_beats_the_contacts_rule(hass, setup, gw):
+    await _load(hass, _rule(setup, "Tele moi nguoi", pham_vi="contacts", nghe_sau=0),
+                _rule(setup, "Tele chan", pham_vi="thread", them_theo_id=["2"], tu_nghe_may=False),
+                _rule(setup, "Tele la", pham_vi="strangers", nghe_sau=0))
+    gw.calls = [dict(RINGING, id="c-2", user_id=2)]                              # trong danh bạ nhưng có quy tắc riêng «không nghe»: thắng quy tắc danh bạ
+    await asyncio.sleep(3.0)
+    assert not _accepts(gw)
+    gw.calls = [dict(RINGING, id="c-1", user_id=1)]                              # trong danh bạ, không quy tắc riêng: nghe theo quy tắc danh bạ
+    assert await _wait(lambda: _accepts(gw), 8)
+    assert _accepts(gw)[-1]["json"]["id"] == "c-1"
+    gw.calls = [dict(RINGING, id="c-99", user_id=99)]                            # người lạ: quy tắc «người lạ»
+    assert await _wait(lambda: len(_accepts(gw)) == 2, 8)
+    assert _accepts(gw)[-1]["json"]["id"] == "c-99"
+
+
+async def test_person_picked_from_the_notify_entities_of_the_integration(hass, setup, gw):
+    eid = er.async_get(hass).async_get_entity_id("notify", DOMAIN, "%s_to_1" % setup.entry_id)
+    assert eid, "chưa có thực thể notify của người trong danh bạ"
+    await _load(hass, _rule(setup, "Tele E", pham_vi="thread", nguoi_cu_the=[eid], nghe_sau=0))
+    gw.calls = [dict(RINGING, id="n-1", user_id=1)]
+    assert await _wait(lambda: _accepts(gw), 8)
 
 
 async def test_button_answers_hangs_up_or_calls_depending_on_the_moment(hass, setup, gw):

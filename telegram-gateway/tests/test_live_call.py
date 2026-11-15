@@ -338,3 +338,191 @@ def test_sweep_stale_audio_runs_without_a_call_runtime(tmp_path):
     live_call.sweep_stale_audio(str(tmp_path))
     assert list(d.iterdir()) == []
     live_call.sweep_stale_audio(str(tmp_path / "khong-co"))                      # thư mục chưa có: không nổ
+
+
+# ── Đổi nguồn gửi đi giữa cuộc gọi (người nhà nói trực tiếp, tắt mic, tắt hình) ─────────────────────────
+
+def test_mic_silence_command_and_settings_accept_silence(tmp_path):
+    assert "anullsrc" in live_call.mic_command("silence") and "sine" not in live_call.mic_command("silence")
+    c = _client(tmp_path)
+    H = {"Authorization": "Bearer tk"}
+    assert c.post("/api/live/settings", headers=H, json={"mic": "silence"}).json() == {"ok": True}
+    assert c.get("/api/live/settings", headers=H).json()["mic"] == "silence"
+    assert c.post("/api/live/settings", headers=H, json={"camera": "silence"}).status_code == 400      # «silence» chỉ cho mic
+
+
+def _fake_nt():
+    class NT:
+        class MediaSource:
+            SHELL, FILE, EXTERNAL = "SHELL", "FILE", "EXT"
+
+        class StreamMode:
+            CAPTURE, PLAYBACK = "CAP", "PB"
+
+        @staticmethod
+        def AudioDescription(*a):
+            return ("AD",) + a
+
+        @staticmethod
+        def VideoDescription(*a):
+            return ("VD",) + a
+
+        @staticmethod
+        def MediaDescription(*a):
+            return ("MD",) + a
+    return NT
+
+
+def test_set_capture_swaps_mic_and_camera_during_call():
+    import asyncio
+    seen = []
+
+    class NTG:
+        async def set_stream_sources(self, uid, mode, desc):
+            seen.append((mode, desc))
+
+    rt = StubRuntime()
+    rt.nt, rt.ntg = _fake_nt(), NTG()
+    c = live_call.LiveCall(rt, "+84", StubClient(), 5, False, True, mic="http://r1/mic?k=1", cam="rtsp://cam/s")
+    c.state = "active"
+    asyncio.run(c.set_capture(mic="silence"))
+    mode, md = seen[-1]
+    assert mode == "CAP" and md[1][4] == live_call.mic_command("silence") and md[3][0] == "VD" and c.info()["mic_muted"] is True
+    asyncio.run(c.set_capture(cam_off=True))
+    assert seen[-1][1][3] is None and c.info()["cam_off"] is True            # tắt hình: không còn mô tả video
+    asyncio.run(c.set_capture(mic="http://r1/mic?k=1", mic_fmt="s16le16k", cam_off=False))
+    md = seen[-1][1]
+    assert md[1][4] == live_call.mic_command("http://r1/mic?k=1", "s16le16k") and md[3][0] == "VD" and c.info()["mic_muted"] is False
+    n = len(seen)
+    c.state = "ringing"                                                          # chưa dựng media: chỉ ghi nhớ, dựng khi nghe máy
+    asyncio.run(c.set_capture(mic="silence"))
+    assert len(seen) == n and c.mic == "silence"
+    assert "k=1" not in str(c.info()), "URL mic (có khoá) không được lộ ra info"
+
+
+def test_live_media_route_validates_and_applies(tmp_path):
+    import asyncio
+    import threading
+    cfg = Config(data_dir=str(tmp_path), gateway_token="tk")
+    app = build_app(cfg)
+    c = TestClient(app, raise_server_exceptions=False)
+    H = {"Authorization": "Bearer tk"}
+    assert c.post("/api/live/media", json={"id": "x", "mic": "silence"}).status_code == 401
+    app.state.live["rt"] = None
+    assert c.post("/api/live/media", headers=H, json={"id": "x", "mic": "silence"}).status_code == 404
+    loop = asyncio.new_event_loop()
+    threading.Thread(target=loop.run_forever, daemon=True).start()
+    seen = []
+
+    class NTG:
+        async def set_stream_sources(self, uid, mode, desc):
+            seen.append(desc)
+
+    rt = StubRuntime()
+    rt.nt, rt.ntg, rt.loop = _fake_nt(), NTG(), loop
+    call = live_call.LiveCall(rt, "+84", StubClient(), 5, False, True)
+    call.state = "active"
+    rt.calls = {call.id: call}
+    app.state.live["rt"] = rt
+    try:
+        assert c.post("/api/live/media", headers=H, json={"id": call.id}).status_code == 400                       # không có gì để đổi
+        assert c.post("/api/live/media", headers=H, json={"id": call.id, "mic": "ftp://x"}).status_code == 400
+        assert c.post("/api/live/media", headers=H, json={"id": call.id, "camera": "silence"}).status_code == 400
+        r = c.post("/api/live/media", headers=H, json={"id": call.id, "mic": "silence"})
+        assert r.status_code == 200 and r.json()["mic_muted"] is True and len(seen) == 1
+        r = c.post("/api/live/media", headers=H, json={"id": call.id, "camera_off": True})
+        assert r.json()["cam_off"] is True and seen[-1][3] is None
+        call.state = "ended"
+        assert c.post("/api/live/media", headers=H, json={"id": call.id, "mic": "test"}).status_code == 404
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+
+
+def test_camera_black_command_and_setting(tmp_path):
+    assert "color=c=black" in live_call.camera_command("black") and "testsrc2" not in live_call.camera_command("black")
+    c = _client(tmp_path)
+    H = {"Authorization": "Bearer tk"}
+    assert c.post("/api/live/settings", headers=H, json={"camera": "black"}).json() == {"ok": True}
+    assert c.get("/api/live/settings", headers=H).json()["camera"] == "black"
+
+
+def test_say_swaps_mic_to_speech_then_restores(tmp_path):
+    import asyncio
+    import os
+    import wave
+    seen, files = [], []
+
+    class NTG:
+        async def set_stream_sources(self, uid, mode, desc):
+            seen.append(desc)
+            path = desc[1][4].split("-i ")[-1].split(" -vn")[0].strip("'")
+            if path.endswith("_say.wav"):
+                with wave.open(path) as w:                      # tệp phải là WAV đúng 48 kHz mono 16 bit lúc ffmpeg đọc
+                    files.append((w.getframerate(), w.getnchannels(), w.getsampwidth(), w.getnframes()))
+
+    rt = StubRuntime()
+    rt.data_dir = str(tmp_path)
+    rt.nt, rt.ntg = _fake_nt(), NTG()
+    c = live_call.LiveCall(rt, "+84", StubClient(), 5, False, False, mic="http://r1/mic?k=1", mic_fmt="s16le16k")
+    c.state = "active"
+    pcm = b"\x01\x00" * 4800                                   # 0,1 giây
+    secs = asyncio.run(c.say(pcm))
+    assert abs(secs - 0.1) < 0.01 and len(seen) == 2
+    assert files == [(48000, 1, 2, 4800)]
+    assert c.mic == "http://r1/mic?k=1" and c.mic_fmt == "s16le16k"            # mic trả về như cũ
+    assert not os.path.exists(os.path.join(str(tmp_path), "live", c.id + "_say.wav"))
+
+
+def test_live_say_route(tmp_path):
+    import asyncio
+    import threading
+    app = build_app(Config(data_dir=str(tmp_path), gateway_token="tk"))
+    c = TestClient(app, raise_server_exceptions=False)
+    H = {"Authorization": "Bearer tk"}
+    assert c.post("/api/live/say", json={"id": "x", "text": "a"}).status_code == 401
+    assert c.post("/api/live/say", headers=H, json={"id": "x", "text": ""}).status_code == 400
+    assert c.post("/api/live/say", headers=H, json={"id": "x", "text": "xin chào"}).status_code == 404
+    loop = asyncio.new_event_loop()
+    threading.Thread(target=loop.run_forever, daemon=True).start()
+
+    class NTG:
+        async def set_stream_sources(self, uid, mode, desc):
+            pass
+
+    class RT(StubRuntime):
+        data_dir = str(tmp_path)
+
+        def run(self, coro):
+            asyncio.run_coroutine_threadsafe(coro, loop)
+
+    rt = RT()
+    rt.nt, rt.ntg, rt.loop = _fake_nt(), NTG(), loop
+    call = live_call.LiveCall(rt, "+84", StubClient(), 5, False)
+    rt.calls = {call.id: call}
+    app.state.live["rt"] = rt
+
+    class Synth:
+        def synthesize(self, text, voice, rate):
+            return b"\x00\x00" * 9600                        # 0,2 giây
+
+    try:
+        call.state = "ringing"
+        assert c.post("/api/live/say", headers=H, json={"id": call.id, "text": "xin chào"}).status_code == 404   # chưa nghe máy
+        call.state = "active"
+        app.state.synthesizer = None
+        assert c.post("/api/live/say", headers=H, json={"id": call.id, "text": "xin chào"}).status_code == 501
+        app.state.synthesizer = Synth()
+        r = c.post("/api/live/say", headers=H, json={"id": call.id, "text": "xin chào"})
+        assert r.status_code == 200 and r.json() == {"seconds": 0.2}
+        assert c.post("/api/live/say", headers=H, json={"id": call.id, "audio_b64": "!!"}).status_code == 400          # không phải base64
+        from gateway import chat_routes
+        monkey = chat_routes.to_pcm48k
+        chat_routes.to_pcm48k = lambda raw: b"\x00\x00" * 4800                                                      # ffmpeg giả: 0,1 giây
+        try:
+            import base64
+            r = c.post("/api/live/say", headers=H, json={"id": call.id, "audio_b64": base64.b64encode(b"mp3").decode()})
+            assert r.status_code == 200 and r.json() == {"seconds": 0.1}
+        finally:
+            chat_routes.to_pcm48k = monkey
+    finally:
+        loop.call_soon_threadsafe(loop.stop)

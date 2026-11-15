@@ -419,3 +419,22 @@ def test_pcm_to_ogg_opus_uses_raw_pcm_input_and_reports_problems():
         mc.pcm_to_ogg_opus(b"")
     with pytest.raises(ValueError, match="không đổi được PCM"):
         mc.pcm_to_ogg_opus(b"x", runner=lambda *a, **k: P(1, b"", b"boom"))
+
+
+def test_to_pcm48k_wraps_ffmpeg_errors():
+    from gateway import media_convert
+    import subprocess
+
+    class P:
+        returncode, stdout, stderr = 0, b"\x01\x00", b""
+    assert media_convert.to_pcm48k(b"x", runner=lambda *a, **k: P()) == b"\x01\x00"
+    P.returncode, P.stdout, P.stderr = 1, b"", b"Invalid data\n"
+    import pytest
+    with pytest.raises(ValueError, match="Invalid data"):
+        media_convert.to_pcm48k(b"x", runner=lambda *a, **k: P())
+    with pytest.raises(ValueError):
+        media_convert.to_pcm48k(b"")
+    def boom(*a, **k):
+        raise FileNotFoundError()
+    with pytest.raises(ValueError, match="ffmpeg"):
+        media_convert.to_pcm48k(b"x", runner=boom)

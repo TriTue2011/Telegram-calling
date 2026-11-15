@@ -49,3 +49,23 @@ def pcm_to_ogg_opus(pcm: bytes, runner=subprocess.run) -> bytes:
         err = (p.stderr or b"").decode("utf-8", "replace").strip().splitlines()[-1:] or ["không rõ"]
         raise ValueError("ffmpeg không đổi được PCM sang ogg/opus: " + err[0][:160])
     return p.stdout
+
+
+_TO_PCM_FFMPEG = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-i", "pipe:0", "-vn", "-t", str(MAX_SECONDS),
+                  "-f", "s16le", "-ar", "48000", "-ac", "1", "pipe:1"]
+
+
+def to_pcm48k(raw: bytes, runner=subprocess.run) -> bytes:
+    """Âm thanh bất kỳ (mp3, wav, ogg...) -> PCM s16le 48 kHz mono: định dạng đọc lời vào cuộc gọi (TTS của HA gửi lên)."""
+    if not raw:
+        raise ValueError("không có âm thanh")
+    try:
+        p = runner(_TO_PCM_FFMPEG, input=raw, capture_output=True, timeout=TIMEOUT_S)
+    except FileNotFoundError:
+        raise ValueError("máy chủ chưa có ffmpeg nên không đổi được âm thanh")
+    except subprocess.TimeoutExpired:
+        raise ValueError("đổi âm thanh quá %d giây" % TIMEOUT_S)
+    if p.returncode != 0 or not p.stdout:
+        err = (p.stderr or b"").decode("utf-8", "replace").strip().splitlines()[-1:] or ["không rõ"]
+        raise ValueError("ffmpeg không đọc được tệp âm thanh: " + err[0][:160])
+    return p.stdout

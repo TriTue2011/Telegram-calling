@@ -13,7 +13,7 @@ from .entity import TelegramCallEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddEntitiesCallback) -> None:
-    add([CallStateSensor(entry), LastMessageSensor(entry)])
+    add([CallStateSensor(entry), LastMessageSensor(entry), AccountSensor(entry)])
 
 
 class CallStateSensor(TelegramCallEntity, SensorEntity):
@@ -65,3 +65,24 @@ class LastMessageSensor(TelegramCallEntity, SensorEntity):
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_MESSAGE.format(self._entry.entry_id), self.async_write_ha_state))
+
+
+class AccountSensor(TelegramCallEntity, SensorEntity):
+    """«Trạng thái Telegram»: trạng thái tài khoản trên gateway (online, offline, đang đăng nhập…)."""
+    _attr_translation_key = "account"
+    _attr_icon = "mdi:account-check"
+
+    def __init__(self, entry: ConfigEntry) -> None:
+        super().__init__(entry, "account")
+        self._account = entry.runtime_data.account
+
+    @property
+    def native_value(self) -> str | None:
+        return (self._account.data or {}).get("status")
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {"display_name": (self._account.data or {}).get("display_name")}
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(self._account.async_add_listener(self.async_write_ha_state))

@@ -9,8 +9,9 @@ from homeassistant.helpers.storage import Store
 
 from .const import (CONF_CALL_VOLUME, CONF_CAMERA, CONF_HA_URL, CONF_MIC, CONF_MIC_URL, CONF_SPEAKER, DOMAIN, MAX_CALL_VOLUME,
                     STORAGE_VERSION)
+from .rules import RULES_KEY
 
-DEFAULTS: dict[str, Any] = {CONF_MIC: "", CONF_MIC_URL: "", CONF_CAMERA: "", CONF_HA_URL: "", CONF_SPEAKER: "", CONF_CALL_VOLUME: 0}
+DEFAULTS: dict[str, Any] = {CONF_MIC: "", CONF_MIC_URL: "", CONF_CAMERA: "", CONF_HA_URL: "", CONF_SPEAKER: "", CONF_CALL_VOLUME: 0, RULES_KEY: {}}
 _TEXT_KEYS = (CONF_MIC, CONF_MIC_URL, CONF_CAMERA, CONF_HA_URL, CONF_SPEAKER)
 
 
@@ -34,6 +35,8 @@ class DeviceDefaults:
                 self.data[CONF_CALL_VOLUME] = max(0, min(MAX_CALL_VOLUME, int(patch[CONF_CALL_VOLUME])))
             except (TypeError, ValueError):
                 pass
+        if isinstance(patch.get(RULES_KEY), dict):               # kho quy tắc (set_rule): thay nguyên khối, không trộn từng khoá
+            self.data[RULES_KEY] = patch[RULES_KEY]
         self.data[CONF_HA_URL] = self.data[CONF_HA_URL].rstrip("/")
 
     def get(self, key: str) -> Any:

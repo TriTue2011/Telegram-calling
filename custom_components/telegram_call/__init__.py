@@ -17,14 +17,19 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import TelegramCallAuthError, TelegramCallError, TelegramGatewayApi
 from .bridge import CallBridge
+from . import call_rules
 from .bridge_core import derive_state, redact
+from .call_rules import CallVoice
+from .contacts import ContactBook
 from .const import CONF_ACCOUNT, CONF_TOKEN, CONF_URL, DOMAIN, EVENT_STATE, POLL_BUSY_S, POLL_IDLE_S
 from .devices import DeviceDefaults
 from .messages import MessageFeed
+from .rules import get_rules
 from .services import async_register_services
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = ["sensor", "binary_sensor", "select", "text", "number", "button"]
+PLATFORMS = ["sensor", "binary_sensor", "select", "text", "number", "button", "notify"]
+ACCOUNT_POLL_S = 60
 TERMINAL = ("ended", "not_answered", "missed", "error")
 
 
@@ -35,6 +40,9 @@ class TelegramCallData:
     bridge: CallBridge
     defaults: DeviceDefaults
     messages: MessageFeed
+    voice: CallVoice
+    contacts: ContactBook
+    account: "AccountCoordinator"
 
 
 class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
@@ -48,6 +56,8 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
         self._was_active: set[str] = set()
         self.last_state: str = "idle"
         self.last_call: dict = {}
+        self.contacts: ContactBook | None = None
+        self.defaults: DeviceDefaults | None = None
 
     @staticmethod
     def is_live(call: dict) -> bool:
@@ -76,7 +86,7 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
             raise UpdateFailed(str(err)) from err
         if self.bridge is not None and self.bridge.policy.poll(True):
             self.hass.async_create_task(self.bridge.async_push_defaults())
-        events = self._on_calls(calls)
+        events = await self._on_calls(calls)
         busy = any(self.is_live(c) for c in calls)
         self.update_interval = timedelta(seconds=POLL_BUSY_S if busy else POLL_IDLE_S)
         # Bắn sự kiện SAU khi cảm biến đã có trạng thái mới (dữ liệu được đặt và các thực thể được ghi ngay sau khi hàm này trả về, cùng một lượt của vòng lặp):
@@ -86,10 +96,14 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
         return {"calls": calls}
 
     def _fire(self, events: list[dict]) -> None:
+        rt = getattr(self.config_entry, "runtime_data", None)
         for event in events:
             self.hass.bus.async_fire(EVENT_STATE, event)
+        for event in events:                                      # SAU khi sự kiện đã bắn: automation kịp gửi quy tắc (apply_call_rule) trong thời gian chờ chốt
+            if rt is not None:
+                call_rules.on_call_state(self.hass, rt, event["state"], event["call_id"], TERMINAL, event)
 
-    def _on_calls(self, calls: list[dict]) -> list[dict]:
+    async def _on_calls(self, calls: list[dict]) -> list[dict]:
         events: list[dict] = []
         for c in calls:
             cid = str(c.get("id"))
@@ -106,15 +120,43 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
                     self.hass.async_create_task(self.bridge.start(cid))
                 elif state in TERMINAL:
                     self.hass.async_create_task(self.bridge.stop(cid))
-            # Không đưa URL mic/camera (có thể chứa khoá) lên bus: chỉ thông tin cuộc gọi.
+            # Không đưa URL mic/camera (có thể chứa khoá) lên bus: chỉ thông tin cuộc gọi. Người gọi: quen/lạ, tên đã lưu, thẻ (cho quy tắc theo phạm vi, như zalo_call).
+            status, name = await self.contacts.async_lookup(c.get("user_id")) if self.contacts is not None else ("unknown", "")
+            tags = ((get_rules(self.defaults).get("contact_meta") or {}).get(str(c.get("user_id"))) or {}).get("tags", []) if self.defaults is not None else []
             events.append({
                 "state": state, "call_id": cid, "user_id": c.get("user_id"), "outgoing": bool(c.get("outgoing")),
-                "video": bool(c.get("video")), "seconds": c.get("seconds"), "error": redact(str(c.get("error") or ""))})
+                "video": bool(c.get("video")), "call_type": "video" if c.get("video") else "voice", "seconds": c.get("seconds"),
+                "contact_status": status, "name": name, "tags": list(tags), "error": redact(str(c.get("error") or ""))})
         ids = {str(c.get("id")) for c in calls}
         for old in [k for k in self._seen if k not in ids]:           # gateway chỉ giữ 10 cuộc gần nhất
             self._seen.pop(old, None)
             self._was_active.discard(old)
         return events
+
+
+class AccountCoordinator(DataUpdateCoordinator[dict]):
+    """Trạng thái đăng nhập của tài khoản Telegram trên gateway (60 giây một lần): online / offline / chờ đăng nhập…"""
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: TelegramGatewayApi) -> None:
+        super().__init__(hass, _LOGGER, name=f"{DOMAIN}_account", config_entry=entry, update_interval=timedelta(seconds=ACCOUNT_POLL_S))
+        self.api = api
+        self._phone = entry.data.get(CONF_ACCOUNT, "")
+
+    async def _async_update_data(self) -> dict:
+        try:
+            accounts = await self.api.accounts()
+        except TelegramCallAuthError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
+        except TelegramCallError as err:
+            raise UpdateFailed(str(err)) from err
+        mine = next((a for a in accounts if a.get("phone") == self._phone), None) or (accounts[0] if len(accounts) == 1 and not self._phone else None)
+        if mine is None:
+            return {"status": "missing", "display_name": ""}
+        return {"status": str(mine.get("status") or "unknown"), "display_name": str(mine.get("display_name") or "")}
+
+
+async def _async_reload_on_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -136,10 +178,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await defaults.async_load()
     bridge = CallBridge(hass, api, defaults)
     coordinator.bridge = bridge
+    coordinator.defaults, coordinator.contacts = defaults, ContactBook(api)
+    account = AccountCoordinator(hass, entry, api)
     messages = MessageFeed(hass, api, entry.entry_id)
-    entry.runtime_data = TelegramCallData(api, coordinator, bridge, defaults, messages)
+    entry.runtime_data = TelegramCallData(api, coordinator, bridge, defaults, messages, CallVoice(), coordinator.contacts, account)
     await coordinator.async_config_entry_first_refresh()
+    await account.async_refresh()                                  # lỗi tạm thời không chặn nạp tích hợp: cảm biến báo «không rõ» tới lần hỏi sau
+    hass.async_create_task(coordinator.contacts.async_lookup(0))   # làm nóng danh bạ: cuộc gọi đến đầu tiên không phải chờ tải
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_async_reload_on_options))
     hass.async_create_task(bridge.async_push_defaults())
     entry.async_create_background_task(hass, messages.run(), f"{DOMAIN}_messages")       # huỷ tự động khi gỡ mục cấu hình
     return True
@@ -148,5 +195,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if ok:
+        entry.runtime_data.voice.cancel_all()
         await entry.runtime_data.bridge.async_shutdown()          # trả âm lượng loa của cuộc gọi đang mở
     return ok

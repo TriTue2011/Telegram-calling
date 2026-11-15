@@ -59,6 +59,9 @@
       },
       "last_message": {
         "name": "Last message"
+      },
+      "account": {
+        "name": "Telegram status"
       }
     },
     "binary_sensor": {
@@ -67,11 +70,23 @@
       },
       "gateway": {
         "name": "Gateway"
+      },
+      "logged_in": {
+        "name": "Telegram logged in"
       }
     },
     "button": {
       "hangup": {
         "name": "Hang up"
+      },
+      "take_over": {
+        "name": "Talk directly"
+      },
+      "stop_mic": {
+        "name": "Mute call mic"
+      },
+      "stop_video": {
+        "name": "Stop video"
       }
     }
   },
@@ -591,6 +606,493 @@
           "description": "Only needed with several Telegram Call accounts."
         }
       }
+    },
+    "reject_call": {
+      "name": "Từ chối cuộc gọi",
+      "description": "Từ chối cuộc gọi Telegram đang đổ chuông.",
+      "fields": {
+        "call_id": {
+          "name": "Mã cuộc gọi",
+          "description": "Bỏ trống = cuộc gọi duy nhất đang có."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "end_call": {
+      "name": "Kết thúc cuộc gọi",
+      "description": "Cúp cuộc gọi Telegram đang diễn ra (cùng việc với hangup_call).",
+      "fields": {
+        "call_id": {
+          "name": "Mã cuộc gọi",
+          "description": "Bỏ trống = cuộc gọi duy nhất đang có."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "take_over_call": {
+      "name": "Người nhà nói trực tiếp",
+      "description": "Dừng lời nhắn, nối mic/loa/camera nhà (theo quy tắc của cuộc gọi hoặc thiết bị mặc định) để người nhà nói trực tiếp.",
+      "fields": {
+        "call_id": {
+          "name": "Mã cuộc gọi",
+          "description": "Bỏ trống = cuộc gọi duy nhất đang có."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "say_in_call": {
+      "name": "Đọc lời vào cuộc gọi",
+      "description": "Đọc một câu thành giọng vào cuộc gọi đang nói chuyện.",
+      "fields": {
+        "call_id": {
+          "name": "Mã cuộc gọi",
+          "description": "Bỏ trống = cuộc gọi duy nhất đang có."
+        },
+        "message": {
+          "name": "Nội dung",
+          "description": "Câu đọc thành giọng."
+        },
+        "tts_engine": {
+          "name": "Giọng đọc (TTS)",
+          "description": "Thực thể tts.* (trống = của pipeline hoặc mặc định)."
+        },
+        "language": {
+          "name": "Ngôn ngữ",
+          "description": "Ngôn ngữ giọng đọc."
+        },
+        "pipeline": {
+          "name": "Pipeline giọng đọc",
+          "description": "Assist pipeline dùng giọng TTS của nó để đọc thông báo/lời nhắn (tên hoặc id)."
+        },
+        "wait": {
+          "name": "Chờ đọc xong",
+          "description": "Chờ đọc xong mới trả về."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "alert_call": {
+      "name": "Gọi cảnh báo",
+      "description": "Gọi một người, đọc cảnh báo khi họ nghe máy rồi cúp / nối thiết bị nhà / giữ máy. Báo bằng sự kiện telegram_call_alert_done.",
+      "fields": {
+        "user_id": {
+          "name": "ID người dùng",
+          "description": "Số ID Telegram của người nhận."
+        },
+        "peer": {
+          "name": "Người nhận (@username hoặc +số)",
+          "description": "Dùng thay cho ID số."
+        },
+        "message": {
+          "name": "Nội dung",
+          "description": "Câu đọc thành giọng."
+        },
+        "video": {
+          "name": "Video",
+          "description": "Gọi video thay vì thoại."
+        },
+        "after": {
+          "name": "Sau khi đọc xong",
+          "description": "hangup = cúp · connect = nối thiết bị nhà đã chọn · wait = giữ máy. Trống: có thiết bị thì nối, không thì cúp."
+        },
+        "pipeline": {
+          "name": "Pipeline giọng đọc",
+          "description": "Assist pipeline dùng giọng TTS của nó để đọc thông báo/lời nhắn (tên hoặc id)."
+        },
+        "tts_engine": {
+          "name": "Giọng đọc (TTS)",
+          "description": "Thực thể tts.* (trống = của pipeline hoặc mặc định)."
+        },
+        "language": {
+          "name": "Ngôn ngữ",
+          "description": "Ngôn ngữ giọng đọc."
+        },
+        "repeat": {
+          "name": "Số lần đọc",
+          "description": "Đọc lời cảnh báo mấy lần (1-3)."
+        },
+        "mic": {
+          "name": "Mic",
+          "description": "Nguồn mic gửi cho người gọi (camera hoặc vệ tinh Assist)."
+        },
+        "mic_url": {
+          "name": "Mic URL",
+          "description": "Địa chỉ mic bất kỳ (thay cho ô Mic)."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "Camera cho cuộc gọi video."
+        },
+        "speaker": {
+          "name": "Loa",
+          "description": "Loa phát tiếng người gọi (loa R1 hoặc camera Imou/Dahua có cửa bộ đàm)."
+        },
+        "volume": {
+          "name": "Âm lượng loa",
+          "description": "Âm lượng loa lúc đang gọi; 0 = giữ nguyên."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "start_call_mic": {
+      "name": "Bật mic cuộc gọi",
+      "description": "Nối mic nhà mặc định vào cuộc gọi đang nói.",
+      "fields": {
+        "call_id": {
+          "name": "Mã cuộc gọi",
+          "description": "Bỏ trống = cuộc gọi duy nhất đang có."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "stop_call_mic": {
+      "name": "Tắt mic cuộc gọi",
+      "description": "Tắt mic nhà: người gọi chỉ nghe im lặng.",
+      "fields": {
+        "call_id": {
+          "name": "Mã cuộc gọi",
+          "description": "Bỏ trống = cuộc gọi duy nhất đang có."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "start_call_video": {
+      "name": "Bật hình cuộc gọi",
+      "description": "Gửi hình từ camera mặc định trong cuộc gọi video.",
+      "fields": {
+        "call_id": {
+          "name": "Mã cuộc gọi",
+          "description": "Bỏ trống = cuộc gọi duy nhất đang có."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "stop_call_video": {
+      "name": "Tắt hình cuộc gọi",
+      "description": "Tắt hình nhà gửi đi trong cuộc gọi video.",
+      "fields": {
+        "call_id": {
+          "name": "Mã cuộc gọi",
+          "description": "Bỏ trống = cuộc gọi duy nhất đang có."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "set_rule": {
+      "name": "Đặt quy tắc (lưu sẵn)",
+      "description": "Quy tắc lưu sẵn cho cuộc gọi đến theo người/thẻ/danh bạ/người lạ. Chỉ là bản dự phòng khi không có automation nào áp quy tắc bằng apply_call_rule.",
+      "fields": {
+        "scope": {
+          "name": "Phạm vi",
+          "description": "thread = một người (ID số) · tag = người mang một thẻ · contacts = người trong danh bạ · strangers = người lạ. Cụ thể hơn thì thắng."
+        },
+        "thread_id": {
+          "name": "ID người dùng",
+          "description": "ID số Telegram của người gọi (scope = thread)."
+        },
+        "tag": {
+          "name": "Thẻ",
+          "description": "Tên thẻ đã gắn bằng set_contact_tags (scope = tag)."
+        },
+        "name": {
+          "name": "Tên đọc ra loa",
+          "description": "Tên đọc khi báo cuộc gọi đến; trống = tên trong danh bạ Telegram."
+        },
+        "answer": {
+          "name": "Tự nghe máy",
+          "description": "Tự nghe máy sau answer_delay giây."
+        },
+        "answer_delay": {
+          "name": "Chờ trước khi nghe",
+          "description": "Số giây chờ trước khi tự nghe máy."
+        },
+        "call_types": {
+          "name": "Loại cuộc gọi",
+          "description": "Chỉ áp cho các loại cuộc gọi này (thoại / video)."
+        },
+        "pipeline": {
+          "name": "Pipeline giọng đọc",
+          "description": "Assist pipeline dùng giọng TTS của nó để đọc thông báo/lời nhắn (tên hoặc id)."
+        },
+        "greeting": {
+          "name": "Lời nhắn",
+          "description": "Đọc vào cuộc gọi ngay khi nghe máy."
+        },
+        "hangup_after": {
+          "name": "Đọc xong thì cúp",
+          "description": "Cần greeting."
+        },
+        "announce": {
+          "name": "Báo ra loa",
+          "description": "Có cuộc gọi đến thì loa trong nhà đọc thông báo (cần announce_to)."
+        },
+        "announce_to": {
+          "name": "Loa báo",
+          "description": "media_player báo cuộc gọi; nhiều loa cách nhau dấu phẩy."
+        },
+        "announce_text": {
+          "name": "Câu báo",
+          "description": "Dùng {ten} và {loai}. Trống = «Có cuộc gọi {loai} từ {ten}»."
+        },
+        "announce_repeat": {
+          "name": "Báo lại sau",
+          "description": "Số giây báo lại sau khi đọc xong; 0 = báo một lần."
+        },
+        "announce_volume": {
+          "name": "Âm lượng báo",
+          "description": "0 = giữ nguyên âm lượng loa."
+        },
+        "connect_now": {
+          "name": "Nối ngay khi nghe máy",
+          "description": "Thiết bị nhà nối NGAY khi nghe máy. Không tích = mic im lặng, video gửi hình đen."
+        },
+        "connect": {
+          "name": "Nối khi nói trực tiếp",
+          "description": "Thiết bị nhà nối khi người nhà bấm «Người nhà nói trực tiếp» (take_over_call)."
+        },
+        "speaker": {
+          "name": "Loa",
+          "description": "Loa phát tiếng người gọi (loa R1 hoặc camera Imou/Dahua có cửa bộ đàm)."
+        },
+        "mic": {
+          "name": "Mic",
+          "description": "Nguồn mic gửi cho người gọi (camera hoặc vệ tinh Assist)."
+        },
+        "mic_url": {
+          "name": "Mic URL",
+          "description": "Địa chỉ mic bất kỳ (thay cho ô Mic)."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "Camera cho cuộc gọi video."
+        },
+        "volume": {
+          "name": "Âm lượng loa",
+          "description": "Âm lượng loa lúc đang gọi; 0 = giữ nguyên."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "apply_call_rule": {
+      "name": "Áp quy tắc cho cuộc gọi này",
+      "description": "Gọi từ automation bắt sự kiện telegram_call_call_state: áp quy tắc của automation cho MỘT cuộc gọi (không lưu). Nhiều automation: quy tắc cụ thể nhất thắng.",
+      "fields": {
+        "call_id": {
+          "name": "Mã cuộc gọi",
+          "description": "Bỏ trống = cuộc gọi duy nhất đang có."
+        },
+        "scope": {
+          "name": "Phạm vi",
+          "description": "thread = một người (ID số) · tag = người mang một thẻ · contacts = người trong danh bạ · strangers = người lạ. Cụ thể hơn thì thắng."
+        },
+        "source": {
+          "name": "Nguồn",
+          "description": "Entity_id của automation áp quy tắc (chống áp lặp và ghi nhật ký). Dùng {{ this.entity_id }}."
+        },
+        "name": {
+          "name": "Tên đọc ra loa",
+          "description": "Tên đọc khi báo cuộc gọi đến; trống = tên trong danh bạ Telegram."
+        },
+        "answer": {
+          "name": "Tự nghe máy",
+          "description": "Tự nghe máy sau answer_delay giây."
+        },
+        "answer_delay": {
+          "name": "Chờ trước khi nghe",
+          "description": "Số giây chờ trước khi tự nghe máy."
+        },
+        "call_types": {
+          "name": "Loại cuộc gọi",
+          "description": "Chỉ áp cho các loại cuộc gọi này (thoại / video)."
+        },
+        "pipeline": {
+          "name": "Pipeline giọng đọc",
+          "description": "Assist pipeline dùng giọng TTS của nó để đọc thông báo/lời nhắn (tên hoặc id)."
+        },
+        "greeting": {
+          "name": "Lời nhắn",
+          "description": "Đọc vào cuộc gọi ngay khi nghe máy."
+        },
+        "hangup_after": {
+          "name": "Đọc xong thì cúp",
+          "description": "Cần greeting."
+        },
+        "announce": {
+          "name": "Báo ra loa",
+          "description": "Có cuộc gọi đến thì loa trong nhà đọc thông báo (cần announce_to)."
+        },
+        "announce_to": {
+          "name": "Loa báo",
+          "description": "media_player báo cuộc gọi; nhiều loa cách nhau dấu phẩy."
+        },
+        "announce_text": {
+          "name": "Câu báo",
+          "description": "Dùng {ten} và {loai}. Trống = «Có cuộc gọi {loai} từ {ten}»."
+        },
+        "announce_repeat": {
+          "name": "Báo lại sau",
+          "description": "Số giây báo lại sau khi đọc xong; 0 = báo một lần."
+        },
+        "announce_volume": {
+          "name": "Âm lượng báo",
+          "description": "0 = giữ nguyên âm lượng loa."
+        },
+        "connect_now": {
+          "name": "Nối ngay khi nghe máy",
+          "description": "Thiết bị nhà nối NGAY khi nghe máy. Không tích = mic im lặng, video gửi hình đen."
+        },
+        "connect": {
+          "name": "Nối khi nói trực tiếp",
+          "description": "Thiết bị nhà nối khi người nhà bấm «Người nhà nói trực tiếp» (take_over_call)."
+        },
+        "speaker": {
+          "name": "Loa",
+          "description": "Loa phát tiếng người gọi (loa R1 hoặc camera Imou/Dahua có cửa bộ đàm)."
+        },
+        "mic": {
+          "name": "Mic",
+          "description": "Nguồn mic gửi cho người gọi (camera hoặc vệ tinh Assist)."
+        },
+        "mic_url": {
+          "name": "Mic URL",
+          "description": "Địa chỉ mic bất kỳ (thay cho ô Mic)."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "Camera cho cuộc gọi video."
+        },
+        "volume": {
+          "name": "Âm lượng loa",
+          "description": "Âm lượng loa lúc đang gọi; 0 = giữ nguyên."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "remove_rule": {
+      "name": "Xoá quy tắc",
+      "description": "Xoá quy tắc lưu sẵn.",
+      "fields": {
+        "scope": {
+          "name": "Phạm vi",
+          "description": "thread = một người (ID số) · tag = người mang một thẻ · contacts = người trong danh bạ · strangers = người lạ. Cụ thể hơn thì thắng."
+        },
+        "thread_id": {
+          "name": "ID người dùng",
+          "description": "ID số Telegram của người gọi (scope = thread)."
+        },
+        "tag": {
+          "name": "Thẻ",
+          "description": "Tên thẻ đã gắn bằng set_contact_tags (scope = tag)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "list_rules": {
+      "name": "Liệt kê quy tắc",
+      "description": "Các quy tắc lưu sẵn, thẻ và ghi chú.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "set_contact_tags": {
+      "name": "Gắn thẻ cho người",
+      "description": "Gắn thẻ/ghi chú cho một người; thẻ có quy tắc riêng thì mọi người mang thẻ dùng quy tắc ấy.",
+      "fields": {
+        "thread_id": {
+          "name": "ID người dùng",
+          "description": "ID số Telegram của người gọi (scope = thread)."
+        },
+        "tags": {
+          "name": "Thẻ",
+          "description": "Các thẻ cách nhau dấu phẩy; rỗng = gỡ hết."
+        },
+        "note": {
+          "name": "Ghi chú",
+          "description": "Ghi chú về người này."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "get_default_devices": {
+      "name": "Thiết bị mặc định",
+      "description": "Mic/loa/camera và âm lượng mặc định của tích hợp (đã che khoá).",
+      "fields": {
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "list_contacts": {
+      "name": "Danh bạ Telegram",
+      "description": "Danh bạ Telegram (id + tên) để lấy ID cho quy tắc.",
+      "fields": {
+        "query": {
+          "name": "Từ khoá",
+          "description": "Lọc theo tên hoặc @username."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản Telegram Call",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Recipients for messages and calls",
+        "description": "Pick people from your Telegram contacts. Each one becomes a notify entity you can choose in blueprints and automations (no typing ids).",
+        "data": {
+          "recipients": "Recipients"
+        }
+      }
+    },
+    "abort": {
+      "cannot_connect": "Cannot load contacts from the gateway",
+      "not_loaded": "Integration is not loaded yet"
     }
   }
 }

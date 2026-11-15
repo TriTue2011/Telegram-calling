@@ -15,7 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 
 from .chat import ChatService, Feed
-from .media_convert import to_ogg_opus
+from .media_convert import to_ogg_opus, to_pcm48k
 from .live_call import CallRuntime, apply_defaults, sweep_stale_audio, valid_speaker_url
 from .errors import ApiError, bad_request, not_found
 from .tdclient import TelegramError
@@ -38,6 +38,7 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
     sweep_stale_audio(data_dir)       # tệp tiếng bên kia của lần chạy trước (CallRuntime chỉ tạo ở cuộc gọi đầu tiên)
 
     runtime: dict = {"rt": None}
+    app.state.live = runtime                      # kiểm thử thay runtime bằng bản giả
 
     def get_runtime():
         """NTgCalls chỉ nạp khi cần (lần đầu có tài khoản thật); lỗi nạp không làm hỏng phần nhắn tin."""
@@ -295,8 +296,8 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         for k in ("mic", "camera"):
             if k in b:
                 v = str(b[k] or "test").strip()
-                if v != "test" and not (v.startswith(("rtsp://", "rtsps://", "http://", "https://", "rtmp://")) or v.startswith("/")):
-                    raise bad_request(f"{k} phải là test, URL rtsp/http hoặc đường dẫn tệp.")
+                if v not in (("test", "silence") if k == "mic" else ("test", "black")) and not (v.startswith(("rtsp://", "rtsps://", "http://", "https://", "rtmp://")) or v.startswith("/")):
+                    raise bad_request(f"{k} phải là {'test, silence' if k == 'mic' else 'test, black'}, URL rtsp/http hoặc đường dẫn tệp.")
                 if "***@" not in v and "k=***" not in v:
                     s[k] = v
         if "speaker" in b:
@@ -338,7 +339,7 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         rt = get_runtime()
         try:
             d = load_settings()           # nguồn mặc định (có thể ghi đè từng cuộc bằng mic/camera/speaker trong body)
-            speaker = str(b.get("speaker") or d["speaker"]).strip()
+            speaker = str(b["speaker"] if "speaker" in b else d["speaker"] or "").strip()      # «speaker» có mặt mà rỗng = chủ động KHÔNG nối loa nào (cảnh báo)
             if speaker and not valid_speaker_url(speaker):
                 raise bad_request("speaker phải là địa chỉ cửa bộ đàm /api/r1_speaker|dahua_talk/intercom|duplex/<id>?k=<khoá>.")
             call = await run(rt.call_out, phone, clients[phone], user_id, bool(b.get("video", False)),
@@ -382,6 +383,73 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         asyncio.run_coroutine_threadsafe(c._set_playback(kind, str(b.get("cmd") or b.get("url") or "")), rt.loop)
         await asyncio.sleep(0.5)
         return c.info()
+
+    @app.post("/api/live/media")
+    async def live_media(request: Request):
+        """Đổi nguồn GỬI ĐI ngay trong cuộc gọi: ``mic`` ("silence" = tắt mic, "test", hoặc URL/tệp; kèm ``mic_format``), ``camera`` (nguồn hình),
+        ``camera_off`` (true = tắt hình). Dùng cho «người nhà nói trực tiếp», tắt mic, tắt hình, đọc lời nhắn vào cuộc gọi."""
+        auth(request)
+        b = await body_dict(request)
+        rt = runtime["rt"]
+        c = rt.calls.get(str(b.get("id"))) if rt else None
+        if c is None or c.state == "ended":
+            raise not_found("Không có cuộc gọi đang diễn ra này.")
+        kw = {}
+        for k, arg in (("mic", "mic"), ("camera", "cam")):
+            if k in b:
+                v = str(b[k] or "test").strip()
+                if v not in (("test", "silence") if k == "mic" else ("test", "black")) and not (v.startswith(("rtsp://", "rtsps://", "http://", "https://", "rtmp://")) or v.startswith("/")):
+                    raise bad_request(f"{k} phải là {'test, silence' if k == 'mic' else 'test, black'}, URL rtsp/http hoặc đường dẫn tệp.")
+                kw[arg] = v
+        if b.get("mic_format") in ("auto", "s16le16k"):
+            kw["mic_fmt"] = b["mic_format"]
+        if "camera_off" in b:
+            kw["cam_off"] = bool(b["camera_off"])
+        if not kw:
+            raise bad_request("Cần mic, camera hoặc camera_off.")
+        fut = asyncio.run_coroutine_threadsafe(c.set_capture(**kw), rt.loop)
+        try:
+            await asyncio.wait_for(asyncio.wrap_future(fut), 10)
+        except Exception as exc:  # noqa: BLE001 - lỗi NTgCalls báo lại rõ, không làm sập route
+            raise ApiError(502, "MEDIA_FAILED", "Không đổi được nguồn: %s" % type(exc).__name__)
+        return c.info()
+
+    @app.post("/api/live/say")
+    async def live_say(request: Request):
+        """Đọc lời VÀO cuộc gọi đang nói chuyện: ``audio_b64`` (tệp âm thanh bất kỳ, ví dụ giọng TTS của Home Assistant) HOẶC ``text`` (bộ TTS của gateway).
+        Trả ngay {seconds}: đoạn tiếng chạy nền, mic tự trả về như cũ khi đọc xong."""
+        import base64
+        import binascii
+        auth(request)
+        b = await body_dict(request)
+        rt = runtime["rt"]
+        c = rt.calls.get(str(b.get("id"))) if rt else None
+        text = str(b.get("text") or "").strip()
+        if not b.get("audio_b64") and (not text or len(text) > 1000):
+            raise bad_request("Cần audio_b64 hoặc text (1-1000 ký tự).")
+        if c is None or c.state != "active":
+            raise not_found("Không có cuộc gọi đang nói chuyện này.")
+        if b.get("audio_b64"):
+            try:
+                raw = base64.b64decode(b["audio_b64"], validate=True)
+            except (binascii.Error, ValueError):
+                raise bad_request("audio_b64 không phải base64 hợp lệ.")
+            if len(raw) > MAX_UPLOAD_BYTES:
+                raise bad_request("Âm thanh quá lớn.")
+            try:
+                pcm = await asyncio.to_thread(to_pcm48k, raw)
+            except ValueError as exc:
+                raise bad_request(str(exc))
+        else:
+            synth = getattr(app.state, "synthesizer", None)
+            if synth is None:
+                raise ApiError(501, "TTS_UNAVAILABLE", "Gateway chưa có bộ đọc giọng (TTS).")
+            try:
+                pcm = await asyncio.to_thread(synth.synthesize, text, str(b.get("voice") or ""), str(b.get("rate") or ""))
+            except Exception as exc:  # noqa: BLE001 - lỗi dịch vụ giọng báo rõ
+                raise ApiError(502, "TTS_FAILED", "Không đọc được giọng: %s" % type(exc).__name__)
+        rt.run(c.say(pcm))
+        return {"seconds": round(len(pcm) / 96000, 1)}
 
     @app.post("/api/live/accept")
     async def live_accept(request: Request):

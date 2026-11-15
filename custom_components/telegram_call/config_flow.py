@@ -5,7 +5,8 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -35,6 +36,11 @@ async def _check(hass, url: str, token: str) -> tuple[str | None, list[dict]]:
 
 class TelegramCallConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        return TelegramCallOptionsFlow()
 
     def __init__(self) -> None:
         self._url = self._token = ""
@@ -104,3 +110,24 @@ class TelegramCallConfigFlow(ConfigFlow, domain=DOMAIN):
                                                           data_updates={CONF_URL: url, CONF_TOKEN: user_input[CONF_TOKEN]})
         return self.async_show_form(step_id="reconfigure", errors=errors, data_schema=vol.Schema({
             vol.Required(CONF_URL, default=entry.data[CONF_URL]): str, vol.Required(CONF_TOKEN): _TOKEN}))
+
+
+class TelegramCallOptionsFlow(OptionsFlow):
+    """Chọn người từ danh bạ Telegram làm người nhận: mỗi người được chọn là một thực thể ``notify`` (xem notify.py) — như Zalo Call."""
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        rt = getattr(self.config_entry, "runtime_data", None)
+        if rt is None:
+            return self.async_abort(reason="not_loaded")
+        try:
+            rows = await rt.api.contacts()
+        except TelegramCallError:
+            return self.async_abort(reason="cannot_connect")
+        options = [selector.SelectOptionDict(value=str(r["id"]), label=str(r.get("name") or r.get("username") or r["id"])) for r in rows if r.get("id")]
+        valid = {o["value"] for o in options}
+        if user_input is not None:
+            return self.async_create_entry(data={**self.config_entry.options, "recipients": [v for v in user_input.get("recipients", []) if v in valid]})
+        current = [v for v in (self.config_entry.options.get("recipients") or []) if v in valid]
+        return self.async_show_form(step_id="init", data_schema=vol.Schema({
+            vol.Optional("recipients", default=current): selector.SelectSelector(selector.SelectSelectorConfig(
+                options=options, multiple=True, mode=selector.SelectSelectorMode.DROPDOWN, sort=True))}))

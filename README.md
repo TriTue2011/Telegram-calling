@@ -129,13 +129,49 @@ automation:
 
 **Nghe máy bằng thiết bị riêng.** `answer_call` nhận `speaker`, `mic` (hoặc `mic_url`), `camera`, `volume` như `make_call`: đặt cho cuộc này trước khi nghe, hết cuộc tự trả về thiết bị mặc định.
 
+#### Quy tắc cuộc gọi (giống Zalo Call)
+
+Cùng mô hình với `zalo_call`: **automation là chính, mỗi cuộc gọi đến kích hoạt automation** và automation gọi `telegram_call.apply_call_rule` cho đúng cuộc gọi đó. Quy tắc chỉ sống đúng một cuộc gọi (tắt hay xoá automation là hết quy tắc); nhiều automation cho cùng một người vẫn chạy đủ: quy tắc **cụ thể hơn thắng** (người > thẻ > danh bạ > người lạ), cùng bậc thì mỗi quy tắc báo ra loa của riêng nó, còn nghe máy / thiết bị / lời nhắn theo quy tắc đầu tiên bật `answer`. **Không có quy tắc = chỉ đổ chuông.**
+
+```yaml
+automation:
+  - alias: Telegram - nghe máy cuộc gọi của vợ
+    triggers:
+      - trigger: event
+        event_type: telegram_call_call_state
+        event_data: {state: incoming}
+    conditions: "{{ trigger.event.data.user_id == 123456789 }}"
+    actions:
+      - action: telegram_call.apply_call_rule
+        data:
+          call_id: "{{ trigger.event.data.call_id }}"
+          scope: thread                          # thread (người) · tag (thẻ) · contacts (danh bạ) · strangers (người lạ)
+          source: "{{ this.entity_id }}"         # chống áp lặp, ghi rõ ai thắng trong nhật ký
+          answer: true
+          answer_delay: 5
+          connect_now: [mic, speaker]            # nối NGAY khi nghe máy; không tích = mic im lặng (video: hình đen)
+          mic: assist_satellite.r1
+          speaker: media_player.r1_loa
+          volume: 40
+          announce: true                         # báo ra loa khi có cuộc gọi
+          announce_to: media_player.r1_loa
+```
+
+Sự kiện `telegram_call_call_state` mang thêm `contact_status` (`friend` có trong danh bạ Telegram · `stranger` · `unknown`), `name` (tên đã lưu), `tags` và `call_type` (`voice`/`video`) để automation chọn người. Trường quy tắc: `answer`, `answer_delay`, `call_types`, `connect_now` (nối ngay), `connect` (nối khi bấm «Người nhà nói trực tiếp»), `speaker`, `mic`, `mic_url`, `camera`, `volume`, `announce`, `announce_to`, `announce_text` (`{ten}`, `{loai}`), `announce_repeat`, `announce_volume`, `pipeline` (giọng đọc), `greeting` (lời nhắn đọc vào cuộc gọi khi nghe máy) và `hangup_after`. `set_rule` / `remove_rule` / `list_rules` lưu quy tắc sẵn làm **bản dự phòng** khi không automation nào áp quy tắc; `set_contact_tags` gắn thẻ cho người.
+
+Khác Zalo Call: **chưa có trợ lý AI trò chuyện** trong cuộc gọi (gateway chưa đưa tiếng bên kia cho HA) — thay bằng lời nhắn `greeting`; không có chuyển thoại sang video.
+
+**Điều khiển giữa cuộc gọi:** `take_over_call` (nút «Người nhà nói trực tiếp»: nối mic/loa/camera của quy tắc), `stop_call_mic` / `start_call_mic`, `stop_call_video` / `start_call_video`, `say_in_call` (đọc một câu vào cuộc gọi), `reject_call`, `end_call`, `alert_call` (gọi, đọc cảnh báo, rồi cúp / nối thiết bị nhà / giữ máy; báo bằng sự kiện `telegram_call_alert_done`). Trên thiết bị có các nút tương ứng, cảm biến *Đã đăng nhập Telegram* và *Trạng thái Telegram*.
+
+**Người nhận:** Cấu hình (bánh răng) → chọn người từ danh bạ Telegram; mỗi người là một thực thể `notify` (thuộc tính `user_id`) để chọn trong blueprint, không phải gõ ID.
+
 #### Blueprint (giống Zalo Call)
 
-Hai blueprint trong kho [Blueprint](https://github.com/TriTue2011/Blueprint) cho Telegram Call: **Quy tắc cho cuộc gọi đến** (`telegram_call_incoming_rule.yaml`: mỗi cuộc gọi đến kích hoạt automation, báo ra loa, tự nghe máy sau số giây đã đặt, chỉ người bạn liệt kê) và **Một nút bấm** (`telegram_call_nut_bam.yaml`: nghe / cúp / gọi đi). Các blueprint thông báo có Telegram Bot (`alarm_person_camera` 1–4, `calendar_weather_notification`, `ai_creat_image_weather_3`) có thêm ô **«Telegram Calling»** để gửi ảnh, video, tin nhắn qua tài khoản Telegram thật.
+Blueprint trong kho [Blueprint](https://github.com/TriTue2011/Blueprint): **Quy tắc cho cuộc gọi đến** (`telegram_call_incoming_rule.yaml`: gọi `apply_call_rule` cho từng cuộc, chọn người từ danh sách thực thể), **Một nút bấm** (`telegram_call_nut_bam.yaml`: nghe / cúp / gọi đi) và **Nút bấm mọi loại, nhiều việc** (`nut_bam_nhieu_viec.yaml`: thêm việc tuỳ ý, chọn theo cảm biến đổi gần nhất). Các blueprint thông báo có Telegram Bot (`alarm_person_camera` 1–4, `calendar_weather_notification`, `ai_creat_image_weather_3`) có thêm ô **«Telegram Calling»** để gửi ảnh, video, tin nhắn qua tài khoản Telegram thật.
 
 Dịch vụ gửi tin nhận cùng mẫu dữ liệu với `telegram_bot` (`config_entry_id` rỗng, `chat_id` hoặc `target`, `message_thread_id` được bỏ qua, `parse_mode` đổi thành `format`) và có `send_media_group` (nhiều ảnh/video một lệnh, gửi lần lượt từng tệp), nên một mẫu dùng được cho cả hai.
 
-Loa, mic, camera, âm lượng mặc định đặt ngay trên thiết bị **Telegram Call** (ô chọn *Loa mặc định*, *Mic*, *Camera*, *Âm lượng cuộc gọi*), `make_call`/`answer_call` chỉ cần ghi đè khi muốn khác.
+Loa, mic, camera, âm lượng mặc định đặt ngay trên thiết bị **Telegram Call** (ô chọn *Loa mặc định*, *Mic*, *Camera*, *Âm lượng cuộc gọi*), `make_call`/`answer_call` chỉ cần ghi đè khi muốn khác. Quy tắc của automation chỉ nối thiết bị đã tích ở `connect_now` / `connect`.
 
 ### Nhắn tin và nhận tin
 

@@ -181,15 +181,17 @@ class CallBridge:
             self.policy.pushed(False)
 
     # -- âm lượng loa theo cuộc gọi -------------------------------------------------------------------------
-    async def async_apply_override(self, call_id: Any, override: dict[str, Any]) -> None:
-        """Nghe máy một cuộc gọi ĐẾN bằng thiết bị riêng (loa/mic/camera/âm lượng do automation chọn): đặt chúng làm thiết bị hiện hành của gateway TRƯỚC khi nghe máy
-        (cuộc gọi đến luôn dùng thiết bị hiện hành), nhớ để trả về mặc định khi cuộc gọi kết thúc (``stop``)."""
+    async def async_apply_override(self, call_id: Any, override: dict[str, Any], held: bool = False) -> None:
+        """Nghe máy một cuộc gọi ĐẾN bằng thiết bị riêng (loa/mic/camera/âm lượng do automation hoặc quy tắc chọn): đặt chúng làm thiết bị hiện hành của gateway TRƯỚC khi nghe máy
+        (cuộc gọi đến luôn dùng thiết bị hiện hành), nhớ để trả về mặc định khi cuộc gọi kết thúc (``stop``).
+        ``held`` (nghe máy theo quy tắc): mic/camera KHÔNG chọn thì gửi im lặng / hình đen thay vì âm/hình thử của gateway."""
         self.remember(call_id, override)
-        if not any(override.get(k) for k in DEVICE_KEYS):
+        if not held and not any(override.get(k) for k in DEVICE_KEYS):
             return                                              # chỉ có âm lượng: không đụng thiết bị của gateway
         devices = self.devices_for(override)
         res = await self.async_resolve(devices)
-        payload: dict[str, Any] = {"mic": res["mic_url"] or "test", "mic_format": res["mic_format"], "camera": res["camera_url"] or "test",
+        none_mic, none_cam = ("silence", "black") if held else ("test", "test")
+        payload: dict[str, Any] = {"mic": res["mic_url"] or none_mic, "mic_format": res["mic_format"], "camera": res["camera_url"] or none_cam,
                                    "speaker": res["speaker_url"]}
         await self.api.set_live_settings(payload)
         self._restore_defaults.add(str(call_id))

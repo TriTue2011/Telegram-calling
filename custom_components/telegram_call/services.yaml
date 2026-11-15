@@ -389,3 +389,459 @@ download_file:
       selector: *id006
     config_entry_id:
       selector: *id006
+reject_call:
+  fields:
+    call_id:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+end_call:
+  fields:
+    call_id:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+take_over_call:
+  fields:
+    call_id:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+say_in_call:
+  fields:
+    call_id:
+      selector:
+        text: null
+    message:
+      required: true
+      selector:
+        text:
+          multiline: true
+    tts_engine:
+      selector:
+        entity:
+          domain: tts
+    language:
+      selector:
+        text: null
+    pipeline:
+      selector:
+        text: null
+    wait:
+      selector:
+        boolean: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+alert_call:
+  fields:
+    user_id:
+      selector:
+        number:
+          min: 1
+          max: 9007199254740991
+          mode: box
+    peer:
+      selector:
+        text: null
+    message:
+      required: true
+      selector:
+        text:
+          multiline: true
+    video:
+      selector:
+        boolean: null
+    after:
+      selector:
+        select:
+          options:
+          - hangup
+          - connect
+          - wait
+          mode: dropdown
+    pipeline:
+      selector:
+        text: null
+    tts_engine:
+      selector:
+        entity:
+          domain: tts
+    language:
+      selector:
+        text: null
+    repeat:
+      selector:
+        number:
+          min: 1
+          max: 3
+          mode: box
+    mic:
+      selector:
+        entity:
+          domain:
+          - camera
+          - assist_satellite
+    mic_url:
+      selector:
+        text: null
+    camera:
+      selector:
+        entity:
+          domain: camera
+    speaker:
+      selector:
+        entity:
+          domain: media_player
+    volume:
+      selector:
+        number:
+          min: 0
+          max: 100
+          mode: slider
+          unit_of_measurement: '%'
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+start_call_mic:
+  fields:
+    call_id:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+stop_call_mic:
+  fields:
+    call_id:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+start_call_video:
+  fields:
+    call_id:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+stop_call_video:
+  fields:
+    call_id:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+set_rule:
+  fields:
+    scope:
+      required: true
+      selector:
+        select:
+          options:
+          - thread
+          - tag
+          - contacts
+          - strangers
+          mode: dropdown
+    thread_id:
+      selector:
+        text: null
+    tag:
+      selector:
+        text: null
+    name:
+      selector:
+        text: null
+    answer:
+      selector:
+        boolean: null
+    answer_delay:
+      selector:
+        number:
+          min: 0
+          max: 120
+          mode: slider
+          unit_of_measurement: s
+    call_types:
+      selector:
+        select:
+          options:
+          - voice
+          - video
+          mode: list
+          multiple: true
+    pipeline:
+      selector:
+        text: null
+    greeting:
+      selector:
+        text:
+          multiline: true
+    hangup_after:
+      selector:
+        boolean: null
+    announce:
+      selector:
+        boolean: null
+    announce_to:
+      selector:
+        text: null
+    announce_text:
+      selector:
+        text: null
+    announce_repeat:
+      selector:
+        number:
+          min: 0
+          max: 60
+          mode: slider
+          unit_of_measurement: s
+    announce_volume:
+      selector:
+        number:
+          min: 0
+          max: 100
+          mode: slider
+          unit_of_measurement: '%'
+    connect_now:
+      selector:
+        select:
+          options:
+          - mic
+          - speaker
+          - camera
+          mode: list
+          multiple: true
+    connect:
+      selector:
+        select:
+          options:
+          - mic
+          - speaker
+          - camera
+          mode: list
+          multiple: true
+    speaker:
+      selector:
+        entity:
+          domain: media_player
+    mic:
+      selector:
+        entity:
+          domain:
+          - camera
+          - assist_satellite
+    mic_url:
+      selector:
+        text: null
+    camera:
+      selector:
+        entity:
+          domain: camera
+    volume:
+      selector:
+        number:
+          min: 0
+          max: 100
+          mode: slider
+          unit_of_measurement: '%'
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+apply_call_rule:
+  fields:
+    call_id:
+      required: true
+      selector:
+        text: null
+    scope:
+      selector:
+        select:
+          options:
+          - thread
+          - tag
+          - contacts
+          - strangers
+          mode: dropdown
+    source:
+      selector:
+        text: null
+    name:
+      selector:
+        text: null
+    answer:
+      selector:
+        boolean: null
+    answer_delay:
+      selector:
+        number:
+          min: 0
+          max: 120
+          mode: slider
+          unit_of_measurement: s
+    call_types:
+      selector:
+        select:
+          options:
+          - voice
+          - video
+          mode: list
+          multiple: true
+    pipeline:
+      selector:
+        text: null
+    greeting:
+      selector:
+        text:
+          multiline: true
+    hangup_after:
+      selector:
+        boolean: null
+    announce:
+      selector:
+        boolean: null
+    announce_to:
+      selector:
+        text: null
+    announce_text:
+      selector:
+        text: null
+    announce_repeat:
+      selector:
+        number:
+          min: 0
+          max: 60
+          mode: slider
+          unit_of_measurement: s
+    announce_volume:
+      selector:
+        number:
+          min: 0
+          max: 100
+          mode: slider
+          unit_of_measurement: '%'
+    connect_now:
+      selector:
+        select:
+          options:
+          - mic
+          - speaker
+          - camera
+          mode: list
+          multiple: true
+    connect:
+      selector:
+        select:
+          options:
+          - mic
+          - speaker
+          - camera
+          mode: list
+          multiple: true
+    speaker:
+      selector:
+        entity:
+          domain: media_player
+    mic:
+      selector:
+        entity:
+          domain:
+          - camera
+          - assist_satellite
+    mic_url:
+      selector:
+        text: null
+    camera:
+      selector:
+        entity:
+          domain: camera
+    volume:
+      selector:
+        number:
+          min: 0
+          max: 100
+          mode: slider
+          unit_of_measurement: '%'
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+remove_rule:
+  fields:
+    scope:
+      required: true
+      selector:
+        select:
+          options:
+          - thread
+          - tag
+          - contacts
+          - strangers
+          mode: dropdown
+    thread_id:
+      selector:
+        text: null
+    tag:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+list_rules:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+set_contact_tags:
+  fields:
+    thread_id:
+      required: true
+      selector:
+        text: null
+    tags:
+      selector:
+        text: null
+    note:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+get_default_devices:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+list_contacts:
+  fields:
+    query:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call

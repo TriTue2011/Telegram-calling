@@ -16,7 +16,10 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from . import call_rules
 from .api import TelegramCallError
+from .rules import (CALL_TYPES, CONNECT, MAX_ANNOUNCE_REPEAT, MAX_NOTE_LEN, RULES_KEY, SCOPES, RuleError, get_rules, normalize as normalize_rule,
+                    parse_tags, validate_scope)
 from .bridge_core import redact
 from .const import DOMAIN
 
@@ -39,6 +42,38 @@ ANSWER_CALL = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string,         
                           vol.Optional("mic"): cv.string, vol.Optional("mic_url"): cv.string, vol.Optional("camera"): cv.string,
                           vol.Optional("speaker"): cv.string,
                           vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100))})
+
+_RULE_FIELDS = ("name", "answer", "answer_delay", "call_types", "pipeline", "greeting", "hangup_after", "announce", "announce_to", "announce_text", "announce_repeat",
+                "announce_volume", "connect_now", "connect", "speaker", "mic", "mic_url", "camera", "volume")
+_RULE = {vol.Optional("name"): cv.string, vol.Optional("answer"): cv.boolean,
+         vol.Optional("answer_delay"): vol.All(vol.Coerce(int), vol.Range(min=0, max=120)),
+         vol.Optional("call_types"): vol.All(cv.ensure_list, [vol.In(list(CALL_TYPES))]),
+         vol.Optional("pipeline"): cv.string, vol.Optional("greeting"): cv.string, vol.Optional("hangup_after"): cv.boolean,
+         vol.Optional("announce"): cv.boolean, vol.Optional("announce_to"): cv.string, vol.Optional("announce_text"): cv.string,
+         vol.Optional("announce_repeat"): vol.All(vol.Coerce(int), vol.Range(min=0, max=MAX_ANNOUNCE_REPEAT)),
+         vol.Optional("announce_volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+         vol.Optional("connect_now"): vol.All(cv.ensure_list, [vol.In(list(CONNECT))]),
+         vol.Optional("connect"): vol.All(cv.ensure_list, [vol.In(list(CONNECT))]),
+         vol.Optional("speaker"): cv.string, vol.Optional("mic"): cv.string, vol.Optional("mic_url"): cv.string, vol.Optional("camera"): cv.string,
+         vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100))}
+_SCOPE_KEY = {vol.Optional("thread_id"): vol.Any(int, cv.string), vol.Optional("tag"): cv.string}
+SET_RULE = vol.Schema({**_ENTRY, vol.Required("scope"): vol.In(list(SCOPES)), **_SCOPE_KEY, **_RULE})
+APPLY_RULE = vol.Schema({**_ENTRY, vol.Required("call_id"): vol.Any(int, cv.string), vol.Optional("scope", default="thread"): vol.In(list(SCOPES)),
+                         vol.Optional("source"): cv.string, **_RULE})
+REMOVE_RULE = vol.Schema({**_ENTRY, vol.Required("scope"): vol.In(list(SCOPES)), **_SCOPE_KEY})
+CONTACT_TAGS = vol.Schema({**_ENTRY, vol.Required("thread_id"): vol.Any(int, cv.string), vol.Optional("tags"): vol.Any(cv.string, [cv.string]),
+                           vol.Optional("note"): cv.string})
+CALL_ONLY = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string})
+SAY_IN_CALL = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string, vol.Required("message"): cv.string, vol.Optional("tts_engine"): cv.entity_id,
+                          vol.Optional("language"): cv.string, vol.Optional("pipeline"): cv.string, vol.Optional("wait", default=True): cv.boolean})
+ALERT_CALL = vol.All(cv.has_at_least_one_key("user_id", "peer"), vol.Schema({
+    **_ENTRY, vol.Optional("user_id"): vol.All(vol.Coerce(int), vol.Range(min=1)), vol.Optional("peer"): cv.string,
+    vol.Required("message"): cv.string, vol.Optional("video", default=False): cv.boolean,
+    vol.Optional("after"): vol.In(["hangup", "connect", "wait"]), vol.Optional("pipeline"): cv.string, vol.Optional("tts_engine"): cv.entity_id,
+    vol.Optional("language"): cv.string, vol.Optional("repeat", default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=3)),
+    vol.Optional("mic"): cv.string, vol.Optional("mic_url"): cv.string, vol.Optional("camera"): cv.string, vol.Optional("speaker"): cv.string,
+    vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100))}))
+NO_ARGS = vol.Schema({**_ENTRY})
 
 # Tương thích với dịch vụ gửi tin của ``telegram_bot`` của HA: cùng một mẫu dữ liệu dùng được cho cả hai (blueprint gửi qua bot và qua Telegram Call).
 # ``message_thread_id`` (chủ đề trong nhóm) chưa hỗ trợ nên bỏ qua; ``parse_mode`` đổi thành ``format``.
@@ -217,6 +252,174 @@ def async_register_services(hass: HomeAssistant) -> None:
         await _refresh(hass, call)
         return res
 
+    async def end_or_reject(call: ServiceCall, incoming: bool) -> ServiceResponse:
+        async def go(rt):
+            cid = await _pick(rt, call, incoming)
+            return _public(await rt.api.hangup(cid))              # cúp một cuộc gọi đến đang đổ chuông = từ chối
+        res = await run(call, go)
+        await _refresh(hass, call)
+        return res
+
+    async def reject_call(call: ServiceCall) -> ServiceResponse:
+        return await end_or_reject(call, True)
+
+    async def take_over_call(call: ServiceCall) -> ServiceResponse:
+        async def go(rt):
+            return await call_rules.async_take_over(hass, rt, call.data.get("call_id"))
+        return await run(call, go)
+
+    def _mute(target: str):
+        async def handler(call: ServiceCall) -> ServiceResponse:
+            async def go(rt):
+                return await call_rules.async_mute(rt, call.data.get("call_id"), target)
+            return await run(call, go)
+        return handler
+
+    def _start(target: str):
+        async def handler(call: ServiceCall) -> ServiceResponse:
+            async def go(rt):
+                cid = await call_rules._active_call_id(rt, call.data.get("call_id"))
+                res = await rt.bridge.async_resolve(rt.bridge.devices_for())
+                if target == "mic":
+                    await rt.api.live_media(cid, mic=res["mic_url"] or "test", mic_format=res["mic_format"])
+                else:
+                    await rt.api.live_media(cid, camera=res["camera_url"] or "test", camera_off=False)
+                return {"call_id": cid, "started": target}
+            return await run(call, go)
+        return handler
+
+    def _tts_of(rt_call: ServiceCall) -> tuple:
+        engine = rt_call.data.get("tts_engine")
+        language, options = rt_call.data.get("language"), None
+        if rt_call.data.get("pipeline"):
+            p_engine, p_lang, options = call_rules.pipeline_tts(hass, rt_call.data["pipeline"])
+            engine, language = engine or p_engine, language or p_lang
+        return engine, language, options
+
+    async def say_in_call(call: ServiceCall) -> ServiceResponse:
+        async def go(rt):
+            cid = await call_rules._active_call_id(rt, call.data.get("call_id"))
+            engine, language, options = _tts_of(call)
+            seconds = await call_rules.async_say(hass, rt, cid, call.data["message"], engine, language, options, wait=call.data["wait"])
+            return {"call_id": cid, "seconds": seconds}
+        return await run(call, go)
+
+    async def alert_call(call: ServiceCall) -> ServiceResponse:
+        override = {k: call.data[k] for k in ("mic", "mic_url", "camera", "speaker", "volume") if k in call.data}
+        message = str(call.data["message"]).strip()
+        if not message:
+            raise ServiceValidationError("message (nội dung cảnh báo) không được trống")
+
+        async def go(rt):
+            held = call_rules.rule_override({}, [])                     # lúc nghe máy mọi thiết bị nhà TẮT; chỉ nối sau khi đọc cảnh báo
+            rt.bridge.remember(None, held)
+            fields = await rt.bridge.async_call_fields(held)
+            fields = {**fields, "mic": fields.get("mic") or "silence"}
+            if call.data["video"]:
+                fields["camera"] = fields.get("camera") or "black"
+            info = await rt.api.live_call(call.data.get("user_id") or str(call.data["peer"]).strip(), call.data["video"], **{
+                "mic": fields.get("mic"), "mic_format": fields.get("mic_format"), "camera": fields.get("camera"), "speaker": ""})
+            engine, language, options = _tts_of(call)
+            cid = str(info.get("id"))
+            rt.voice.tasks[cid] = hass.async_create_task(call_rules.async_run_alert(
+                hass, rt, cid, info.get("user_id"), message, call.data["repeat"], call.data.get("after") or "", engine, language, options, override or None))
+            return _public(info)
+        res = await run(call, go)
+        await _refresh(hass, call)
+        return res
+
+    # -- quy tắc (cùng mô hình với zalo_call) ---------------------------------------------------------------
+    def _rules_copy(rt) -> dict:
+        r = get_rules(rt.defaults)
+        return {"threads": {k: dict(v) for k, v in r["threads"].items()}, "contacts": dict(r["contacts"]), "strangers": dict(r["strangers"]),
+                "tags": {k: dict(v) for k, v in r["tags"].items()}, "contact_meta": {k: dict(v) for k, v in r["contact_meta"].items()}}
+
+    def _rule_of(call: ServiceCall) -> dict:
+        data = {k: call.data[k] for k in _RULE_FIELDS if k in call.data}
+        try:
+            return normalize_rule(data, None)
+        except RuleError as err:
+            raise ServiceValidationError(str(err)) from err
+
+    def _key(call: ServiceCall) -> str:
+        try:
+            return validate_scope(call.data["scope"], call.data.get("thread_id"), call.data.get("tag"))
+        except RuleError as err:
+            raise ServiceValidationError(str(err)) from err
+
+    async def set_rule(call: ServiceCall) -> ServiceResponse:
+        """Quy tắc LƯU SẴN (bản dự phòng khi không automation nào áp quy tắc). Trường không nêu thì giữ như cũ; quy tắc mới: mặc định TẮT hết."""
+        rt = _entry(hass, call).runtime_data
+        scope, key = call.data["scope"], _key(call)
+        rules = _rules_copy(rt)
+        old = rules["threads"].get(key) if scope == "thread" else rules["tags"].get(key) if scope == "tag" else (rules[scope] or None)
+        try:
+            rule = normalize_rule({k: call.data[k] for k in _RULE_FIELDS if k in call.data}, old)
+        except RuleError as err:
+            raise ServiceValidationError(str(err)) from err
+        if scope == "thread":
+            rules["threads"][key] = rule
+        elif scope == "tag":
+            rules["tags"][key] = rule
+        else:
+            rules[scope] = rule
+        await rt.defaults.async_set(**{RULES_KEY: rules})
+        return {"scope": scope, "thread_id": key if scope == "thread" else "", "tag": key if scope == "tag" else "", "rule": rule}
+
+    async def apply_call_rule(call: ServiceCall) -> ServiceResponse:
+        """Một automation áp quy tắc của nó cho MỘT cuộc gọi đang diễn ra (gọi từ automation bắt sự kiện telegram_call_call_state). Không lưu gì: quy tắc chỉ có hiệu lực cho
+        cuộc gọi này, nên tắt/xoá automation là hết quy tắc. Nhiều automation cùng khớp: quy tắc cụ thể hơn (scope) thay quy tắc kém hơn; cùng bậc thì mỗi quy tắc báo ra
+        loa của riêng nó, còn nghe máy/thiết bị/lời nhắn theo quy tắc đầu tiên bật `answer`."""
+        rt = _entry(hass, call).runtime_data
+        scope = call.data["scope"]
+        status = await call_rules.async_apply_claim(hass, rt, call.data["call_id"], call_rules.Claim(
+            _rule_of(call), SCOPES.index(scope), str(call.data.get("source") or "")))
+        return {"call_id": str(call.data["call_id"]), "scope": scope, "status": status}
+
+    async def remove_rule(call: ServiceCall) -> ServiceResponse:
+        rt = _entry(hass, call).runtime_data
+        scope, key = call.data["scope"], _key(call)
+        rules = _rules_copy(rt)
+        if scope == "thread":
+            removed = rules["threads"].pop(key, None) is not None
+        elif scope == "tag":
+            removed = rules["tags"].pop(key, None) is not None
+        else:
+            removed = bool(rules[scope])
+            rules[scope] = {}
+        await rt.defaults.async_set(**{RULES_KEY: rules})
+        return {"scope": scope, "thread_id": key if scope == "thread" else "", "tag": key if scope == "tag" else "", "removed": removed}
+
+    async def list_rules(call: ServiceCall) -> ServiceResponse:
+        r = get_rules(_entry(hass, call).runtime_data.defaults)
+        return {"threads": r["threads"], "contacts": r["contacts"] or None, "strangers": r["strangers"] or None, "tags": r["tags"], "contact_meta": r["contact_meta"]}
+
+    async def set_contact_tags(call: ServiceCall) -> ServiceResponse:
+        """Gắn thẻ và/hoặc ghi chú cho một người. Thẻ có quy tắc riêng (set_rule scope = tag) thì mọi người mang thẻ đó dùng quy tắc ấy."""
+        rt = _entry(hass, call).runtime_data
+        try:
+            uid = validate_scope("thread", call.data["thread_id"])
+        except RuleError as err:
+            raise ServiceValidationError(str(err)) from err
+        rules = _rules_copy(rt)
+        meta = dict(rules["contact_meta"].get(uid) or {})
+        if "tags" in call.data:
+            meta["tags"] = parse_tags(call.data["tags"])
+        if "note" in call.data:
+            meta["note"] = str(call.data["note"] or "").strip()[:MAX_NOTE_LEN]
+        if meta.get("tags") or meta.get("note"):
+            rules["contact_meta"][uid] = {"tags": meta.get("tags") or [], "note": meta.get("note") or ""}
+        else:
+            rules["contact_meta"].pop(uid, None)
+        await rt.defaults.async_set(**{RULES_KEY: rules})
+        out = rules["contact_meta"].get(uid) or {"tags": [], "note": ""}
+        return {"thread_id": uid, "tags": out["tags"], "note": out["note"]}
+
+    async def get_default_devices(call: ServiceCall) -> ServiceResponse:
+        rt = _entry(hass, call).runtime_data
+        devices = rt.bridge.devices_for()
+        return {"devices": {k: ("***" if k == "mic_url" and v else v) for k, v in devices.items()}, "call_volume": rt.bridge.volume_for(None)}
+
     async def chat_of(rt, d: dict) -> int:
         """chat_id đã cho, hoặc tra từ peer (@username, +số, ID số)."""
         if d.get("chat_id") is not None:
@@ -345,6 +548,22 @@ def async_register_services(hass: HomeAssistant) -> None:
     for name, fn, schema, resp in (("make_call", make_call, MAKE_CALL, R),
                                    ("answer_call", answer_call, ANSWER_CALL, R),
                                    ("hangup_call", hangup_call, CALL_ID, R),
+                                   ("end_call", hangup_call, CALL_ID, R),
+                                   ("reject_call", reject_call, CALL_ONLY, R),
+                                   ("take_over_call", take_over_call, CALL_ONLY, R),
+                                   ("say_in_call", say_in_call, SAY_IN_CALL, R),
+                                   ("alert_call", alert_call, ALERT_CALL, R),
+                                   ("start_call_mic", _start("mic"), CALL_ONLY, R),
+                                   ("stop_call_mic", _mute("mic"), CALL_ONLY, R),
+                                   ("start_call_video", _start("video"), CALL_ONLY, R),
+                                   ("stop_call_video", _mute("video"), CALL_ONLY, R),
+                                   ("set_rule", set_rule, SET_RULE, R),
+                                   ("apply_call_rule", apply_call_rule, APPLY_RULE, R),
+                                   ("remove_rule", remove_rule, REMOVE_RULE, R),
+                                   ("list_rules", list_rules, NO_ARGS, SupportsResponse.ONLY),
+                                   ("set_contact_tags", set_contact_tags, CONTACT_TAGS, R),
+                                   ("get_default_devices", get_default_devices, NO_ARGS, SupportsResponse.ONLY),
+                                   ("list_contacts", get_contacts, CONTACTS, SupportsResponse.ONLY),
                                    ("send_message", send_message, SEND, R),
                                    ("send_file", send_file, SEND_FILE, R),
                                    ("send_photo", fixed_kind("photo"), SEND_FILE, R),

@@ -71,9 +71,11 @@ class TelegramGatewayApi:
             body["user_id"] = int(target)
         else:
             body["peer"] = str(target).strip()
-        for k, v in (("mic", mic), ("mic_format", mic_format), ("camera", camera), ("speaker", speaker)):
+        for k, v in (("mic", mic), ("mic_format", mic_format), ("camera", camera)):
             if v:
                 body[k] = v
+        if speaker is not None:                      # rỗng = chủ động không nối loa nào (không rơi về loa mặc định)
+            body["speaker"] = speaker
         return await self._request("POST", "/api/live/call", json=body)
 
     async def accept(self, call_id: str) -> dict:
@@ -81,6 +83,31 @@ class TelegramGatewayApi:
 
     async def hangup(self, call_id: str) -> dict:
         return await self._request("POST", "/api/live/hangup", json={"id": call_id})
+
+    async def live_media(self, call_id: str, **body: Any) -> dict:
+        """Đổi nguồn GỬI ĐI giữa cuộc gọi: ``mic`` ("silence" = tắt mic), ``mic_format``, ``camera``, ``camera_off``."""
+        return await self._request("POST", "/api/live/media", json={"id": call_id, **{k: v for k, v in body.items() if v is not None}})
+
+    async def live_say(self, call_id: str, text: str = "", audio: bytes | None = None, voice: str = "", rate: str = "") -> dict:
+        """Đọc lời vào cuộc gọi đang nói: ``audio`` (tệp âm thanh bất kỳ, ví dụ TTS của HA) hoặc ``text`` (TTS của gateway). Trả {seconds}."""
+        body: dict[str, Any] = {"id": call_id}
+        if audio:
+            import base64
+            body["audio_b64"] = base64.b64encode(audio).decode("ascii")
+        else:
+            body["text"] = text
+            if voice:
+                body["voice"] = voice
+            if rate:
+                body["rate"] = rate
+        return await self._request("POST", "/api/live/say", json=body, timeout=aiohttp.ClientTimeout(total=90))
+
+    async def live_playback(self, call_id: str, kind: str, url: str = "") -> dict:
+        """Đổi cách nhận tiếng bên kia giữa cuộc gọi: kind ``push`` + url cửa bộ đàm của loa (r1_speaker / dahua_talk)."""
+        body: dict[str, Any] = {"id": call_id, "kind": kind}
+        if url:
+            body["url"] = url
+        return await self._request("POST", "/api/live/playback", json=body)
 
     async def set_live_settings(self, patch: dict[str, Any]) -> None:
         """Đặt thiết bị MẶC ĐỊNH của gateway (``mic``, ``mic_format``, ``camera``, ``speaker``). Trường vắng = gateway giữ giá trị cũ."""

@@ -36,9 +36,12 @@ MAX_ENDED_CALLS = 20          # cuộc gọi đã kết thúc giữ lại để 
 def mic_command(spec: str, fmt: str = "auto") -> str:
     """Lệnh shell xuất PCM16 48 kHz mono ra stdout (nguồn mic gửi lên cuộc gọi).
 
-    spec: "test" (âm 440 Hz), hoặc URL/tệp ffmpeg đọc được. fmt "s16le16k": URL là PCM16 16 kHz thô (mic R1)."""
+    spec: "test" (âm 440 Hz), "silence" (im lặng: nghe máy mà không đưa tiếng gì của nhà lên cuộc gọi), hoặc URL/tệp ffmpeg đọc được.
+    fmt "s16le16k": URL là PCM16 16 kHz thô (mic R1)."""
     out = f"-f s16le -ac {CHANNELS} -ar {SAMPLE_RATE} pipe:1"
     base = "ffmpeg -hide_banner -loglevel error -nostdin"
+    if spec == "silence":
+        return f'{base} -re -f lavfi -i "anullsrc=r={SAMPLE_RATE}:cl=mono" {out}'
     if spec in ("", "test"):
         return f'{base} -re -f lavfi -i "sine=frequency=440:sample_rate={SAMPLE_RATE}" -af volume=0.25 {out}'
     src = shlex.quote(spec)
@@ -101,6 +104,8 @@ def camera_command(spec: str) -> str:
     """Lệnh shell xuất khung hình thô yuv420p (kích thước và fps theo VIDEO_PROFILE) ra stdout (nguồn hình gửi lên cuộc gọi video)."""
     out = f"-vf scale={VIDEO_W}:{VIDEO_H},fps={VIDEO_FPS} -f rawvideo -pix_fmt yuv420p pipe:1"
     base = "ffmpeg -hide_banner -loglevel error -nostdin"
+    if spec == "black":              # đã nghe máy video nhưng chưa nối camera nào của nhà: gửi hình đen thay vì hình thử
+        return f'{base} -re -f lavfi -i "color=c=black:size={VIDEO_W}x{VIDEO_H}:rate={VIDEO_FPS}" {out}'
     if spec in ("", "test"):
         return f'{base} -re -f lavfi -i "testsrc2=size={VIDEO_W}x{VIDEO_H}:rate={VIDEO_FPS}" {out}'
     src = shlex.quote(spec)
@@ -115,6 +120,7 @@ class LiveCall:
         self.runtime, self.phone, self.client = runtime, phone, client
         self.user_id, self.outgoing, self.video = int(user_id), outgoing, video
         self.mic, self.mic_fmt, self.cam = mic, mic_fmt, cam
+        self.cam_off = False
         self.id = uuid.uuid4().hex[:10]
         self.tdlib_call_id: int | None = None
         self.state = "dialing" if outgoing else "ringing"
@@ -142,7 +148,7 @@ class LiveCall:
         return {"id": self.id, "user_id": self.user_id, "outgoing": self.outgoing, "video": self.video,
                 "state": self.state, "emojis": self.emojis, "error": self.error,
                 "seconds": round((self.ended_at or time.time()) - (self.active_at or self.started_at), 1),
-                "frames_in": self.frames_in, "frame_bytes": self.frame_bytes, "peak": getattr(self, "peak", 0),
+                "mic_muted": self.mic == "silence", "cam_off": self.cam_off, "frames_in": self.frames_in, "frame_bytes": self.frame_bytes, "peak": getattr(self, "peak", 0),
                 "playback": {"kind": self.playback_kind, "bytes": self._playback_size()},
                 "events": self.events[-40:]}
 
@@ -217,14 +223,10 @@ class LiveCall:
                     base64.b64decode(tag) if tag else None))
             self.log("NTgCalls: create_p2p_call")
             await ntg.create_p2p_call(self.user_id)
-            cmd = mic_command(self.mic, self.mic_fmt)
-            self.log("NTgCalls: mic = %s" % ("âm thử" if self.mic in ("", "test") else "nguồn ngoài"))
-            cam = None
+            self.log("NTgCalls: mic = %s" % ("âm thử" if self.mic in ("", "test") else "im lặng" if self.mic == "silence" else "nguồn ngoài"))
             if self.video:
                 self.log("NTgCalls: camera = %s" % ("hình thử" if self.cam in ("", "test") else "nguồn ngoài"))
-                cam = nt.VideoDescription(nt.MediaSource.SHELL, VIDEO_W, VIDEO_H, VIDEO_FPS, camera_command(self.cam), True)
-            await ntg.set_stream_sources(self.user_id, nt.StreamMode.CAPTURE, nt.MediaDescription(
-                nt.AudioDescription(nt.MediaSource.SHELL, SAMPLE_RATE, CHANNELS, cmd, True), None, cam, None))
+            await ntg.set_stream_sources(self.user_id, nt.StreamMode.CAPTURE, self._capture_description())
             await self._set_playback(self.playback_kind, self.speaker_url if self.playback_kind == "push" else "")
             if m["encryption_key"]:
                 self.log("NTgCalls: skip_exchange")
@@ -236,6 +238,55 @@ class LiveCall:
             self.error = "%s: %s" % (type(exc).__name__, exc)
             self.log("NTgCalls LỖI " + self.error)
             logger.exception("live_call %s lỗi ở bước media", self.id)
+
+    def _capture_description(self):
+        """Mô tả nguồn GỬI ĐI (mic + camera nếu là cuộc gọi video) theo trạng thái hiện tại của cuộc gọi."""
+        nt = self.runtime.nt
+        cam = None
+        if self.video and not self.cam_off:
+            cam = nt.VideoDescription(nt.MediaSource.SHELL, VIDEO_W, VIDEO_H, VIDEO_FPS, camera_command(self.cam), True)
+        return nt.MediaDescription(
+            nt.AudioDescription(nt.MediaSource.SHELL, SAMPLE_RATE, CHANNELS, mic_command(self.mic, self.mic_fmt), True), None, cam, None)
+
+    async def set_capture(self, mic: str | None = None, mic_fmt: str | None = None, cam: str | None = None, cam_off: bool | None = None) -> None:
+        """Đổi mic/camera NGAY trong cuộc gọi (nói trực tiếp, tắt mic = ``silence``, tắt hình). Chỉ nguồn đã đổi mới thay; không ném lỗi ra ngoài vòng lặp NTgCalls."""
+        if mic is not None:
+            self.mic = mic or "test"
+        if mic_fmt is not None:
+            self.mic_fmt = mic_fmt
+        if cam is not None:
+            self.cam = cam or "test"
+        if cam_off is not None:
+            self.cam_off = bool(cam_off)
+        if self.state in ("connecting", "active"):
+            await self.runtime.ntg.set_stream_sources(self.user_id, self.runtime.nt.StreamMode.CAPTURE, self._capture_description())
+        self.log("đổi nguồn gửi đi: mic=%s camera=%s" % ("im lặng" if self.mic == "silence" else "nguồn ngoài" if self.mic != "test" else "âm thử",
+                                                         "tắt" if self.cam_off else "bật" if self.video else "không có"))
+
+    async def say(self, pcm: bytes) -> float:
+        """Đọc một đoạn tiếng (PCM s16le 48 kHz mono, ví dụ TTS) VÀO cuộc gọi: mic chuyển sang đoạn đó, đọc xong trả mic về như cũ
+        (trừ khi trong lúc đọc có ai đổi mic khác). Trả số giây đoạn tiếng; hàm này chạy tới khi đọc xong."""
+        import wave
+        seconds = len(pcm) / (SAMPLE_RATE * 2 * CHANNELS)
+        os.makedirs(os.path.join(self.runtime.data_dir, "live"), exist_ok=True)
+        path = os.path.join(self.runtime.data_dir, "live", self.id + "_say.wav")
+        with wave.open(path, "wb") as w:
+            w.setnchannels(CHANNELS)
+            w.setsampwidth(2)
+            w.setframerate(SAMPLE_RATE)
+            w.writeframes(pcm)
+        prev = (self.mic, self.mic_fmt)
+        try:
+            await self.set_capture(mic=path, mic_fmt="auto")
+            await asyncio.sleep(seconds + 0.4)
+            if self.mic == path and self.state != "ended":
+                await self.set_capture(mic=prev[0], mic_fmt=prev[1])
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        return seconds
 
     async def _set_playback(self, kind: str, cmd: str = "") -> None:
         """Cách nhận tiếng bên kia: external (khung về on_frames), file (NTgCalls ghi PCM thô vào tệp),
