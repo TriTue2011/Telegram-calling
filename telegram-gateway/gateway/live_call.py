@@ -36,6 +36,43 @@ MONITOR_EVERY = 3.0           # giây giữa hai lần đo media trong cuộc g�
 MAX_ENDED_CALLS = 20          # cuộc gọi đã kết thúc giữ lại để xem nhật ký; thừa thì bỏ cái cũ nhất
 
 
+def debug_enabled() -> bool:
+    """TELEGRAM_DEBUG=1: mỗi MONITOR_EVERY giây ghi một dòng «[dbg]» vào nhật ký cuộc gọi (CPU của gateway/NTgCalls, tải máy, số luồng, báo hiệu đã gửi/nhận, nhịp nguồn gửi đi,
+    chế độ kết nối) — để tìm lý do banner «Tín hiệu mạng kém» mà không cần bắt gói. Đọc biến MỖI LẦN gọi nên đổi bằng cách đặt lại biến môi trường rồi khởi động lại container."""
+    return os.environ.get("TELEGRAM_DEBUG", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def cpu_percent(prev: tuple[float, float] | None, ticks: float, wall: float, hz: float = 100.0) -> float | None:
+    """% của MỘT lõi mà tiến trình đã dùng giữa hai lần đo: (Δ tick CPU / hz) / Δ giây thật. None ở lần đo đầu."""
+    if prev is None or wall <= prev[1]:
+        return None
+    return round(100.0 * ((ticks - prev[0]) / hz) / (wall - prev[1]), 1)
+
+
+def _proc_ticks() -> float:
+    """Tổng tick CPU (utime+stime) của tiến trình gateway; 0 nếu không đọc được /proc."""
+    try:
+        with open("/proc/self/stat", encoding="ascii") as fh:
+            parts = fh.read().rsplit(")", 1)[1].split()
+        return float(parts[11]) + float(parts[12])
+    except (OSError, IndexError, ValueError):
+        return 0.0
+
+
+def _load_and_threads() -> tuple[float, int]:
+    try:
+        with open("/proc/loadavg", encoding="ascii") as fh:
+            load = float(fh.read().split()[0])
+    except (OSError, IndexError, ValueError):
+        load = -1.0
+    try:
+        with open("/proc/self/status", encoding="ascii") as fh:
+            threads = next(int(ln.split()[1]) for ln in fh if ln.startswith("Threads:"))
+    except (OSError, StopIteration, ValueError):
+        threads = -1
+    return load, threads
+
+
 def p2p_enabled() -> bool:
     """Cho phép nối thẳng P2P với điện thoại? Mặc định TẮT (như ZALO_PC_P2P của Zalo Call): gateway chạy trong Docker bridge nên
     IP nó công bố là IP container (172.x) mà điện thoại không tới được; tắt thì cuộc gọi đi qua máy chủ chuyển tiếp của Telegram.
@@ -254,6 +291,8 @@ class LiveCall:
         self.view = VideoView(self.log)    # hình video của bên kia (phát MJPEG cho màn Dosen)
         self.view_on = bool(video)         # đã xin NTgCalls đưa hình video bên kia về (cuộc gọi video, hoặc bên kia vừa bật camera)
         self.peer_video = False         # bên kia đang BẬT camera (xin chuyển sang video / đang gọi video)
+        self.sig = {"tx_n": 0, "tx_b": 0, "rx_n": 0, "rx_b": 0}      # báo hiệu NTgCalls<->TDLib: số gói/số byte đã gửi (tx) và nhận (rx)
+        self.cpu_max = 0.0                                              # % CPU (một lõi) cao nhất của gateway trong cuộc gọi
         self.diag: dict = {}            # số đo media (mẫu mỗi vài giây): capture_s = thời gian nguồn GỬI ĐI đã chạy, ratio = capture_s / thời gian thật
         self._monitor_task = None
         self.id = uuid.uuid4().hex[:10]
@@ -283,7 +322,7 @@ class LiveCall:
         return {"id": self.id, "user_id": self.user_id, "outgoing": self.outgoing, "video": self.video,
                 "state": self.state, "emojis": self.emojis, "error": self.error,
                 "seconds": round((self.ended_at or time.time()) - (self.active_at or self.started_at), 1),
-                "peer_video": self.peer_video, "view": self.view.info(), "diag": self.diag, "mic_muted": self.mic == "silence", "cam_off": self.cam_off, "frames_in": self.frames_in, "frame_bytes": self.frame_bytes, "peak": getattr(self, "peak", 0),
+                "peer_video": self.peer_video, "view": self.view.info(), "diag": self.diag, "sig": self.sig, "cpu_max": self.cpu_max, "mic_muted": self.mic == "silence", "cam_off": self.cam_off, "frames_in": self.frames_in, "frame_bytes": self.frame_bytes, "peak": getattr(self, "peak", 0),
                 "playback": {"kind": self.playback_kind, "bytes": self._playback_size()},
                 "events": self.events[-40:]}
 
@@ -345,6 +384,8 @@ class LiveCall:
             self.log("TDLib: đang cúp")
 
     def on_signaling(self, data: bytes) -> None:
+        self.sig["rx_n"] += 1
+        self.sig["rx_b"] += len(data)
         self.runtime.run(self._send_signaling(data))
 
     def _set(self, state: str, why: str) -> None:
@@ -398,10 +439,16 @@ class LiveCall:
         nt, ntg = self.runtime.nt, self.runtime.ntg
         t0 = last_wall = time.monotonic()
         last_cap = None
+        prev_cpu = (_proc_ticks(), t0)
         try:
             while self.state in ("connecting", "active"):
                 await asyncio.sleep(MONITOR_EVERY)
                 now = time.monotonic()
+                ticks = _proc_ticks()
+                cpu = cpu_percent(prev_cpu, ticks, now)
+                prev_cpu = (ticks, now)
+                if cpu is not None:
+                    self.cpu_max = max(self.cpu_max, cpu)
                 try:
                     cap = float(await ntg.time(self.user_id, nt.StreamMode.CAPTURE))
                 except Exception as exc:  # noqa: BLE001 - chưa dựng xong / đã dừng: thử lại lượt sau
@@ -412,11 +459,28 @@ class LiveCall:
                     self.diag = {"capture_s": round(cap, 1), "wall_s": round(now - t0, 1), "ratio": ratio}
                     if ratio < 0.5:
                         self.log("nguồn gửi đi chậm: chạy %.0f%% so với thời gian thật (mic/camera đói dữ liệu?)" % (ratio * 100))
+                if debug_enabled():
+                    await self._debug_line(cpu, last_cap is not None and cap - last_cap)
                 last_cap, last_wall = cap, now
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
             self.log("đo media dừng: %s" % type(exc).__name__)
+
+    async def _debug_line(self, cpu: float | None, cap_delta) -> None:
+        """Một dòng chẩn đoán «[dbg]» (chỉ khi TELEGRAM_DEBUG=1). Mọi lệnh NTgCalls bọc try: không có gì được làm hỏng cuộc gọi."""
+        ntg, extra = self.runtime.ntg, []
+        for name, fn in (("ntg_cpu", lambda: ntg.cpu_usage()), ("mode", lambda: ntg.get_connection_mode(self.user_id)), ("state", lambda: ntg.get_state(self.user_id))):
+            try:
+                v = fn()
+                v = await v if asyncio.iscoroutine(v) or hasattr(v, "__await__") else v
+                extra.append("%s=%s" % (name, getattr(v, "name", v)))
+            except Exception as exc:  # noqa: BLE001
+                extra.append("%s=?%s" % (name, type(exc).__name__))
+        load, threads = _load_and_threads()
+        self.log("[dbg] cpu_gateway=%s%% tai_may=%.2f luong=%d bao_hieu tx=%d/%dB rx=%d/%dB nhip_gui=%s %s" % (
+            "?" if cpu is None else cpu, load, threads, self.sig["tx_n"], self.sig["tx_b"], self.sig["rx_n"], self.sig["rx_b"],
+            ("%.2fs" % cap_delta) if cap_delta not in (False, None) else "?", " ".join(extra)))
 
     def _capture_description(self):
         """Mô tả nguồn GỬI ĐI (mic + camera nếu là cuộc gọi video) theo trạng thái hiện tại của cuộc gọi."""
@@ -526,6 +590,8 @@ class LiveCall:
             self.log("NTgCalls send_signaling_data lỗi: %s" % exc)
 
     async def _stop(self) -> None:
+        self.log("tổng kết: báo hiệu tx=%d gói/%dB rx=%d gói/%dB; CPU gateway cao nhất %s%% (một lõi); nhịp nguồn gửi đi %s" % (
+            self.sig["tx_n"], self.sig["tx_b"], self.sig["rx_n"], self.sig["rx_b"], self.cpu_max, self.diag.get("ratio", "?")))
         self.view.close()
         if self._monitor_task is not None:
             self._monitor_task.cancel()
@@ -613,6 +679,8 @@ class CallRuntime:
     def _sig(self, user_id, data):
         c = self.by_user(user_id)
         if c is not None and c.tdlib_call_id is not None:
+            c.sig["tx_n"] += 1
+            c.sig["tx_b"] += len(data)
             try:
                 c.client.send_signaling_data(c.tdlib_call_id, bytes(data))
             except Exception as exc:  # noqa: BLE001

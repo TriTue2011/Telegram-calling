@@ -779,3 +779,85 @@ def test_hangup_tells_telegram_the_duration_and_that_it_was_a_video_call():
     d.tdlib_call_id = 8
     d.hangup()
     assert cl.discard_args == {"duration": 0, "is_video": False}, "chưa nối máy: duration 0, cuộc thoại"
+
+
+def test_cpu_percent_is_cpu_seconds_over_wall_seconds():
+    assert live_call.cpu_percent(None, 500.0, 10.0) is None, "lần đo đầu chưa có khoảng so"
+    assert live_call.cpu_percent((100.0, 10.0), 160.0, 13.0) == 20.0        # 60 tick = 0,6 s CPU / 3 s = 20% một lõi
+    assert live_call.cpu_percent((100.0, 10.0), 400.0, 13.0) == 100.0
+    assert live_call.cpu_percent((100.0, 10.0), 160.0, 10.0) is None, "không chia cho 0"
+
+
+def test_debug_flag_is_read_from_the_environment_each_time(monkeypatch):
+    monkeypatch.delenv("TELEGRAM_DEBUG", raising=False)
+    assert live_call.debug_enabled() is False
+    for v, want in (("1", True), ("true", True), ("ON", True), ("0", False), ("", False), ("no", False)):
+        monkeypatch.setenv("TELEGRAM_DEBUG", v)
+        assert live_call.debug_enabled() is want, v
+
+
+def test_signaling_counters_and_debug_line_and_summary(monkeypatch):
+    import asyncio
+    monkeypatch.setattr(live_call, "MONITOR_EVERY", 0.05)
+    monkeypatch.setenv("TELEGRAM_DEBUG", "1")
+
+    class NTG:
+        async def time(self, uid, mode):
+            return 0.0
+
+        def cpu_usage(self):
+            return 12.5
+
+        def get_connection_mode(self, uid):
+            class M:
+                name = "P2P"
+            return M()
+
+        async def get_state(self, uid):
+            raise RuntimeError("không có")
+
+    rt = StubRuntime()
+    rt.nt, rt.ntg = _fake_nt(), NTG()
+    c = live_call.LiveCall(rt, "+84", StubClient(), 5, False)
+    c.state = "active"
+    c.on_signaling(b"x" * 10)
+    c.on_signaling(b"y" * 5)
+    assert c.sig == {"tx_n": 0, "tx_b": 0, "rx_n": 2, "rx_b": 15}
+    assert c.info()["sig"]["rx_b"] == 15 and "cpu_max" in c.info()
+
+    async def go():
+        t = asyncio.ensure_future(c._monitor())
+        await asyncio.sleep(0.3)
+        c.state = "ended"
+        await asyncio.sleep(0.1)
+        t.cancel()
+    asyncio.run(go())
+    dbg = [e["e"] for e in c.events if e["e"].startswith("[dbg]")]
+    assert dbg, "TELEGRAM_DEBUG=1 phải ghi dòng [dbg]"
+    assert "ntg_cpu=12.5" in dbg[0] and "mode=P2P" in dbg[0] and "state=?RuntimeError" in dbg[0] and "rx=2/15B" in dbg[0], dbg[0]
+    monkeypatch.setenv("TELEGRAM_DEBUG", "0")
+    n = len(c.events)
+    c.state = "active"
+
+    async def go2():
+        t = asyncio.ensure_future(c._monitor())
+        await asyncio.sleep(0.3)
+        c.state = "ended"
+        await asyncio.sleep(0.1)
+        t.cancel()
+    asyncio.run(go2())
+    assert not [e for e in c.events[n:] if e["e"].startswith("[dbg]")], "tắt biến thì không ghi [dbg]"
+
+
+def test_summary_line_is_always_logged_at_the_end():
+    import asyncio
+
+    class NTG:
+        async def stop(self, uid):
+            return None
+    rt = StubRuntime()
+    rt.nt, rt.ntg = _fake_nt(), NTG()
+    c = live_call.LiveCall(rt, "+84", StubClient(), 5, False)
+    c.sig["tx_n"], c.sig["tx_b"] = 3, 300
+    asyncio.run(c._stop())
+    assert any(e["e"].startswith("tổng kết: báo hiệu tx=3 gói/300B") for e in c.events), [e["e"] for e in c.events]
