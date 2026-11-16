@@ -11,7 +11,9 @@
     ``speaker``, ``camera``. Không tích = KHÔNG nối: nghe máy mà mic im lặng, cuộc gọi video thì gửi hình đen.
   * ``announce: true`` (cần ``announce_to``): có cuộc gọi đến thì loa trong nhà đọc thông báo. ``announce_repeat`` = số giây báo lại; ``announce_volume`` = âm lượng loa lúc báo.
   * ``greeting``: lời nhắn đọc VÀO cuộc gọi ngay khi nghe máy (giọng TTS của gateway); ``hangup_after: true`` = đọc xong thì cúp máy.
-  * KHÔNG có trợ lý AI trò chuyện, chuyển thoại sang video, chống vọng: gateway Telegram chưa có đường nhận tiếng bên kia cho HA.
+  * ``video_request``: người gọi BẬT camera giữa cuộc thoại (xin chuyển sang video): ``ask`` (mặc định: chỉ báo sự kiện ``video_request``, không tự đồng ý), ``accept``
+    (đồng ý, không gửi hình trong nhà: hình đen), ``accept_camera`` (đồng ý và gửi camera đã chọn trong quy tắc / mặc định).
+  * KHÔNG có trợ lý AI trò chuyện, chống vọng: gateway Telegram chưa có đường nhận tiếng bên kia cho HA.
 """
 from __future__ import annotations
 
@@ -30,6 +32,7 @@ CALL_TYPES = ("voice", "video")
 MAX_DELAY = 120
 MAX_ANNOUNCE_REPEAT = 60
 CONNECT_PARTS = ("mic", "speaker", "camera")
+VIDEO_REQUEST = ("ask", "accept", "accept_camera")      # người gọi bật camera giữa cuộc thoại (xin chuyển sang video)
 CONNECT = ("never", "voice", "always") + CONNECT_PARTS
 RULES_KEY = "rules"
 
@@ -37,7 +40,7 @@ DEFAULT_RULE: dict[str, Any] = {
     "name": "", "answer": False, "answer_delay": 3, "call_types": ["voice", "video"],
     "pipeline": "", "greeting": "", "hangup_after": False,
     "announce": False, "announce_to": "", "announce_text": "", "announce_repeat": 0, "announce_volume": 0,
-    "connect_now": [], "connect": [], "speaker": "", "mic": "", "mic_url": "", "camera": "", "volume": 0,
+    "connect_now": [], "connect": [], "video_request": "ask", "speaker": "", "mic": "", "mic_url": "", "camera": "", "volume": 0,
 }
 _STR = ("name", "pipeline", "greeting", "speaker", "mic", "mic_url", "camera", "announce_to", "announce_text")
 _BOOL = ("answer", "announce", "hangup_after")
@@ -110,6 +113,10 @@ def normalize(data: dict[str, Any], old: dict[str, Any] | None = None) -> dict[s
     _int_field(data, rule, "announce_repeat", 0, MAX_ANNOUNCE_REPEAT, "announce_repeat")
     _int_field(data, rule, "announce_volume", 0, 100, "announce_volume")
     _int_field(data, rule, "volume", 0, 100, "volume")
+    if data.get("video_request") is not None:
+        if data["video_request"] not in VIDEO_REQUEST:
+            raise RuleError("video_request chỉ gồm: %s" % ", ".join(VIDEO_REQUEST))
+        rule["video_request"] = data["video_request"]
     if data.get("call_types") is not None:
         types = [data["call_types"]] if isinstance(data["call_types"], str) else list(data["call_types"])
         if [t for t in types if t not in CALL_TYPES]:

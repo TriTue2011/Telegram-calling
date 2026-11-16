@@ -54,6 +54,7 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
         self.bridge: CallBridge | None = None
         self._seen: dict[str, str] = {}            # id cuộc gọi → trạng thái đã báo
         self._was_active: set[str] = set()
+        self._peer_video: dict[str, bool] = {}     # id cuộc gọi → bên kia đang bật camera (phát hiện «xin chuyển sang video»)
         self.last_state: str = "idle"
         self.last_call: dict = {}
         self.contacts: ContactBook | None = None
@@ -127,7 +128,17 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
                 "state": state, "call_id": cid, "user_id": c.get("user_id"), "outgoing": bool(c.get("outgoing")),
                 "video": bool(c.get("video")), "call_type": "video" if c.get("video") else "voice", "seconds": c.get("seconds"),
                 "contact_status": status, "name": name, "tags": list(tags), "error": redact(str(c.get("error") or ""))})
+        for c in calls:                                   # bên kia vừa BẬT camera giữa cuộc thoại đang nói = xin chuyển sang video
+            cid, on = str(c.get("id")), bool(c.get("peer_video"))
+            was = self._peer_video.get(cid, False)
+            self._peer_video[cid] = on
+            if on and not was and c.get("state") == "active" and not c.get("video"):
+                status, name = await self.contacts.async_lookup(c.get("user_id")) if self.contacts is not None else ("unknown", "")
+                events.append({"state": "video_request", "call_id": cid, "user_id": c.get("user_id"), "outgoing": bool(c.get("outgoing")), "video": False,
+                               "call_type": "voice", "seconds": c.get("seconds"), "contact_status": status, "name": name, "tags": [], "error": ""})
         ids = {str(c.get("id")) for c in calls}
+        for old in [k for k in self._peer_video if k not in ids]:
+            self._peer_video.pop(old, None)
         for old in [k for k in self._seen if k not in ids]:           # gateway chỉ giữ 10 cuộc gần nhất
             self._seen.pop(old, None)
             self._was_active.discard(old)

@@ -105,7 +105,7 @@ data:
 
 Người nhận phải cho phép cuộc gọi từ bạn (Telegram → Quyền riêng tư → Cuộc gọi). Kết thúc: `telegram_call.hangup_call`.
 
-**Thoại và video: chỉ gọi 1-1.** Cuộc gọi video 1-1 chạy cả gọi đi (`video: true`) lẫn nhận (hình gửi đi là camera đã chọn; không chọn thì hình đen). **Cuộc gọi nhóm KHÔNG hỗ trợ** (kể cả nhóm có người trong đó): quy tắc không có phạm vi «nhóm» như Zalo Call. Chưa có chuyển cuộc thoại đang nói sang video giữa chừng.
+**Thoại và video: chỉ gọi 1-1.** Cuộc gọi video 1-1 chạy cả gọi đi (`video: true`) lẫn nhận (hình gửi đi là camera đã chọn; không chọn thì hình đen). **Cuộc gọi nhóm KHÔNG hỗ trợ** (kể cả nhóm có người trong đó): quy tắc không có phạm vi «nhóm» như Zalo Call. **Xin chuyển sang video giữa cuộc thoại:** người gọi bấm «Bắt đầu video» → sự kiện `telegram_call_call_state` với `state: video_request`. Quy tắc có trường `video_request`: `ask` (mặc định, riêng tư: chỉ báo sự kiện), `accept` (đồng ý, gửi hình đen), `accept_camera` (đồng ý, gửi camera đã chọn). Đồng ý bằng tay: dịch vụ `accept_video` hoặc nút **«Chuyển sang video»** trên thiết bị. (Cơ chế dựa trên NTgCalls, kiểm bằng test giả lập; chưa kiểm bằng cuộc gọi thật.)
 
 ### Nhận cuộc gọi
 
@@ -159,11 +159,11 @@ automation:
           announce_to: media_player.r1_loa
 ```
 
-Sự kiện `telegram_call_call_state` mang thêm `contact_status` (`friend` có trong danh bạ Telegram · `stranger` · `unknown`), `name` (tên đã lưu), `tags` và `call_type` (`voice`/`video`) để automation chọn người. Trường quy tắc: `answer`, `answer_delay`, `call_types`, `connect_now` (nối ngay), `connect` (nối khi bấm «Người nhà nói trực tiếp»), `speaker`, `mic`, `mic_url`, `camera`, `volume`, `announce`, `announce_to`, `announce_text` (`{ten}`, `{loai}`), `announce_repeat`, `announce_volume`, `pipeline` (giọng đọc), `greeting` (lời nhắn đọc vào cuộc gọi khi nghe máy) và `hangup_after`. `set_rule` / `remove_rule` / `list_rules` lưu quy tắc sẵn làm **bản dự phòng** khi không automation nào áp quy tắc; `set_contact_tags` gắn thẻ cho người.
+Sự kiện `telegram_call_call_state` mang thêm `contact_status` (`friend` có trong danh bạ Telegram · `stranger` · `unknown`), `name` (tên đã lưu), `tags` và `call_type` (`voice`/`video`) để automation chọn người. Trường quy tắc: `answer`, `answer_delay`, `call_types`, `connect_now` (nối ngay), `connect` (nối khi bấm «Người nhà nói trực tiếp»), `video_request` (xin chuyển sang video), `speaker`, `mic`, `mic_url`, `camera`, `volume`, `announce`, `announce_to`, `announce_text` (`{ten}`, `{loai}`), `announce_repeat`, `announce_volume`, `pipeline` (giọng đọc), `greeting` (lời nhắn đọc vào cuộc gọi khi nghe máy) và `hangup_after`. `set_rule` / `remove_rule` / `list_rules` lưu quy tắc sẵn làm **bản dự phòng** khi không automation nào áp quy tắc; `set_contact_tags` gắn thẻ cho người.
 
 Khác Zalo Call: **chưa có trợ lý AI trò chuyện** trong cuộc gọi (gateway chưa đưa tiếng bên kia cho HA) — thay bằng lời nhắn `greeting`; không có chuyển thoại sang video.
 
-**Điều khiển giữa cuộc gọi:** `take_over_call` (nút «Người nhà nói trực tiếp»: nối mic/loa/camera của quy tắc), `stop_call_mic` / `start_call_mic`, `stop_call_video` / `start_call_video`, `say_in_call` (đọc một câu vào cuộc gọi), `reject_call`, `end_call`, `alert_call` (gọi, đọc cảnh báo, rồi cúp / nối thiết bị nhà / giữ máy; báo bằng sự kiện `telegram_call_alert_done`). Trên thiết bị có các nút tương ứng, cảm biến *Đã đăng nhập Telegram* và *Trạng thái Telegram*.
+**Điều khiển giữa cuộc gọi:** `take_over_call` (nút «Người nhà nói trực tiếp»: nối mic/loa/camera của quy tắc), `stop_call_mic` / `start_call_mic`, `stop_call_video` / `start_call_video` (bật hình cả khi cuộc đang là thoại), `accept_video`, `say_in_call` (đọc một câu vào cuộc gọi), `reject_call`, `end_call`, `alert_call` (gọi, đọc cảnh báo, rồi cúp / nối thiết bị nhà / giữ máy; báo bằng sự kiện `telegram_call_alert_done`). Trên thiết bị có các nút tương ứng, cảm biến *Đã đăng nhập Telegram* và *Trạng thái Telegram*.
 
 **Người nhận:** Cấu hình (bánh răng) → chọn người từ danh bạ Telegram; mỗi người là một thực thể `notify` (thuộc tính `user_id`) để chọn trong blueprint, không phải gõ ID.
 

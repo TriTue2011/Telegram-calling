@@ -668,6 +668,14 @@ set_rule:
       selector:
         config_entry:
           integration: telegram_call
+    video_request:
+      selector:
+        select:
+          options:
+          - ask
+          - accept
+          - accept_camera
+          mode: dropdown
 apply_call_rule:
   fields:
     call_id:
@@ -786,6 +794,14 @@ apply_call_rule:
       selector:
         config_entry:
           integration: telegram_call
+    video_request:
+      selector:
+        select:
+          options:
+          - ask
+          - accept
+          - accept_camera
+          mode: dropdown
 remove_rule:
   fields:
     scope:
@@ -841,6 +857,19 @@ list_contacts:
     query:
       selector:
         text: null
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: telegram_call
+accept_video:
+  fields:
+    call_id:
+      selector:
+        text: null
+    camera:
+      selector:
+        entity:
+          domain: camera
     config_entry_id:
       selector:
         config_entry:

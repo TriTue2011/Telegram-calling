@@ -527,6 +527,33 @@ async def async_run_alert(hass: HomeAssistant, rt: Any, cid: str, user_id: Any, 
         _LOGGER.exception("Cảnh báo cuộc gọi %s lỗi", cid)
 
 
+async def async_accept_video(hass: HomeAssistant, rt: Any, call_id: Any = None, camera: str = "") -> dict[str, Any]:
+    """Đồng ý chuyển cuộc thoại đang nói sang video: bật video phía nhà. `camera` (thực thể hoặc URL) hoặc camera mặc định thì gửi hình đó; không có thì gửi hình ĐEN (đồng ý mà không đưa hình trong nhà)."""
+    cid = await _active_call_id(rt, call_id)
+    url = ""
+    if camera:
+        url = (await rt.bridge.async_camera_url(camera)) if "." in camera and "://" not in camera else camera
+    if not url:
+        url = (await rt.bridge.async_resolve(rt.bridge.devices_for({"camera": camera} if camera else None)))["camera_url"]
+    await rt.api.live_media(cid, video=True, camera=url or "black", camera_off=False)
+    return {"call_id": cid, "video": True, "camera": bool(url)}
+
+
+async def async_handle_video_request(hass: HomeAssistant, rt: Any, payload: dict[str, Any]) -> None:
+    """Sự kiện «video_request» (người gọi bật camera): theo `video_request` của quy tắc cuộc gọi — ask: không làm gì (chỉ có sự kiện); accept / accept_camera: đồng ý."""
+    cid = str(payload.get("call_id"))
+    rule = rt.voice.rule_of.get(cid) or rule_for_call(rt, payload) or {}
+    mode = rule.get("video_request") or "ask"
+    if mode == "ask":
+        return
+    try:
+        await async_accept_video(hass, rt, cid, str(rule.get("camera") or "") if mode == "accept_camera" else "")
+    except TelegramCallError as err:
+        _LOGGER.warning("Đồng ý chuyển sang video cuộc gọi %s lỗi: %s", cid, err)
+    except Exception:  # noqa: BLE001
+        _LOGGER.exception("Đồng ý chuyển sang video cuộc gọi %s lỗi", cid)
+
+
 # -- dọn khi trạng thái đổi --------------------------------------------------------------------------------------------
 
 def _stop_announce(voice: CallVoice, cid: str) -> None:
@@ -541,6 +568,8 @@ def on_call_state(hass: HomeAssistant, rt: Any, state: str, call_id: Any, termin
     voice: CallVoice = rt.voice
     if state == "incoming":
         _begin_decide(hass, rt, cid, payload or {"call_id": cid})
+    elif state == "video_request":
+        hass.async_create_task(async_handle_video_request(hass, rt, payload or {"call_id": cid}))
     elif state == "answered":
         voice.answered_ids.add(cid)
         _stop_announce(voice, cid)                              # đã có người nghe: thôi báo ra loa

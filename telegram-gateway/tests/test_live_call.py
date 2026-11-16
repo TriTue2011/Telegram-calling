@@ -567,3 +567,52 @@ def test_monitor_reports_ratio_and_flags_a_starved_source(monkeypatch):
     assert c.diag.get("ratio") is not None and "capture_s" in c.diag
     assert any("nguồn gửi đi chậm" in e["e"] for e in c.events)
     assert "diag" in c.info()
+
+
+def test_peer_video_flags_from_remote_source_and_media_state_and_video_can_be_enabled_mid_call():
+    import asyncio
+    seen = []
+
+    class NTG:
+        async def set_stream_sources(self, uid, mode, desc):
+            seen.append(desc)
+
+    class RT(StubRuntime):
+        calls = {}
+        events = []
+        _first_frame_logged = False
+
+        def by_user(self, uid):
+            return call if uid == 5 else None
+
+        def on_event(self, kind, c):
+            self.events.append(kind)
+    rt = RT()
+    rt.nt, rt.ntg = _fake_nt(), NTG()
+    call = live_call.LiveCall(rt, "+84", StubClient(), 5, False, False)
+    call.state = "active"
+    rt.calls = {call.id: call}
+    R = live_call.CallRuntime
+    rt._set_peer_video = lambda c, on, why: R._set_peer_video(rt, c, on, why)
+
+    class Dev:
+        name = "CAMERA"
+
+    class St:
+        name = "ACTIVE"
+
+    class Src:
+        device, state = Dev(), St()
+    R._remote_source(rt, 5, Src())
+    assert call.peer_video is True and rt.events == ["peer_video"] and call.info()["peer_video"] is True
+    R._remote_source(rt, 5, Src())                                   # lặp lại: không bắn sự kiện thêm
+    assert rt.events == ["peer_video"]
+
+    class Media:
+        muted, video_stopped, video_paused = False, True, False
+    R._upgrade(rt, 5, Media())
+    assert call.peer_video is False and rt.events == ["peer_video", "peer_video"]
+    # bật video giữa cuộc gọi thoại: mô tả gửi đi có camera từ đó
+    assert call.video is False
+    asyncio.run(call.set_capture(cam="http://cam/s", video=True))
+    assert call.video is True and call.cam_off is False and seen[-1][3][0] == "VD"

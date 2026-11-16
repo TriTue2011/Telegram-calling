@@ -15,7 +15,8 @@ from .entity import TelegramCallEntity
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddEntitiesCallback) -> None:
     add([HangupButton(entry), CallButton(entry, "take_over", "mdi:phone-in-talk"), CallButton(entry, "stop_mic", "mdi:microphone-off"),
-         CallButton(entry, "stop_video", "mdi:video-off")])
+         CallButton(entry, "stop_video", "mdi:video-off"),
+         CallButton(entry, "upgrade_video", "mdi:video-plus")])
 
 
 class HangupButton(TelegramCallEntity, ButtonEntity):
@@ -52,6 +53,8 @@ class CallButton(TelegramCallEntity, ButtonEntity):
         try:
             if self._key == "take_over":
                 await call_rules.async_take_over(self.hass, self._rt)
+            elif self._key == "upgrade_video":
+                await call_rules.async_accept_video(self.hass, self._rt)
             else:
                 await call_rules.async_mute(self._rt, None, "mic" if self._key == "stop_mic" else "video")
         except TelegramCallError as err:

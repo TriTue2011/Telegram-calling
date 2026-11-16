@@ -122,6 +122,7 @@ class LiveCall:
         self.user_id, self.outgoing, self.video = int(user_id), outgoing, video
         self.mic, self.mic_fmt, self.cam = mic, mic_fmt, cam
         self.cam_off = False
+        self.peer_video = False         # bên kia đang BẬT camera (xin chuyển sang video / đang gọi video)
         self.diag: dict = {}            # số đo media (mẫu mỗi vài giây): capture_s = thời gian nguồn GỬI ĐI đã chạy, ratio = capture_s / thời gian thật
         self._monitor_task = None
         self.id = uuid.uuid4().hex[:10]
@@ -151,7 +152,7 @@ class LiveCall:
         return {"id": self.id, "user_id": self.user_id, "outgoing": self.outgoing, "video": self.video,
                 "state": self.state, "emojis": self.emojis, "error": self.error,
                 "seconds": round((self.ended_at or time.time()) - (self.active_at or self.started_at), 1),
-                "diag": self.diag, "mic_muted": self.mic == "silence", "cam_off": self.cam_off, "frames_in": self.frames_in, "frame_bytes": self.frame_bytes, "peak": getattr(self, "peak", 0),
+                "peer_video": self.peer_video, "diag": self.diag, "mic_muted": self.mic == "silence", "cam_off": self.cam_off, "frames_in": self.frames_in, "frame_bytes": self.frame_bytes, "peak": getattr(self, "peak", 0),
                 "playback": {"kind": self.playback_kind, "bytes": self._playback_size()},
                 "events": self.events[-40:]}
 
@@ -280,7 +281,8 @@ class LiveCall:
         return nt.MediaDescription(
             nt.AudioDescription(nt.MediaSource.SHELL, SAMPLE_RATE, CHANNELS, mic_command(self.mic, self.mic_fmt), True), None, cam, None)
 
-    async def set_capture(self, mic: str | None = None, mic_fmt: str | None = None, cam: str | None = None, cam_off: bool | None = None) -> None:
+    async def set_capture(self, mic: str | None = None, mic_fmt: str | None = None, cam: str | None = None, cam_off: bool | None = None,
+                          video: bool | None = None) -> None:
         """Đổi mic/camera NGAY trong cuộc gọi (nói trực tiếp, tắt mic = ``silence``, tắt hình). Chỉ nguồn đã đổi mới thay; không ném lỗi ra ngoài vòng lặp NTgCalls."""
         if mic is not None:
             self.mic = mic or "test"
@@ -290,6 +292,8 @@ class LiveCall:
             self.cam = cam or "test"
         if cam_off is not None:
             self.cam_off = bool(cam_off)
+        if video:                                  # bật video giữa cuộc gọi thoại (đồng ý lời xin chuyển sang video): bắt đầu gửi hình
+            self.video, self.cam_off = True, False
         if self.state in ("connecting", "active"):
             await self.runtime.ntg.set_stream_sources(self.user_id, self.runtime.nt.StreamMode.CAPTURE, self._capture_description())
         self.log("đổi nguồn gửi đi: mic=%s camera=%s" % ("im lặng" if self.mic == "silence" else "nguồn ngoài" if self.mic != "test" else "âm thử",
@@ -404,6 +408,8 @@ class CallRuntime:
         self.ntg.on_connection_change(self._conn)
         self.ntg.on_frames(self._frames)
         self.ntg.on_stream_end(self._stream_end)
+        self.ntg.on_remote_source_change(self._remote_source)
+        self.ntg.on_upgrade(self._upgrade)
         self._first_frame_logged = False
 
     def _prune(self) -> None:
@@ -472,6 +478,33 @@ class CallRuntime:
                 c.log("khung đầu: mode=%s device=%s thuộc tính=%s byte=%d"
                       % (getattr(mode, "name", mode), getattr(device, "name", device),
                          [a for a in dir(fr) if not a.startswith("_")][:8], len(data)))
+
+    def _set_peer_video(self, c, on: bool, why: str) -> None:
+        if c.peer_video != on:
+            c.peer_video = on
+            c.log("bên kia %s camera (%s)" % ("BẬT" if on else "tắt", why))
+            self.on_event("peer_video", c)
+
+    def _remote_source(self, user_id, src):
+        """Nguồn từ xa đổi trạng thái (camera/mic của bên kia bật hoặc tắt)."""
+        c = self.by_user(user_id)
+        if c is None:
+            return
+        dev = getattr(getattr(src, "device", None), "name", str(getattr(src, "device", "")))
+        st = getattr(getattr(src, "state", None), "name", str(getattr(src, "state", "")))
+        c.log("nguồn từ xa: %s %s" % (dev, st))
+        if dev == "CAMERA":
+            self._set_peer_video(c, st == "ACTIVE", "nguồn từ xa")
+
+    def _upgrade(self, user_id, media):
+        """Bên kia đổi trạng thái media (tắt tiếng, bật/tắt video)."""
+        c = self.by_user(user_id)
+        if c is None:
+            return
+        stopped = bool(getattr(media, "video_stopped", True))
+        paused = bool(getattr(media, "video_paused", False))
+        c.log("media bên kia: muted=%s video_stopped=%s video_paused=%s" % (getattr(media, "muted", None), stopped, paused))
+        self._set_peer_video(c, not stopped and not paused, "trạng thái media")
 
     def _stream_end(self, user_id, stype, device):
         c = self.by_user(user_id)

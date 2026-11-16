@@ -341,3 +341,54 @@ async def test_contacts_become_notify_entities_and_options_flow_picks_recipients
     assert st is not None and st.attributes["user_id"] == "1" and st.attributes["chat_id"] == "1"
     await hass.services.async_call("notify", "send_message", {"entity_id": eid, "message": "chào"}, blocking=True)
     assert gw.last("/send")["json"]["text"] == "chào"
+
+
+# -- xin chuyển sang video (người gọi bật camera giữa cuộc thoại) ----------------------------------------------------
+
+async def test_peer_turning_the_camera_on_fires_video_request_once(hass, setup, gw):
+    rt = _rt(setup)
+    seen = []
+
+    @callback
+    def _on(e):
+        seen.append(dict(e.data))
+    hass.bus.async_listen(const.EVENT_STATE, _on)
+    await _answered(hass, gw, rt)
+    gw.calls = [dict(ACTIVE, peer_video=True)]
+    assert await until(lambda: any(e["state"] == "video_request" for e in seen))
+    await asyncio.sleep(2.5)
+    assert len([e for e in seen if e["state"] == "video_request"]) == 1               # bật liên tục chỉ báo MỘT lần
+    e = [e for e in seen if e["state"] == "video_request"][0]
+    assert e["call_id"] == "c1" and e["user_id"] == 5 and e["call_type"] == "voice"
+    assert not reqs(gw, "/api/live/media"), "mặc định «ask»: chỉ báo sự kiện, không tự đồng ý"
+
+
+async def test_video_request_accept_sends_black_and_accept_camera_falls_back_to_black_without_a_stream(hass, setup, gw):
+    rt = _rt(setup)
+    await _answered(hass, gw, rt, video_request="accept")
+    gw.calls = [dict(ACTIVE, peer_video=True)]
+    assert await until(lambda: reqs(gw, "/api/live/media"))
+    assert reqs(gw, "/api/live/media")[-1] == {"id": "c1", "video": True, "camera": "black", "camera_off": False}
+
+
+async def test_accept_video_service_and_button_turn_the_home_video_on(hass, setup, gw):
+    rt = _rt(setup)
+    await _answered(hass, gw, rt)
+    res = await call(hass, "accept_video", {})
+    assert res == {"call_id": "c1", "video": True, "camera": False}
+    assert reqs(gw, "/api/live/media")[-1]["video"] is True
+    gw.requests[:] = []
+    eid = er.async_get(hass).async_get_entity_id("button", DOMAIN, "%s_btn_upgrade_video" % setup.entry_id)
+    await hass.services.async_call("button", "press", {"entity_id": eid}, blocking=True)
+    assert reqs(gw, "/api/live/media")[-1] == {"id": "c1", "video": True, "camera": "black", "camera_off": False}
+    gw.requests[:] = []
+    await call(hass, "start_call_video", {})                                           # bật hình ngay cả khi cuộc đang là thoại
+    assert reqs(gw, "/api/live/media")[-1]["video"] is True
+
+
+async def test_video_request_rule_field_is_validated(hass, setup, gw):
+    with pytest.raises(Exception) as err:
+        await call(hass, "set_rule", {"scope": "contacts", "video_request": "tu_dong"})
+    assert "video_request" in str(err.value)
+    await call(hass, "set_rule", {"scope": "contacts", "video_request": "accept_camera"})
+    assert (await call(hass, "list_rules", {}))["contacts"]["video_request"] == "accept_camera"

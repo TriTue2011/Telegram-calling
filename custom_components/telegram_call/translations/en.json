@@ -87,6 +87,9 @@
       },
       "stop_video": {
         "name": "Stop video"
+      },
+      "upgrade_video": {
+        "name": "Switch to video"
       }
     }
   },
@@ -900,6 +903,10 @@
         "config_entry_id": {
           "name": "Tài khoản Telegram Call",
           "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        },
+        "video_request": {
+          "name": "Video request",
+          "description": "Caller turns the camera on mid-call: ask = only the video_request event (default); accept = agree, send a black picture; accept_camera = agree and send the chosen camera."
         }
       }
     },
@@ -998,6 +1005,10 @@
         "config_entry_id": {
           "name": "Tài khoản Telegram Call",
           "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        },
+        "video_request": {
+          "name": "Video request",
+          "description": "Caller turns the camera on mid-call: ask = only the video_request event (default); accept = agree, send a black picture; accept_camera = agree and send the chosen camera."
         }
       }
     },
@@ -1076,6 +1087,24 @@
         "config_entry_id": {
           "name": "Tài khoản Telegram Call",
           "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "accept_video": {
+      "name": "Accept video",
+      "description": "Turn the home side's video on in the active voice call (empty camera = black picture or the default camera).",
+      "fields": {
+        "call_id": {
+          "name": "Call id",
+          "description": "Empty = the only active call."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "Camera to send (empty = default camera, otherwise black)."
+        },
+        "config_entry_id": {
+          "name": "Telegram Call account",
+          "description": "Only needed with several accounts."
         }
       }
     }

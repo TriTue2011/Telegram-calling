@@ -405,13 +405,15 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
             kw["mic_fmt"] = b["mic_format"]
         if "camera_off" in b:
             kw["cam_off"] = bool(b["camera_off"])
+        if b.get("video"):
+            kw["video"] = True                       # bật video giữa cuộc gọi thoại
         if not kw:
-            raise bad_request("Cần mic, camera hoặc camera_off.")
+            raise bad_request("Cần mic, camera, camera_off hoặc video.")
         fut = asyncio.run_coroutine_threadsafe(c.set_capture(**kw), rt.loop)
         try:
             await asyncio.wait_for(asyncio.wrap_future(fut), 10)
         except Exception as exc:  # noqa: BLE001 - lỗi NTgCalls báo lại rõ, không làm sập route
-            raise ApiError(502, "MEDIA_FAILED", "Không đổi được nguồn: %s" % type(exc).__name__)
+            raise ApiError(502, "MEDIA_FAILED", "Không đổi được nguồn: %s %s" % (type(exc).__name__, str(exc)[:120]))
         return c.info()
 
     @app.post("/api/live/say")

@@ -18,7 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from . import call_rules
 from .api import TelegramCallError
-from .rules import (CALL_TYPES, CONNECT, MAX_ANNOUNCE_REPEAT, MAX_NOTE_LEN, RULES_KEY, SCOPES, RuleError, get_rules, normalize as normalize_rule,
+from .rules import (CALL_TYPES, CONNECT, MAX_ANNOUNCE_REPEAT, MAX_NOTE_LEN, RULES_KEY, SCOPES, VIDEO_REQUEST, RuleError, get_rules, normalize as normalize_rule,
                     parse_tags, validate_scope)
 from .bridge_core import redact
 from .const import DOMAIN
@@ -44,7 +44,7 @@ ANSWER_CALL = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string,         
                           vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100))})
 
 _RULE_FIELDS = ("name", "answer", "answer_delay", "call_types", "pipeline", "greeting", "hangup_after", "announce", "announce_to", "announce_text", "announce_repeat",
-                "announce_volume", "connect_now", "connect", "speaker", "mic", "mic_url", "camera", "volume")
+                "announce_volume", "connect_now", "connect", "video_request", "speaker", "mic", "mic_url", "camera", "volume")
 _RULE = {vol.Optional("name"): cv.string, vol.Optional("answer"): cv.boolean,
          vol.Optional("answer_delay"): vol.All(vol.Coerce(int), vol.Range(min=0, max=120)),
          vol.Optional("call_types"): vol.All(cv.ensure_list, [vol.In(list(CALL_TYPES))]),
@@ -54,6 +54,7 @@ _RULE = {vol.Optional("name"): cv.string, vol.Optional("answer"): cv.boolean,
          vol.Optional("announce_volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
          vol.Optional("connect_now"): vol.All(cv.ensure_list, [vol.In(list(CONNECT))]),
          vol.Optional("connect"): vol.All(cv.ensure_list, [vol.In(list(CONNECT))]),
+         vol.Optional("video_request"): vol.In(list(VIDEO_REQUEST)),
          vol.Optional("speaker"): cv.string, vol.Optional("mic"): cv.string, vol.Optional("mic_url"): cv.string, vol.Optional("camera"): cv.string,
          vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100))}
 _SCOPE_KEY = {vol.Optional("thread_id"): vol.Any(int, cv.string), vol.Optional("tag"): cv.string}
@@ -64,6 +65,7 @@ REMOVE_RULE = vol.Schema({**_ENTRY, vol.Required("scope"): vol.In(list(SCOPES)),
 CONTACT_TAGS = vol.Schema({**_ENTRY, vol.Required("thread_id"): vol.Any(int, cv.string), vol.Optional("tags"): vol.Any(cv.string, [cv.string]),
                            vol.Optional("note"): cv.string})
 CALL_ONLY = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string})
+ACCEPT_VIDEO = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string, vol.Optional("camera"): cv.string})
 SAY_IN_CALL = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string, vol.Required("message"): cv.string, vol.Optional("tts_engine"): cv.entity_id,
                           vol.Optional("language"): cv.string, vol.Optional("pipeline"): cv.string, vol.Optional("wait", default=True): cv.boolean})
 ALERT_CALL = vol.All(cv.has_at_least_one_key("user_id", "peer"), vol.Schema({
@@ -282,8 +284,8 @@ def async_register_services(hass: HomeAssistant) -> None:
                 res = await rt.bridge.async_resolve(rt.bridge.devices_for())
                 if target == "mic":
                     await rt.api.live_media(cid, mic=res["mic_url"] or "test", mic_format=res["mic_format"])
-                else:
-                    await rt.api.live_media(cid, camera=res["camera_url"] or "test", camera_off=False)
+                else:                                                         # bật video (cả khi cuộc đang là thoại): hình camera mặc định, không có thì hình đen
+                    await rt.api.live_media(cid, video=True, camera=res["camera_url"] or "black", camera_off=False)
                 return {"call_id": cid, "started": target}
             return await run(call, go)
         return handler
@@ -295,6 +297,11 @@ def async_register_services(hass: HomeAssistant) -> None:
             p_engine, p_lang, options = call_rules.pipeline_tts(hass, rt_call.data["pipeline"])
             engine, language = engine or p_engine, language or p_lang
         return engine, language, options
+
+    async def accept_video(call: ServiceCall) -> ServiceResponse:
+        async def go(rt):
+            return await call_rules.async_accept_video(hass, rt, call.data.get("call_id"), call.data.get("camera") or "")
+        return await run(call, go)
 
     async def say_in_call(call: ServiceCall) -> ServiceResponse:
         async def go(rt):
@@ -551,6 +558,7 @@ def async_register_services(hass: HomeAssistant) -> None:
                                    ("end_call", hangup_call, CALL_ID, R),
                                    ("reject_call", reject_call, CALL_ONLY, R),
                                    ("take_over_call", take_over_call, CALL_ONLY, R),
+                                   ("accept_video", accept_video, ACCEPT_VIDEO, R),
                                    ("say_in_call", say_in_call, SAY_IN_CALL, R),
                                    ("alert_call", alert_call, ALERT_CALL, R),
                                    ("start_call_mic", _start("mic"), CALL_ONLY, R),
