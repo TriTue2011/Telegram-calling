@@ -317,8 +317,13 @@ class LiveCall:
             if not self._ready_done:
                 self._ready_done = True
                 self.emojis = list(st.get("emojis") or [])
-                self._set("connecting", "TDLib: Ready (servers=%d, p2p=%s, emoji=%s)"
-                          % (len(st.get("servers") or []), st.get("allow_p2p"), "".join(self.emojis)))
+                try:
+                    ours = list(self.runtime.protocol().get("library_versions") or [])
+                except Exception:  # noqa: BLE001 - chỉ để ghi nhật ký
+                    ours = []
+                self._set("connecting", "TDLib: Ready (servers=%d, p2p=%s, emoji=%s, phiên bản bên kia=%s, phiên bản ta khai=%s)"
+                          % (len(st.get("servers") or []), st.get("allow_p2p"), "".join(self.emojis),
+                             list((st.get("protocol") or {}).get("library_versions") or []), ours))
                 self.runtime.run(self._ready(st))
         elif kind == "callStateDiscarded":
             self._end("TDLib: bị kết thúc (%s)" % ((st.get("reason") or {}).get("@type", "?")))
