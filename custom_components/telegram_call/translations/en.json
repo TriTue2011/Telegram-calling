@@ -98,9 +98,13 @@
       "name": "Call",
       "description": "Place a voice or video call to a Telegram user.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "peer": {
           "name": "Callee (@username or +phone)",
-          "description": "@username or +phone number (with country code; the person must allow being found by number). Use instead of the numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "user_id": {
           "name": "User ID",
@@ -204,13 +208,17 @@
       "name": "Send message",
       "description": "Send a text message (optionally formatted, as a reply) to a Telegram user or group.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "message": {
           "name": "Message",
@@ -234,13 +242,17 @@
       "name": "Send file",
       "description": "Send a file (photo, video, audio, voice note or document) from a HA path, URL or media-source.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "file": {
           "name": "File",
@@ -272,13 +284,17 @@
       "name": "Send photo",
       "description": "Send a photo.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "file": {
           "name": "File",
@@ -306,13 +322,17 @@
       "name": "Send video",
       "description": "Send a video.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "file": {
           "name": "File",
@@ -340,13 +360,17 @@
       "name": "Send audio file",
       "description": "Send an audio file (music, recording, TTS) as an audio track.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "file": {
           "name": "File",
@@ -374,13 +398,17 @@
       "name": "Send voice note",
       "description": "Send a voice note from an audio file (mp3, m4a, wav… converted to ogg/opus) or let the gateway read text aloud (users only).",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "file": {
           "name": "Audio file",
@@ -412,13 +440,17 @@
       "name": "Edit message",
       "description": "Edit a message you sent.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "message_id": {
           "name": "Message ID",
@@ -442,13 +474,17 @@
       "name": "Delete messages",
       "description": "Delete one or more messages (for everyone by default).",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "message_ids": {
           "name": "Message IDs",
@@ -468,13 +504,17 @@
       "name": "Forward messages",
       "description": "Forward messages from one chat to another.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "from_chat_id": {
           "name": "From chat (ID)",
@@ -494,13 +534,17 @@
       "name": "React",
       "description": "Add (or remove) an emoji reaction on a message.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "message_id": {
           "name": "Message ID",
@@ -524,13 +568,17 @@
       "name": "Mark as read",
       "description": "Mark messages of a chat as read.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "message_ids": {
           "name": "Message IDs",
@@ -546,13 +594,17 @@
       "name": "Chat history",
       "description": "Return the latest messages of a chat (use with response_variable).",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "chat_id": {
           "name": "Chat ID",
           "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
         },
         "peer": {
           "name": "Recipient (@username / +phone)",
-          "description": "@username, +phone number (with country code) or a user's numeric ID."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "limit": {
           "name": "Limit",
@@ -726,13 +778,17 @@
       "name": "Gọi cảnh báo",
       "description": "Gọi một người, đọc cảnh báo khi họ nghe máy rồi cúp / nối thiết bị nhà / giữ máy. Báo bằng sự kiện telegram_call_alert_done.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "user_id": {
           "name": "ID người dùng",
           "description": "Số ID Telegram của người nhận."
         },
         "peer": {
           "name": "Người nhận (@username hoặc +số)",
-          "description": "Dùng thay cho ID số."
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "message": {
           "name": "Nội dung",
@@ -848,6 +904,10 @@
       "name": "Đặt quy tắc (lưu sẵn)",
       "description": "Quy tắc lưu sẵn cho cuộc gọi đến theo người/thẻ/danh bạ/người lạ. Chỉ là bản dự phòng khi không có automation nào áp quy tắc bằng apply_call_rule.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "scope": {
           "name": "Phạm vi",
           "description": "thread = một người (ID số) · tag = người mang một thẻ · contacts = người trong danh bạ · strangers = người lạ. Cụ thể hơn thì thắng."
@@ -1052,6 +1112,10 @@
       "name": "Xoá quy tắc",
       "description": "Xoá quy tắc lưu sẵn.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "scope": {
           "name": "Phạm vi",
           "description": "thread = một người (ID số) · tag = người mang một thẻ · contacts = người trong danh bạ · strangers = người lạ. Cụ thể hơn thì thắng."
@@ -1084,6 +1148,10 @@
       "name": "Gắn thẻ cho người",
       "description": "Gắn thẻ/ghi chú cho một người; thẻ có quy tắc riêng thì mọi người mang thẻ dùng quy tắc ấy.",
       "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
         "thread_id": {
           "name": "ID người dùng",
           "description": "ID số Telegram của người gọi (scope = thread)."

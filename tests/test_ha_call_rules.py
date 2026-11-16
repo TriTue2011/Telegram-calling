@@ -508,3 +508,38 @@ async def test_answer_call_connect_now_holds_the_unticked_parts_silent_and_black
     s = reqs(gw, "/api/live/settings")[-1]
     assert s["mic"] == "http://r1.local/mic.pcm" and s["camera"] == "black", s
     assert reqs(gw, "/api/live/accept")
+
+
+# -- ô «Chọn người từ danh bạ» (recipient) ---------------------------------------------------------------------------
+
+def _person(hass, uid="5", entity="notify.telegram_call_dai_ca"):
+    hass.states.async_set(entity, "unknown", {"user_id": uid, "chat_id": uid, "type": "user"})
+
+
+async def test_recipient_from_contacts_fills_the_id_fields_the_service_declares(hass, setup, gw):
+    _rt(setup)
+    _person(hass)
+    await call(hass, "make_call", {"recipient": "notify.telegram_call_dai_ca", "mic_url": "http://r1.local/mic.pcm"})
+    assert reqs(gw, "/api/live/call")[-1]["user_id"] == 5, "chọn người từ danh bạ: không cần dán ID"
+    await call(hass, "send_message", {"recipient": "notify.telegram_call_dai_ca", "message": "chào"})
+    assert gw.last("/send")["path"] == "/api/chats/5/send"
+    await call(hass, "set_contact_tags", {"recipient": "notify.telegram_call_dai_ca", "tags": "gia đình"})
+    assert (await call(hass, "list_contacts", {})) is not None
+
+
+async def test_explicit_id_beats_the_recipient_and_a_stranger_can_still_be_typed(hass, setup, gw):
+    _rt(setup)
+    _person(hass)
+    await call(hass, "send_message", {"recipient": "notify.telegram_call_dai_ca", "chat_id": 42, "message": "x"})
+    assert gw.last("/send")["path"] == "/api/chats/42/send"
+    await call(hass, "send_message", {"chat_id": 99, "message": "người lạ"})                 # không chọn từ danh bạ: nhập tay như cũ
+    assert gw.last("/send")["path"] == "/api/chats/99/send"
+
+
+async def test_unknown_recipient_is_refused_with_a_clear_message(hass, setup, gw):
+    import voluptuous as vol
+    _rt(setup)
+    hass.states.async_set("notify.khong_phai_nguoi", "unknown", {})
+    for who in ("notify.khong_co", "notify.khong_phai_nguoi"):
+        with pytest.raises(vol.Invalid, match="Không tìm thấy người nhận"):
+            await call(hass, "send_message", {"recipient": who, "message": "x"})

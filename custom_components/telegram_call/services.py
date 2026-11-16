@@ -156,6 +156,47 @@ def _entry(hass: HomeAssistant, call: ServiceCall) -> ConfigEntry:
     return entries[0]
 
 
+def _schema_keys(schema: Any) -> set[str]:
+    """Tên các khoá khai trong một schema voluptuous (đi vào cả vol.All / vol.Schema lồng)."""
+    out: set[str] = set()
+
+    def walk(x: Any) -> None:
+        if isinstance(x, vol.Schema):
+            walk(x.schema)
+        elif isinstance(x, dict):
+            out.update(str(k) for k in x)
+        elif isinstance(x, vol.All):
+            for v in x.validators:
+                walk(v)
+    walk(schema)
+    return out
+
+
+_RECIPIENT_KEYS = ("user_id", "chat_id", "thread_id")      # ô «ID» mà một người nhận chọn từ danh bạ sẽ điền thay (chỉ ô mà dịch vụ có khai)
+
+
+def _with_recipient(hass: HomeAssistant, schema: Any) -> Any:
+    """Ô ``recipient``: chọn NGƯỜI từ danh bạ (thực thể notify của Telegram Call) thay cho việc dán ID; người ngoài danh bạ vẫn dùng ``peer`` (@username, +số điện thoại) hoặc ID số.
+    Giải trước khi kiểm schema nên các ràng buộc «ít nhất một trong chat_id / peer» vẫn đúng; ô khai tường minh luôn thắng ô điền từ người nhận."""
+    targets = [k for k in _RECIPIENT_KEYS if k in _schema_keys(schema)]
+    if not targets:
+        return schema
+
+    def resolve(data: dict) -> dict:
+        rid = data.get("recipient")
+        if rid in (None, ""):
+            return {k: v for k, v in data.items() if k != "recipient"}
+        out = {k: v for k, v in data.items() if k != "recipient"}
+        st = hass.states.get(str(rid))
+        uid = (st.attributes.get("user_id") if st is not None else None) or ""
+        if not str(uid).strip().lstrip("-").isdigit():
+            raise vol.Invalid("Không tìm thấy người nhận «%s»: chọn một thực thể notify của Telegram Call (danh bạ) hoặc nhập peer / ID." % rid)
+        for k in targets:
+            out.setdefault(k, str(uid) if k == "thread_id" else int(uid))
+        return out
+    return vol.All(resolve, schema)
+
+
 def _public(info: dict) -> dict:
     """Thông tin cuộc gọi trả cho người dùng/automation: không có nhật ký sự kiện (có thể kèm lỗi dài/URL)."""
     return {k: (redact(str(v)) if k == "error" else v) for k, v in info.items()
@@ -623,7 +664,7 @@ def async_register_services(hass: HomeAssistant) -> None:
                                    ("get_contacts", get_contacts, CONTACTS, SupportsResponse.ONLY),
                                    ("translate_text", translate_text, TRANSLATE, SupportsResponse.ONLY),
                                    ("download_file", download_file, DOWNLOAD, R)):
-        hass.services.async_register(DOMAIN, name, fn, schema=schema, supports_response=resp)
+        hass.services.async_register(DOMAIN, name, fn, schema=_with_recipient(hass, schema), supports_response=resp)
 
 
 async def _refresh(hass: HomeAssistant, call: ServiceCall) -> None:

@@ -1,5 +1,10 @@
 make_call:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     peer:
       example: '@ten_dang_nhap'
       selector:
@@ -105,6 +110,11 @@ hangup_call:
           integration: telegram_call
 send_message:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id:
       selector: &id007
         number:
@@ -139,6 +149,11 @@ send_message:
       selector: *id006
 send_file:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id:
       selector: *id007
     peer:
@@ -169,6 +184,11 @@ send_file:
       selector: *id006
 send_photo:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id: &id011
       selector: *id007
     peer: &id012
@@ -188,6 +208,11 @@ send_photo:
       selector: *id006
 send_video:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id:
       selector: *id007
     peer:
@@ -207,6 +232,11 @@ send_video:
       selector: *id006
 send_audio:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id:
       selector: *id007
     peer:
@@ -226,6 +256,11 @@ send_audio:
       selector: *id006
 send_media_group:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id: *id011
     peer: *id012
     media:
@@ -237,6 +272,11 @@ send_media_group:
     config_entry_id: *id015
 send_voice:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id:
       selector: *id007
     peer:
@@ -255,6 +295,11 @@ send_voice:
       selector: *id006
 edit_message:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id:
       selector: *id007
     peer:
@@ -272,6 +317,11 @@ edit_message:
       selector: *id006
 delete_message:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id:
       selector: *id007
     peer:
@@ -287,6 +337,11 @@ delete_message:
       selector: *id006
 forward_message:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id:
       selector: *id007
     peer:
@@ -301,6 +356,11 @@ forward_message:
       selector: *id006
 add_reaction:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id:
       selector: *id007
     peer:
@@ -339,6 +399,11 @@ add_reaction:
       selector: *id006
 mark_read:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id:
       selector: *id007
     peer:
@@ -349,6 +414,11 @@ mark_read:
       selector: *id006
 get_history:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     chat_id:
       selector: *id007
     peer:
@@ -481,6 +551,11 @@ say_in_call:
           integration: telegram_call
 alert_call:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     user_id:
       selector:
         number:
@@ -588,6 +663,11 @@ stop_call_video:
           integration: telegram_call
 set_rule:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     scope:
       required: true
       selector:
@@ -840,6 +920,11 @@ apply_call_rule:
           mode: dropdown
 remove_rule:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     scope:
       required: true
       selector:
@@ -868,6 +953,11 @@ list_rules:
           integration: telegram_call
 set_contact_tags:
   fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
     thread_id:
       required: true
       selector:
