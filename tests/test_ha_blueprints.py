@@ -1,5 +1,5 @@
 """Blueprint Telegram Call chạy THẬT trong HA (nạp đúng file blueprint của kho TriTue2011/Blueprint):
-quy tắc cuộc gọi đến (mỗi cuộc kích hoạt automation, tự nghe máy đúng người/đúng giờ) và nút bấm (nghe / cúp / gọi đi).
+quy tắc cuộc gọi đến (mỗi cuộc kích hoạt automation, tự nghe máy đúng người/đúng giờ).
 
     python -m pytest tests/test_ha_blueprints.py -p pytest_homeassistant_custom_component -o asyncio_mode=auto
 
@@ -45,7 +45,7 @@ async def gw(socket_enabled):
 def _install(hass):
     dst = hass.config.path("blueprints", "automation", "TriTue2011")
     os.makedirs(dst, exist_ok=True)
-    for f in ("telegram_call_incoming_rule.yaml", "telegram_call_nut_bam.yaml"):
+    for f in ("telegram_call_incoming_rule.yaml",):
         shutil.copy(os.path.join(BP_DIR, f), os.path.join(dst, f))
 
 
@@ -136,24 +136,3 @@ async def test_person_picked_from_the_notify_entities_of_the_integration(hass, s
     await _load(hass, _rule(setup, "Tele E", pham_vi="thread", nguoi_cu_the=[eid], nghe_sau=0))
     gw.calls = [dict(RINGING, id="n-1", user_id=1)]
     assert await _wait(lambda: _accepts(gw), 8)
-
-
-async def test_button_answers_hangs_up_or_calls_depending_on_the_moment(hass, setup, gw):
-    auto = {"alias": "Tele nut", "use_blueprint": {"path": "TriTue2011/telegram_call_nut_bam.yaml", "input": {
-        "nut_bam": [{"trigger": "event", "event_type": "tele_nut"}], "cam_bien": _sensor(hass, setup),
-        "nguoi_nhan": "@ben_bap", "mic": ""}}}
-    await _load(hass, auto)
-    sensor = _sensor(hass, setup)
-    hass.bus.async_fire("tele_nut")                                              # rảnh: gọi đi
-    assert await _wait(lambda: [r for r in gw.requests if r["path"] == "/api/live/call"])
-    assert [r for r in gw.requests if r["path"] == "/api/live/call"][-1]["json"]["peer"] == "@ben_bap"
-    gw.calls = [dict(RINGING, id="n1", user_id=5)]                               # có cuộc gọi đến: nghe
-    assert await _wait(lambda: hass.states.get(sensor).state == "incoming")
-    hass.bus.async_fire("tele_nut")
-    assert await _wait(lambda: _accepts(gw))
-    assert _accepts(gw)[-1]["json"]["id"] == "n1"
-    gw.calls = [dict(RINGING, id="n1", user_id=5, state="active")]               # đang nói: cúp
-    assert await _wait(lambda: hass.states.get(sensor).state == "answered")
-    hass.bus.async_fire("tele_nut")
-    assert await _wait(lambda: [r for r in gw.requests if r["path"] == "/api/live/hangup"])
-    assert [r for r in gw.requests if r["path"] == "/api/live/hangup"][-1]["json"] == {"id": "n1"}

@@ -167,7 +167,7 @@ Khác Zalo Call: **chưa có trợ lý AI trò chuyện** trong cuộc gọi (ga
 
 #### Blueprint (giống Zalo Call)
 
-Blueprint trong kho [Blueprint](https://github.com/TriTue2011/Blueprint): **Quy tắc cho cuộc gọi đến** (`telegram_call_incoming_rule.yaml`: gọi `apply_call_rule` cho từng cuộc, chọn người từ danh sách thực thể), **Một nút bấm** (`telegram_call_nut_bam.yaml`: nghe / cúp / gọi đi) và **Nút bấm mọi loại, nhiều việc** (`nut_bam_nhieu_viec.yaml`: thêm việc tuỳ ý, chọn theo cảm biến đổi gần nhất). Các blueprint thông báo có Telegram Bot (`alarm_person_camera` 1–4, `calendar_weather_notification`, `ai_creat_image_weather_3`) có thêm ô **«Telegram Calling»** để gửi ảnh, video, tin nhắn qua tài khoản Telegram thật.
+Blueprint trong kho [Blueprint](https://github.com/TriTue2011/Blueprint): **Quy tắc cho cuộc gọi đến** (`telegram_call_incoming_rule.yaml`: gọi `apply_call_rule` cho từng cuộc, chọn người từ danh sách thực thể), **Nút bấm mọi loại, nhiều việc** (`nut_bam_nhieu_viec.yaml`: một automation cho mọi nút, thêm việc tuỳ ý như nghe/cúp/gọi đi bằng `telegram_call.*`, chọn theo cảm biến đổi gần nhất). Các blueprint thông báo có Telegram Bot (`alarm_person_camera` 1–4, `calendar_weather_notification`, `ai_creat_image_weather_3`) có thêm ô **«Telegram Calling»** để gửi ảnh, video, tin nhắn qua tài khoản Telegram thật.
 
 Dịch vụ gửi tin nhận cùng mẫu dữ liệu với `telegram_bot` (`config_entry_id` rỗng, `chat_id` hoặc `target`, `message_thread_id` được bỏ qua, `parse_mode` đổi thành `format`) và có `send_media_group` (nhiều ảnh/video một lệnh, gửi lần lượt từng tệp), nên một mẫu dùng được cho cả hai.
 
