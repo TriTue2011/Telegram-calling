@@ -541,3 +541,29 @@ def test_live_say_route(tmp_path):
             chat_routes.to_pcm48k = monkey
     finally:
         _stop_loop(loop, th, futs)
+
+
+def test_monitor_reports_ratio_and_flags_a_starved_source(monkeypatch):
+    import asyncio
+    monkeypatch.setattr(live_call, "MONITOR_EVERY", 0.05)
+    caps = iter([0.0, 0.05, 0.10, 0.101, 0.102, 0.103])       # 2 lần đầu chạy đúng nhịp, rồi nguồn đứng
+
+    class NTG:
+        async def time(self, uid, mode):
+            return next(caps, 0.103)
+
+    rt = StubRuntime()
+    rt.nt, rt.ntg = _fake_nt(), NTG()
+    c = live_call.LiveCall(rt, "+84", StubClient(), 5, False)
+    c.state = "active"
+
+    async def go():
+        t = asyncio.ensure_future(c._monitor())
+        await asyncio.sleep(0.45)
+        c.state = "ended"
+        await asyncio.sleep(0.1)
+        t.cancel()
+    asyncio.run(go())
+    assert c.diag.get("ratio") is not None and "capture_s" in c.diag
+    assert any("nguồn gửi đi chậm" in e["e"] for e in c.events)
+    assert "diag" in c.info()

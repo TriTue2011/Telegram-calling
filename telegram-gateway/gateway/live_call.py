@@ -30,6 +30,7 @@ logger = logging.getLogger("telegram_gateway")
 SAMPLE_RATE = 48000
 CHANNELS = 1
 MAX_EVENTS = 200
+MONITOR_EVERY = 3.0           # giây giữa hai lần đo media trong cuộc gọi
 MAX_ENDED_CALLS = 20          # cuộc gọi đã kết thúc giữ lại để xem nhật ký; thừa thì bỏ cái cũ nhất
 
 
@@ -121,6 +122,8 @@ class LiveCall:
         self.user_id, self.outgoing, self.video = int(user_id), outgoing, video
         self.mic, self.mic_fmt, self.cam = mic, mic_fmt, cam
         self.cam_off = False
+        self.diag: dict = {}            # số đo media (mẫu mỗi vài giây): capture_s = thời gian nguồn GỬI ĐI đã chạy, ratio = capture_s / thời gian thật
+        self._monitor_task = None
         self.id = uuid.uuid4().hex[:10]
         self.tdlib_call_id: int | None = None
         self.state = "dialing" if outgoing else "ringing"
@@ -148,7 +151,7 @@ class LiveCall:
         return {"id": self.id, "user_id": self.user_id, "outgoing": self.outgoing, "video": self.video,
                 "state": self.state, "emojis": self.emojis, "error": self.error,
                 "seconds": round((self.ended_at or time.time()) - (self.active_at or self.started_at), 1),
-                "mic_muted": self.mic == "silence", "cam_off": self.cam_off, "frames_in": self.frames_in, "frame_bytes": self.frame_bytes, "peak": getattr(self, "peak", 0),
+                "diag": self.diag, "mic_muted": self.mic == "silence", "cam_off": self.cam_off, "frames_in": self.frames_in, "frame_bytes": self.frame_bytes, "peak": getattr(self, "peak", 0),
                 "playback": {"kind": self.playback_kind, "bytes": self._playback_size()},
                 "events": self.events[-40:]}
 
@@ -234,10 +237,39 @@ class LiveCall:
             self.log("NTgCalls: connect_p2p (%d máy chủ)" % len(servers))
             await ntg.connect_p2p(self.user_id, servers, m["versions"], m["p2p_allowed"], m["custom_parameters"])
             self.log("NTgCalls: connect_p2p xong")
+            if self._monitor_task is None:
+                self._monitor_task = asyncio.ensure_future(self._monitor())
         except Exception as exc:  # noqa: BLE001 - lỗi runtime phải thấy được ở nhật ký, không nuốt
             self.error = "%s: %s" % (type(exc).__name__, exc)
             self.log("NTgCalls LỖI " + self.error)
             logger.exception("live_call %s lỗi ở bước media", self.id)
+
+    async def _monitor(self) -> None:
+        """Đo media trong lúc gọi (chẩn đoán «tín hiệu mạng kém» ở đầu bên kia): mỗi MONITOR_EVERY giây hỏi NTgCalls nguồn GỬI ĐI đã chạy được bao lâu.
+        Nguồn mic/camera chạy đúng nhịp thì capture_s tăng bằng thời gian thật (ratio ≈ 1); nguồn bị đói (ffmpeg không có dữ liệu, URL treo) thì ratio tụt xuống,
+        và nhật ký ghi «nguồn gửi đi chậm». Không ném lỗi ra ngoài; dừng khi cuộc gọi kết thúc."""
+        nt, ntg = self.runtime.nt, self.runtime.ntg
+        t0 = last_wall = time.monotonic()
+        last_cap = None
+        try:
+            while self.state in ("connecting", "active"):
+                await asyncio.sleep(MONITOR_EVERY)
+                now = time.monotonic()
+                try:
+                    cap = float(await ntg.time(self.user_id, nt.StreamMode.CAPTURE))
+                except Exception as exc:  # noqa: BLE001 - chưa dựng xong / đã dừng: thử lại lượt sau
+                    self.diag = {"loi": type(exc).__name__}
+                    continue
+                if last_cap is not None and now - last_wall > MONITOR_EVERY / 2:
+                    ratio = round((cap - last_cap) / (now - last_wall), 2)
+                    self.diag = {"capture_s": round(cap, 1), "wall_s": round(now - t0, 1), "ratio": ratio}
+                    if ratio < 0.5:
+                        self.log("nguồn gửi đi chậm: chạy %.0f%% so với thời gian thật (mic/camera đói dữ liệu?)" % (ratio * 100))
+                last_cap, last_wall = cap, now
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            self.log("đo media dừng: %s" % type(exc).__name__)
 
     def _capture_description(self):
         """Mô tả nguồn GỬI ĐI (mic + camera nếu là cuộc gọi video) theo trạng thái hiện tại của cuộc gọi."""
@@ -317,6 +349,8 @@ class LiveCall:
             self.log("NTgCalls send_signaling_data lỗi: %s" % exc)
 
     async def _stop(self) -> None:
+        if self._monitor_task is not None:
+            self._monitor_task.cancel()
         try:
             await self.runtime.ntg.stop(self.user_id)
         except Exception as exc:  # noqa: BLE001 - chưa tạo cuộc gọi NTgCalls thì stop báo lỗi: bình thường
