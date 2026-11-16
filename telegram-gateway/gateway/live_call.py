@@ -429,6 +429,19 @@ class LiveCall:
         self.log("đổi nguồn gửi đi: mic=%s camera=%s" % ("im lặng" if self.mic == "silence" else "nguồn ngoài" if self.mic != "test" else "âm thử",
                                                          "tắt" if self.cam_off else "bật" if self.video else "không có"))
 
+    async def refresh_capture(self, delays: tuple = (1.5, 5.0)) -> None:
+        """Cuộc gọi VIDEO ĐI: bật lại nguồn gửi đi SAU KHI đã nối xong. Nguồn được đặt sớm (lúc TDLib báo Ready, trước khi nối) và điện thoại hay chỉ thấy ô hình đen
+        vì khung khoá đầu tới trước khi bên kia sẵn sàng nhận; zalo_call làm ngược lại: chỉ bật media ở sự kiện «đã nghe máy». Đặt lại nguồn ép gửi khung khoá mới. Lỗi chỉ ghi nhật ký."""
+        for wait in delays:
+            await asyncio.sleep(wait)
+            if self.state != "active":
+                return
+            try:
+                await self.runtime.ntg.set_stream_sources(self.user_id, self.runtime.nt.StreamMode.CAPTURE, self._capture_description())
+                self.log("bật lại nguồn gửi đi sau khi nối xong (+%.1f s)" % wait)
+            except Exception as exc:  # noqa: BLE001
+                self.log("bật lại nguồn gửi đi lỗi: %s" % exc)
+
     async def say(self, pcm: bytes) -> float:
         """Đọc một đoạn tiếng (PCM s16le 48 kHz mono, ví dụ TTS) VÀO cuộc gọi: mic chuyển sang đoạn đó, đọc xong trả mic về như cũ
         (trừ khi trong lúc đọc có ai đổi mic khác). Trả số giây đoạn tiếng; hàm này chạy tới khi đọc xong."""
@@ -598,6 +611,8 @@ class CallRuntime:
         if name == "CONNECTED" and not c.active_at:
             c.active_at, c.state = time.time(), "active"
             self.on_event("active", c)
+            if c.outgoing and c.video:
+                self.run(c.refresh_capture())
         elif name in ("FAILED", "TIMEOUT", "CLOSED") and c.state != "ended":
             c._end("NTgCalls: %s" % name)
             self.on_event("ended", c)

@@ -719,3 +719,47 @@ def test_protocol_khai_bao_p2p_theo_cong_tat_p2p(monkeypatch):
     assert rt.protocol()["udp_p2p"] is False and rt.protocol()["udp_reflector"] is True
     monkeypatch.setenv("TELEGRAM_P2P", "1")
     assert rt.protocol()["udp_p2p"] is True
+
+
+def test_outgoing_video_call_reapplies_capture_after_connected_but_other_calls_do_not():
+    import asyncio
+    import types
+    sets = []
+
+    class Ntg:
+        async def set_stream_sources(self, uid, mode, desc):
+            sets.append((uid, mode, desc))
+
+    rt = types.SimpleNamespace(ntg=Ntg(), data_dir="/tmp", nt=types.SimpleNamespace(StreamMode=types.SimpleNamespace(CAPTURE="CAP")))
+    c = live_call.LiveCall(rt, "+84", None, 5, True, True)
+    c._capture_description = lambda: "mô tả"
+    c.state = "connecting"
+    asyncio.run(c.refresh_capture((0.01, 0.01)))
+    assert sets == [], "chưa nối xong (state connecting) thì không bật lại"
+    c.state = "active"
+    asyncio.run(c.refresh_capture((0.01, 0.01)))
+    assert sets == [(5, "CAP", "mô tả")] * 2 and any("bật lại nguồn gửi đi" in e["e"] for e in c.events)
+    c.state = "active"; sets.clear()
+
+    async def stop_midway():
+        t = asyncio.ensure_future(c.refresh_capture((0.01, 0.2)))
+        await asyncio.sleep(0.05)
+        c.state = "ended"
+        await t
+    asyncio.run(stop_midway())
+    assert len(sets) == 1, "cuộc gọi kết thúc giữa chừng thì dừng, không đặt nguồn lần hai"
+
+
+def test_connected_schedules_the_capture_refresh_only_for_outgoing_video_calls():
+    import types
+    ran = []
+    rt = live_call.CallRuntime.__new__(live_call.CallRuntime)
+    rt.calls, rt.on_event, rt.data_dir = {}, (lambda *a: None), "/tmp"
+    rt.run = lambda coro: (ran.append(coro), coro.close())
+    connected = types.SimpleNamespace(state=types.SimpleNamespace(name="CONNECTED"))
+    for uid, outgoing, video, expect in ((11, True, True, 1), (12, True, False, 0), (13, False, True, 0)):
+        ran.clear()
+        c = live_call.LiveCall(rt, "+84", None, uid, outgoing, video)
+        rt.calls[c.id] = c
+        rt._conn(uid, connected)
+        assert len(ran) == expect, (uid, outgoing, video, len(ran))
