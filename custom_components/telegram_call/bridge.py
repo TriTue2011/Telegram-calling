@@ -149,11 +149,12 @@ class CallBridge:
         res = await self.async_resolve(devices)
         mic_id = entity_of_label(devices.get("mic", ""))
         cam_id = entity_of_label(devices.get("camera", ""))
-        payload = {"mic": res["mic_url"] or "test", "mic_format": res["mic_format"], "camera": res["camera_url"] or "test",
+        payload = {"mic": res["mic_url"] or "silence", "mic_format": res["mic_format"], "camera": res["camera_url"] or "black",
                    "speaker": res["speaker_url"]}
         # Thiết bị ĐÃ CHỌN mà chưa phân giải được (camera chưa nạp xong lúc HA khởi động): KHÔNG gửi «test» để ghi đè giá trị đang đúng
         # của gateway (cùng lớp lỗi đã gặp ở zalo_call, đo 10/11/2026). Bỏ trường đó (gateway giữ giá trị cũ), đánh dấu «chưa xong»
-        # để coordinator tự thử lại. «test» chỉ gửi khi người dùng thật sự không chọn thiết bị.
+        # để coordinator tự thử lại. Người dùng thật sự không chọn thiết bị thì gửi «silence» (mic im lặng) / «black» (hình đen), KHÔNG phải âm/hình
+        # thử: giống zalo_call và giống nghe máy theo quy tắc — nối máy mà chưa chọn gì thì không đưa tiếng/hình nào của nhà lên cuộc gọi.
         thieu: list[str] = []
         if cam_id and not res["camera_url"]:
             payload.pop("camera")
@@ -184,17 +185,20 @@ class CallBridge:
     async def async_apply_override(self, call_id: Any, override: dict[str, Any], held: bool = False) -> None:
         """Nghe máy một cuộc gọi ĐẾN bằng thiết bị riêng (loa/mic/camera/âm lượng do automation hoặc quy tắc chọn): đặt chúng làm thiết bị hiện hành của gateway TRƯỚC khi nghe máy
         (cuộc gọi đến luôn dùng thiết bị hiện hành), nhớ để trả về mặc định khi cuộc gọi kết thúc (``stop``).
-        ``held`` (nghe máy theo quy tắc): mic/camera KHÔNG chọn thì gửi im lặng / hình đen thay vì âm/hình thử của gateway."""
+        ``held`` (nghe máy theo quy tắc): luôn đặt lại thiết bị của gateway kể cả khi không có thiết bị nào. Mic/camera KHÔNG chọn thì gửi im lặng / hình đen."""
         self.remember(call_id, override)
         if not held and not any(override.get(k) for k in DEVICE_KEYS):
             return                                              # chỉ có âm lượng: không đụng thiết bị của gateway
         devices = self.devices_for(override)
         res = await self.async_resolve(devices)
-        none_mic, none_cam = ("silence", "black") if held else ("test", "test")
-        payload: dict[str, Any] = {"mic": res["mic_url"] or none_mic, "mic_format": res["mic_format"], "camera": res["camera_url"] or none_cam,
+        payload: dict[str, Any] = {"mic": res["mic_url"] or "silence", "mic_format": res["mic_format"], "camera": res["camera_url"] or "black",
                                    "speaker": res["speaker_url"]}
         await self.api.set_live_settings(payload)
         self._restore_defaults.add(str(call_id))
+
+    def has_devices(self, call_id: Any) -> bool:
+        """Cuộc gọi này đã được đặt thiết bị RIÊNG (nghe theo quy tắc, hoặc ``answer_call`` kèm mic/loa/camera) — không cần nối thêm theo quy tắc."""
+        return str(call_id) in self._restore_defaults
 
     def remember(self, call_id: Any, override: dict[str, Any]) -> None:
         """Ghi đè (loa, âm lượng…) của cuộc gọi sắp nối máy. call_id None = cuộc gọi kế tiếp (chưa biết mã lúc gọi dịch vụ)."""

@@ -82,7 +82,7 @@ async def test_answer_call_with_its_own_devices_sets_them_before_accepting_and_r
     await asyncio.sleep(2.0)
     await hass.async_block_till_done()
     last = _settings(gw)[-1]
-    assert last["mic"] == "test", last                                           # cuộc gọi hết: trả thiết bị mặc định, không rò sang cuộc sau
+    assert last["mic"] == "silence", last                                        # cuộc gọi hết: trả thiết bị mặc định, không rò sang cuộc sau
 
 
 async def test_answer_call_without_devices_touches_nothing(hass, setup, gw):

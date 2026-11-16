@@ -200,12 +200,12 @@ def test_call_fields_carry_mic_camera_and_speaker_with_override():
     asyncio.run(run())
 
 
-def test_push_defaults_send_speaker_and_test_only_when_nothing_selected():
+def test_push_defaults_send_speaker_and_silence_black_when_nothing_selected():
     async def run():
         hass, api, dd, br = _make({"speaker": "media_player.r1_loa"})
         _ent("r1_speaker", "media_player.r1_loa", "r1entry", intercom_key="KHOA")
         await br.async_push_defaults()
-        assert api.pushed[-1] == {"mic": "test", "mic_format": "auto", "camera": "test",
+        assert api.pushed[-1] == {"mic": "silence", "mic_format": "auto", "camera": "black",
                                   "speaker": "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA"}
         assert br.policy.pushed_ok is True
         # Loa không hỗ trợ -> gửi rỗng (gateway lưu file thay vì đẩy), không coi là thiếu.
@@ -230,10 +230,10 @@ def test_push_camera_not_ready_keeps_gateway_value_and_retries_then_gives_up():
         await br.async_push_defaults()
         assert api.pushed[-1]["camera"] == "rtsp://cam2.local/s" and api.pushed[-1]["mic"] == "rtsp://u:p@cam.local/stream"
         assert br.policy.pushed_ok is True
-        # Người dùng THẬT SỰ bỏ chọn camera -> «test».
+        # Người dùng THẬT SỰ bỏ chọn camera -> «black» (hình đen, không phải hình thử).
         await dd.async_set(camera="")
         await br.async_push_defaults()
-        assert api.pushed[-1]["camera"] == "test" and br.policy.pushed_ok is True
+        assert api.pushed[-1]["camera"] == "black" and br.policy.pushed_ok is True
         # Camera bị xoá hẳn: thử tối đa N lần rồi thôi, không lặp mãi.
         await dd.async_set(camera="camera.cam2")
         H["urls"].pop("camera.cam2")

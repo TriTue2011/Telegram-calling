@@ -217,7 +217,7 @@ async def test_mute_mic_and_video_and_start_mic(hass, setup, gw):
     await call(hass, "stop_call_video", {})
     assert reqs(gw, "/api/live/media")[-1] == {"id": "c1", "camera_off": True}
     await call(hass, "start_call_mic", {})
-    assert reqs(gw, "/api/live/media")[-1]["mic"] == "test"                      # chưa chọn mic mặc định: âm thử, giống make_call
+    assert reqs(gw, "/api/live/media")[-1]["mic"] == "silence"                   # chưa chọn mic mặc định: im lặng (không phải âm thử), giống make_call
 
 
 async def test_say_in_call_reads_text_into_the_call(hass, setup, gw):
@@ -392,3 +392,78 @@ async def test_video_request_rule_field_is_validated(hass, setup, gw):
     assert "video_request" in str(err.value)
     await call(hass, "set_rule", {"scope": "contacts", "video_request": "accept_camera"})
     assert (await call(hass, "list_rules", {}))["contacts"]["video_request"] == "accept_camera"
+
+
+# -- nghe máy bằng TAY (nút R1, answer_call...): thiết bị vẫn được nối theo quy tắc ------------------------------------
+
+RULE_DEVICES = {"answer": False, "connect_now": ["mic", "speaker"], "mic_url": "http://r1.local/mic.pcm"}
+
+
+async def _answer_by_hand(hass, gw, rt, answer_data=None):
+    await call(hass, "answer_call", {"call_id": "c1", **(answer_data or {})})
+    gw.calls = [dict(ACTIVE)]
+    assert await until(lambda: "c1" in rt.voice.answered_ids)
+
+
+async def test_hand_answered_call_gets_the_rule_devices_wired_when_it_becomes_active(hass, setup, gw):
+    rt = _rt(setup)
+    await _ring(gw, rt)
+    await call(hass, "apply_call_rule", {"call_id": "c1", "source": "automation.a", **RULE_DEVICES})
+    await asyncio.sleep(GRACE + 0.6)
+    assert not reqs(gw, "/api/live/accept"), "quy tắc không cho tự nghe máy"
+    await _answer_by_hand(hass, gw, rt)
+    assert await until(lambda: reqs(gw, "/api/live/media")), "ai nghe máy thì thiết bị của quy tắc cũng phải được nối"
+    assert reqs(gw, "/api/live/media")[-1]["mic"] == "http://r1.local/mic.pcm"
+    assert len(reqs(gw, "/api/live/media")) == 1, "mỗi cuộc chỉ nối một lần"
+
+
+async def test_hand_answered_call_without_any_rule_connects_nothing(hass, setup, gw):
+    rt = _rt(setup)
+    await _ring(gw, rt)
+    await asyncio.sleep(GRACE + 0.4)
+    await _answer_by_hand(hass, gw, rt)
+    await asyncio.sleep(0.8)
+    assert not reqs(gw, "/api/live/media") and not reqs(gw, "/api/live/playback")
+
+
+async def test_rule_answered_call_is_not_wired_a_second_time(hass, setup, gw):
+    rt = _rt(setup)
+    await _ring(gw, rt)
+    await call(hass, "apply_call_rule", {"call_id": "c1", "source": "automation.a", "answer": True, "answer_delay": 0,
+                                         "connect_now": ["mic"], "mic_url": "http://r1.local/mic.pcm"})
+    assert await until(lambda: reqs(gw, "/api/live/accept"))
+    gw.calls = [dict(ACTIVE)]
+    assert await until(lambda: "c1" in rt.voice.answered_ids)
+    await asyncio.sleep(0.8)
+    assert not reqs(gw, "/api/live/media"), "nghe theo quy tắc đã nối thiết bị lúc nghe máy (settings), không nối lại"
+
+
+async def test_hand_answer_with_its_own_devices_keeps_them_and_skips_the_rule(hass, setup, gw):
+    rt = _rt(setup)
+    await _ring(gw, rt)
+    await call(hass, "apply_call_rule", {"call_id": "c1", "source": "automation.a", **RULE_DEVICES})
+    await asyncio.sleep(GRACE + 0.4)
+    await _answer_by_hand(hass, gw, rt, {"mic_url": "http://khac.local/mic"})
+    await asyncio.sleep(0.8)
+    assert not reqs(gw, "/api/live/media"), "answer_call kèm thiết bị riêng thì quy tắc không đè lên"
+
+
+async def test_rule_that_arrives_after_the_call_was_answered_still_wires_the_devices(hass, setup, gw):
+    rt = _rt(setup)
+    await _ring(gw, rt)
+    await asyncio.sleep(GRACE + 0.4)                              # hết giờ chờ, chưa có quy tắc nào
+    await _answer_by_hand(hass, gw, rt)
+    assert not reqs(gw, "/api/live/media")
+    res = await call(hass, "apply_call_rule", {"call_id": "c1", "source": "automation.cham", **RULE_DEVICES})
+    assert res["status"] == "connected"
+    assert await until(lambda: reqs(gw, "/api/live/media"))
+    assert reqs(gw, "/api/live/media")[-1]["mic"] == "http://r1.local/mic.pcm"
+
+
+async def test_outgoing_calls_are_never_wired_by_an_incoming_rule(hass, setup, gw):
+    rt = _rt(setup)
+    await call(hass, "set_rule", {"scope": "thread", "thread_id": "5", **RULE_DEVICES})
+    gw.calls = [dict(ACTIVE, outgoing=True)]
+    assert await until(lambda: "c1" in rt.voice.answered_ids)
+    await asyncio.sleep(0.8)
+    assert not reqs(gw, "/api/live/media")

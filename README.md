@@ -177,6 +177,8 @@ Dịch vụ gửi tin nhận cùng mẫu dữ liệu với `telegram_bot` (`conf
 
 Loa, mic, camera, âm lượng mặc định đặt ngay trên thiết bị **Telegram Call** (ô chọn *Loa mặc định*, *Mic*, *Camera*, *Âm lượng cuộc gọi*), `make_call`/`answer_call` chỉ cần ghi đè khi muốn khác. Quy tắc của automation chỉ nối thiết bị đã tích ở `connect_now` / `connect`.
 
+**Ai nghe máy cũng được nối thiết bị.** Tự nghe theo quy tắc thì nối thứ tích ở `connect_now` lúc nghe máy. Nếu cuộc gọi ĐẾN được nghe bằng cách khác (nút loa R1, `answer_call` không kèm thiết bị, hoặc quy tắc tới muộn hơn lúc nghe) thì khi cuộc gọi vào trạng thái *đã nghe máy*, tích hợp nối mic / loa / camera của quy tắc (cả `connect_now` lẫn `connect`, vì người nghe tay chính là người nói) — mỗi cuộc một lần. `answer_call` kèm `mic`/`speaker`/`camera` riêng thì giữ đúng thiết bị đó, không đè. Chưa chọn mic/camera thì mic im lặng và hình đen (không phải âm/hình thử).
+
 ### Nhắn tin và nhận tin
 
 | Việc | Dịch vụ | Ví dụ |

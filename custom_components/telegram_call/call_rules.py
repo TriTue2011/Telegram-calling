@@ -72,6 +72,7 @@ class CallVoice:
     call_payload: dict[str, dict[str, Any]] = field(default_factory=dict)
     decide_timers: dict[str, Any] = field(default_factory=dict)
     greeting_for: dict[str, dict[str, Any]] = field(default_factory=dict)       # call_id -> quy tắc có lời nhắn, chạy khi «đã nghe máy»
+    connected: set[str] = field(default_factory=set)                            # call_id đã nối thiết bị theo quy tắc sau khi có người nghe tay (mỗi cuộc một lần)
     decide_grace: float | None = None                                           # None = DECIDE_GRACE
     claim_seq: int = 0
 
@@ -407,7 +408,8 @@ def _begin_decide(hass: HomeAssistant, rt: Any, cid: str, payload: dict[str, Any
 
 async def async_apply_claim(hass: HomeAssistant, rt: Any, call_id: Any, claim: Claim) -> str:
     """Dịch vụ apply_call_rule: một automation áp quy tắc của nó cho cuộc gọi `call_id`. Trả về: queued (chờ chốt), applied (đã chốt mà chưa có quy tắc nào nên làm ngay),
-    late (đến sau khi đã chốt bằng quy tắc khác: bỏ, có ghi nhật ký), duplicate (automation này đã áp cho cuộc gọi này), recorded (đến trước khi cuộc gọi được đánh dấu «đến»)."""
+    late (đến sau khi đã chốt bằng quy tắc khác: bỏ, có ghi nhật ký), duplicate (automation này đã áp cho cuộc gọi này), recorded (đến trước khi cuộc gọi được đánh dấu «đến»),
+    connected (cuộc gọi đã có người nghe: nối thiết bị của quy tắc ngay)."""
     voice: CallVoice = rt.voice
     cid = str(call_id)
     if claim.source and any(c.source == claim.source for c in voice.claims.get(cid, [])):
@@ -415,6 +417,12 @@ async def async_apply_claim(hass: HomeAssistant, rt: Any, call_id: Any, claim: C
     voice.claim_seq += 1
     claim.seq = voice.claim_seq
     voice.claims.setdefault(cid, []).append(claim)
+    if cid in voice.answered_ids:                                # cuộc gọi đã có người nghe (tay hoặc quy tắc khác) rồi quy tắc này mới tới: nối thiết bị ngay
+        payload = voice.call_payload.get(cid) or {"call_id": cid}
+        if cid not in voice.rule_of:                              # quy tắc này thành quy tắc của cuộc gọi (cho take_over, đọc ở rule_for_call)
+            voice.rule_of[cid] = claim.rule
+        hass.async_create_task(_connect_by_rule(hass, rt, cid, payload))
+        return "connected"
     if cid in voice.decide_timers:
         return "queued"
     if cid in voice.decided:
@@ -426,6 +434,28 @@ async def async_apply_claim(hass: HomeAssistant, rt: Any, call_id: Any, claim: C
         _execute_rules(hass, rt, cid, voice.call_payload.get(cid) or {"call_id": cid}, [claim])
         return "applied"
     return "recorded"
+
+
+# -- nghe máy bằng TAY (nút R1, answer_call không kèm thiết bị...) --------------------------------------------------------
+
+async def _connect_by_rule(hass: HomeAssistant, rt: Any, cid: str, payload: dict[str, Any]) -> None:
+    """Cuộc gọi ĐẾN đã có người nghe mà HA chưa nối thiết bị nào (không phải nghe theo quy tắc, cũng không phải ``answer_call`` kèm thiết bị riêng): nối mic / loa /
+    camera của QUY TẮC của người gọi — người nghe tay chính là người nói nên lấy cả «nối ngay» lẫn «khi chuyển máy» (như ``outgoing_devices`` của zalo_call).
+    Không có quy tắc, hoặc quy tắc không chọn thiết bị nào: không làm gì. Mỗi cuộc một lần; lỗi chỉ ghi nhật ký (không làm hỏng cuộc gọi)."""
+    voice: CallVoice = rt.voice
+    if payload.get("outgoing") or cid in voice.connected or rt.bridge.has_devices(cid):
+        return
+    rule = rule_for_call(rt, payload)
+    parts = rule_parts(rule) if rule else []
+    if not parts:
+        return
+    voice.connected.add(cid)
+    try:
+        await async_take_over(hass, rt, cid, explicit=rule_override(rule, parts))
+    except TelegramCallError as err:
+        _LOGGER.warning("Cuộc gọi %s đã có người nghe nhưng chưa nối được thiết bị theo quy tắc: %s", cid, err)
+    except Exception:  # noqa: BLE001
+        _LOGGER.exception("Nối thiết bị theo quy tắc cho cuộc gọi %s lỗi", cid)
 
 
 # -- điều khiển giữa cuộc gọi ------------------------------------------------------------------------------------------
@@ -576,6 +606,8 @@ def on_call_state(hass: HomeAssistant, rt: Any, state: str, call_id: Any, termin
         rule = voice.greeting_for.pop(cid, None)
         if rule is not None and cid not in voice.tasks:
             voice.tasks[cid] = hass.async_create_task(_run_greeting(hass, rt, cid, rule))
+        elif payload:                                           # nghe TAY (nút R1, answer_call...): nối thiết bị theo quy tắc của người gọi
+            hass.async_create_task(_connect_by_rule(hass, rt, cid, payload))
     elif state in terminal:
         _stop_announce(voice, cid)
         voice.answered_ids.discard(cid)
@@ -585,6 +617,7 @@ def on_call_state(hass: HomeAssistant, rt: Any, state: str, call_id: Any, termin
                 cancel()
         for store in (voice.claims, voice.decided, voice.rule_of, voice.call_payload, voice.announce_done, voice.greeting_for):
             store.pop(cid, None)
+        voice.connected.discard(cid)
         voice.scheduled.discard(cid)
         voice.incoming.discard(cid)
         voice.announced.discard(cid)

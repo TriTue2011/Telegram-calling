@@ -283,7 +283,7 @@ def async_register_services(hass: HomeAssistant) -> None:
                 cid = await call_rules._active_call_id(rt, call.data.get("call_id"))
                 res = await rt.bridge.async_resolve(rt.bridge.devices_for())
                 if target == "mic":
-                    await rt.api.live_media(cid, mic=res["mic_url"] or "test", mic_format=res["mic_format"])
+                    await rt.api.live_media(cid, mic=res["mic_url"] or "silence", mic_format=res["mic_format"])
                 else:                                                         # bật video (cả khi cuộc đang là thoại): hình camera mặc định, không có thì hình đen
                     await rt.api.live_media(cid, video=True, camera=res["camera_url"] or "black", camera_off=False)
                 return {"call_id": cid, "started": target}
