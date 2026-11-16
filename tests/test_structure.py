@@ -83,3 +83,25 @@ def test_khong_boc_callback_len_phuong_thuc_da_gan():
                     if isinstance(arg, ast.Attribute):
                         bad.append("%s:%d" % (os.path.basename(path), arg.lineno))
     assert not bad, "callback() bọc lên phương thức đã gắn: %s" % bad
+
+
+def test_catalog_dich_vu_khop_services_yaml_va_ban_dich():
+    """catalog.py là nguồn duy nhất: services.yaml và strings/vi/en phải có đủ dịch vụ và đủ ô của nó (chạy ``python3 tools/gen_catalog.py`` nếu lệch)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("telegram_call_catalog", os.path.join(INT, "catalog.py"))
+    cat = importlib.util.module_from_spec(spec)
+    import sys
+    sys.modules[spec.name] = cat
+    spec.loader.exec_module(cat)
+    with open(os.path.join(INT, "services.yaml"), encoding="utf-8") as fh:
+        yml = yaml.safe_load(fh)
+    texts = {rel: _json(INT, *rel.split("/"))["services"] for rel in ("strings.json", "translations/vi.json", "translations/en.json")}
+    assert len(cat.SERVICES) == 30
+    for name, svc in cat.SERVICES.items():
+        own = {f.key for f in svc.fields}
+        assert own <= set(yml[name]["fields"]), name
+        for rel, t in texts.items():
+            assert name in t and t[name]["name"] and t[name]["description"], (rel, name)
+            assert set(t[name]["fields"]) == set(yml[name]["fields"]), (rel, name)
+            for f in svc.fields:
+                assert t[name]["fields"][f.key]["name"], (rel, name, f.key)

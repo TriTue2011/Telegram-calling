@@ -15,6 +15,7 @@ import uuid
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 
+from . import td_services
 from .chat import ChatService, Feed
 from .media_convert import to_ogg_opus, to_pcm48k
 from .live_call import CallRuntime, apply_defaults, sweep_stale_audio, valid_speaker_url
@@ -184,6 +185,18 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         except ValueError as exc:
             raise bad_request(str(exc))
         return {"messages": msgs, "count": len(msgs)}
+
+    @app.post("/api/do/{name}")
+    async def do_service(request: Request, name: str):
+        """Dịch vụ theo danh mục (td_services.HANDLERS): hội thoại, tin nhắn, danh bạ, nhóm, tài khoản. Chỉ tên trong danh sách cho phép; thân là JSON tham số của dịch vụ."""
+        auth(request)
+        if name not in td_services.HANDLERS:
+            raise not_found("Không có dịch vụ «%s»." % name)
+        body = await body_dict(request)
+        try:
+            return await run(td_services.run_service, service(acct(request)).client, name, body)
+        except ValueError as exc:
+            raise bad_request(str(exc))
 
     def _sweep_uploads() -> None:
         """Tệp tải lên phải còn tới khi TDLib gửi xong; dọn tệp quá một ngày."""

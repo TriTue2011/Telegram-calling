@@ -197,6 +197,18 @@ Loa, mic, camera, âm lượng mặc định đặt ngay trên thiết bị **Te
 | Dịch | `translate_text` | `text: "Xin chào"`, `to_language: en` |
 | Tải tệp đính kèm về | `download_file` | `file_id` (từ sự kiện), `path: /config/www/nhan.jpg` |
 
+### Hội thoại, bình chọn, danh bạ, nhóm, tài khoản (30 dịch vụ)
+
+Mỗi dịch vụ gọi đúng một hàm của TDLib theo lược đồ chính thức (`td_api.tl`); danh sách nằm ở `custom_components/telegram_call/catalog.py` và `services.yaml` / bản dịch sinh từ đó (`python3 tools/gen_catalog.py`). Dịch vụ nhắm một cuộc trò chuyện nhận `chat_id`, `peer` (@username, +số) hoặc ô «Chọn người từ danh bạ» (`recipient`); dịch vụ nhắm một người nhận `user_id`, `peer` hoặc `recipient`.
+
+| Nhóm | Dịch vụ |
+|---|---|
+| Hội thoại | `set_mute` (tắt thông báo theo giây) · `pin_chat` · `archive_chat` · `mark_chat_unread` · `set_auto_delete` · `send_typing` · `delete_chat_history` (không hoàn tác) · `rename_chat` · `leave_chat` · `get_chat_info` |
+| Tin nhắn | `pin_message` · `unpin_message` · `send_poll` (bình chọn hoặc câu đố) · `vote_poll` · `stop_poll` |
+| Người dùng và danh bạ | `find_user` (theo số hoặc @username) · `get_user_info` · `add_contact` · `remove_contact` · `block_user` · `unblock_user` |
+| Nhóm | `create_group` · `add_chat_member` · `remove_chat_member` (cấm khoảng 1 phút rồi mời lại được) · `create_invite_link` · `join_chat` (link t.me) |
+| Tài khoản | `get_me` · `set_name` · `set_bio` · `set_username` |
+
 **Nhận tin:** sự kiện **`telegram_call_message`** (`chat_id`, `message_id`, `sender`, `kind`, `text`, `file_id`…) và cảm biến *Tin nhắn gần nhất*; ví dụ trả lời tự động:
 
 ```yaml

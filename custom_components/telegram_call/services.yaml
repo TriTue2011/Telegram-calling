@@ -1024,3 +1024,592 @@ accept_video:
       selector:
         config_entry:
           integration: telegram_call
+# --- Sinh bởi tools/gen_catalog.py từ catalog.py: ĐỪNG sửa tay phần dưới ---
+set_mute:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    mute_for:
+      selector:
+        number:
+          mode: box
+          min: -1
+          max: 31622400
+      default: 0
+    config_entry_id:
+      selector:
+        text: null
+pin_chat:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    pinned:
+      selector:
+        boolean: null
+      default: true
+    archived:
+      selector:
+        boolean: null
+      default: false
+    config_entry_id:
+      selector:
+        text: null
+archive_chat:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    archive:
+      selector:
+        boolean: null
+      default: true
+    config_entry_id:
+      selector:
+        text: null
+mark_chat_unread:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    unread:
+      selector:
+        boolean: null
+      default: true
+    config_entry_id:
+      selector:
+        text: null
+set_auto_delete:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    seconds:
+      selector:
+        number:
+          mode: box
+          min: 0
+          max: 31622400
+      default: 0
+    config_entry_id:
+      selector:
+        text: null
+send_typing:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    action:
+      selector:
+        select:
+          options:
+          - typing
+          - recording_voice
+          - cancel
+          mode: dropdown
+      default: typing
+    config_entry_id:
+      selector:
+        text: null
+delete_chat_history:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    revoke:
+      selector:
+        boolean: null
+      default: false
+    remove_from_list:
+      selector:
+        boolean: null
+      default: false
+    config_entry_id:
+      selector:
+        text: null
+rename_chat:
+  fields:
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    title:
+      selector:
+        text: null
+      required: true
+    config_entry_id:
+      selector:
+        text: null
+leave_chat:
+  fields:
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        text: null
+get_chat_info:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        text: null
+pin_message:
+  fields:
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    message_id:
+      selector:
+        number:
+          mode: box
+          min: 1
+      required: true
+    notify:
+      selector:
+        boolean: null
+      default: false
+    only_for_self:
+      selector:
+        boolean: null
+      default: false
+    config_entry_id:
+      selector:
+        text: null
+unpin_message:
+  fields:
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    message_id:
+      selector:
+        number:
+          mode: box
+          min: 1
+      required: true
+    config_entry_id:
+      selector:
+        text: null
+send_poll:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    question:
+      selector:
+        text: null
+      required: true
+    options:
+      selector:
+        text:
+          multiline: true
+      required: true
+    anonymous:
+      selector:
+        boolean: null
+      default: true
+    multiple:
+      selector:
+        boolean: null
+      default: false
+    quiz_answer:
+      selector:
+        number:
+          mode: box
+          min: 1
+          max: 10
+    explanation:
+      selector:
+        text: null
+      default: ''
+    config_entry_id:
+      selector:
+        text: null
+vote_poll:
+  fields:
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    message_id:
+      selector:
+        number:
+          mode: box
+          min: 1
+      required: true
+    options:
+      selector:
+        text: null
+      required: true
+    config_entry_id:
+      selector:
+        text: null
+stop_poll:
+  fields:
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    message_id:
+      selector:
+        number:
+          mode: box
+          min: 1
+      required: true
+    config_entry_id:
+      selector:
+        text: null
+find_user:
+  fields:
+    phone:
+      selector:
+        text: null
+      default: ''
+    username:
+      selector:
+        text: null
+      default: ''
+    config_entry_id:
+      selector:
+        text: null
+get_user_info:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    user_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        text: null
+add_contact:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    user_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    first_name:
+      selector:
+        text: null
+      required: true
+    last_name:
+      selector:
+        text: null
+      default: ''
+    phone:
+      selector:
+        text: null
+      default: ''
+    share_phone:
+      selector:
+        boolean: null
+      default: false
+    config_entry_id:
+      selector:
+        text: null
+remove_contact:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    user_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        text: null
+block_user:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    user_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        text: null
+unblock_user:
+  fields:
+    recipient:
+      selector:
+        entity:
+          domain: notify
+          integration: telegram_call
+    user_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    config_entry_id:
+      selector:
+        text: null
+create_group:
+  fields:
+    title:
+      selector:
+        text: null
+      required: true
+    user_ids:
+      selector:
+        text: null
+      required: true
+    config_entry_id:
+      selector:
+        text: null
+add_chat_member:
+  fields:
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    user_id:
+      selector:
+        number:
+          mode: box
+          min: 1
+      required: true
+    forward_limit:
+      selector:
+        number:
+          mode: box
+          min: 0
+          max: 100
+      default: 0
+    config_entry_id:
+      selector:
+        text: null
+remove_chat_member:
+  fields:
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    user_id:
+      selector:
+        number:
+          mode: box
+          min: 1
+      required: true
+    config_entry_id:
+      selector:
+        text: null
+create_invite_link:
+  fields:
+    chat_id:
+      selector:
+        number:
+          mode: box
+    peer:
+      selector:
+        text: null
+    name:
+      selector:
+        text: null
+      default: ''
+    expire_seconds:
+      selector:
+        number:
+          mode: box
+          min: 0
+          max: 31622400
+      default: 0
+    member_limit:
+      selector:
+        number:
+          mode: box
+          min: 0
+          max: 99999
+      default: 0
+    join_request:
+      selector:
+        boolean: null
+      default: false
+    config_entry_id:
+      selector:
+        text: null
+join_chat:
+  fields:
+    invite_link:
+      selector:
+        text: null
+      required: true
+    config_entry_id:
+      selector:
+        text: null
+get_me:
+  fields:
+    config_entry_id:
+      selector:
+        text: null
+set_name:
+  fields:
+    first_name:
+      selector:
+        text: null
+      required: true
+    last_name:
+      selector:
+        text: null
+      default: ''
+    config_entry_id:
+      selector:
+        text: null
+set_bio:
+  fields:
+    bio:
+      selector:
+        text: null
+      default: ''
+    config_entry_id:
+      selector:
+        text: null
+set_username:
+  fields:
+    username:
+      selector:
+        text: null
+      default: ''
+    config_entry_id:
+      selector:
+        text: null

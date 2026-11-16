@@ -98,6 +98,8 @@ class FakeGateway:
         if p == "/api/contacts":
             return web.json_response({"contacts": [{"id": 1, "name": "Đại ca", "phone": "84900000000", "username": "dai_ca"},
                                                    {"id": 2, "name": "Khác", "phone": "84911111111", "username": ""}]})
+        if p.startswith("/api/do/"):                                  # dịch vụ theo danh mục (catalog.py): lặp lại tên và nơi nhắm
+            return web.json_response({"ok": True, "service": p.rsplit("/", 1)[1], "chat_id": (body or {}).get("chat_id")})
         if p == "/api/translate":
             return web.json_response({"text": "Hello (%s)" % body["to_language_code"]})
         if p.startswith("/api/file/"):

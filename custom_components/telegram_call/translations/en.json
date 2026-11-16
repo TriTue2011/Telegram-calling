@@ -1235,6 +1235,718 @@
           "description": "Only needed with several accounts."
         }
       }
+    },
+    "set_mute": {
+      "name": "Mute chat",
+      "description": "Mute a chat for a while, or unmute it.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "mute_for": {
+          "name": "Mute for (seconds)",
+          "description": "0 = unmute; -1 = use the Telegram default; positive = mute for that many seconds (max 1 year: 31622400). Example: 3600 = 1 hour."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "pin_chat": {
+      "name": "Pin chat",
+      "description": "Pin a chat to the top of the chat list (up to 5 in the main list).",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "pinned": {
+          "name": "Pinned",
+          "description": "On = pin, off = unpin."
+        },
+        "archived": {
+          "name": "In archive",
+          "description": "On if the chat is in the archive."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "archive_chat": {
+      "name": "Archive chat",
+      "description": "Move a chat to the archive, or back to the main list.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "archive": {
+          "name": "Archive",
+          "description": "On = archive, off = move back to the main list."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "mark_chat_unread": {
+      "name": "Mark chat unread",
+      "description": "Set or clear the «unread» mark of a chat.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "unread": {
+          "name": "Unread",
+          "description": "On = mark unread, off = clear the mark."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "set_auto_delete": {
+      "name": "Auto-delete messages",
+      "description": "Set the auto-delete timer for new messages in a chat (0 = off).",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "seconds": {
+          "name": "After (seconds)",
+          "description": "0 = off; usually 86400 (1 day), 604800 (1 week), 2678400 (1 month)."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "send_typing": {
+      "name": "Send typing action",
+      "description": "Show «typing…» or «recording…» to the other side for a few seconds.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "action": {
+          "name": "Action",
+          "description": "typing; recording_voice; or cancel."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "delete_chat_history": {
+      "name": "Delete chat history",
+      "description": "DELETE all messages of a chat — cannot be undone.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "revoke": {
+          "name": "Also delete for the other side",
+          "description": "On = also delete for the other side (when Telegram allows it)."
+        },
+        "remove_from_list": {
+          "name": "Remove from list",
+          "description": "On = also remove the chat from the list."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "rename_chat": {
+      "name": "Rename group",
+      "description": "Change the title of a group or channel (admin rights needed).",
+      "fields": {
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "title": {
+          "name": "New title",
+          "description": "1-128 characters."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "leave_chat": {
+      "name": "Leave group",
+      "description": "Leave a group or channel.",
+      "fields": {
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "get_chat_info": {
+      "name": "Get chat info",
+      "description": "Return the title, kind, unread count, mute time and auto-delete timer.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "pin_message": {
+      "name": "Pin message",
+      "description": "Pin a message in a chat.",
+      "fields": {
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "message_id": {
+          "name": "Message ID",
+          "description": "Numeric message ID (from get_history or a send result)."
+        },
+        "notify": {
+          "name": "Notify members",
+          "description": "On = notify members about the pin."
+        },
+        "only_for_self": {
+          "name": "Only for me",
+          "description": "On = pin only on your side (private chats)."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "unpin_message": {
+      "name": "Unpin message",
+      "description": "Unpin a message.",
+      "fields": {
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "message_id": {
+          "name": "Message ID",
+          "description": "Numeric message ID (from get_history or a send result)."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "send_poll": {
+      "name": "Send poll",
+      "description": "Send a poll (2-10 options) or a quiz with a correct answer.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "question": {
+          "name": "Question",
+          "description": "1-300 characters."
+        },
+        "options": {
+          "name": "Options",
+          "description": "One option per line, 2-10 options."
+        },
+        "anonymous": {
+          "name": "Anonymous",
+          "description": "On = voters are hidden."
+        },
+        "multiple": {
+          "name": "Allow multiple answers",
+          "description": "On = several answers allowed (not for quizzes)."
+        },
+        "quiz_answer": {
+          "name": "Quiz: correct answer",
+          "description": "1-based number of the correct option; set it to make a quiz."
+        },
+        "explanation": {
+          "name": "Quiz: explanation",
+          "description": "Shown after answering (quizzes only)."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "vote_poll": {
+      "name": "Vote in poll",
+      "description": "Vote in a poll (options numbered from 1).",
+      "fields": {
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "message_id": {
+          "name": "Message ID",
+          "description": "Numeric message ID (from get_history or a send result)."
+        },
+        "options": {
+          "name": "Chosen options",
+          "description": "1-based option numbers, comma separated. Empty = retract the vote."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "stop_poll": {
+      "name": "Stop poll",
+      "description": "Close a poll you sent.",
+      "fields": {
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "message_id": {
+          "name": "Message ID",
+          "description": "Numeric message ID (from get_history or a send result)."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "find_user": {
+      "name": "Find user",
+      "description": "Find a person by phone number (with country code) or public @username. Give exactly ONE of them.",
+      "fields": {
+        "phone": {
+          "name": "Phone number",
+          "description": "For example +84900000001."
+        },
+        "username": {
+          "name": "@username",
+          "description": "Public username, with or without @."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "get_user_info": {
+      "name": "Get user info",
+      "description": "Return name, @username, phone (when visible) and online status.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "user_id": {
+          "name": "User ID",
+          "description": "Numeric Telegram user ID. May be replaced by the contact picker or the recipient field."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "add_contact": {
+      "name": "Add contact",
+      "description": "Save a person to the account's Telegram contacts.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "user_id": {
+          "name": "User ID",
+          "description": "Numeric Telegram user ID. May be replaced by the contact picker or the recipient field."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "first_name": {
+          "name": "First name",
+          "description": "Name shown in contacts."
+        },
+        "last_name": {
+          "name": "Last name",
+          "description": "Optional."
+        },
+        "phone": {
+          "name": "Phone number",
+          "description": "Optional; stored with the contact."
+        },
+        "share_phone": {
+          "name": "Share my number",
+          "description": "On = let them see your number."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "remove_contact": {
+      "name": "Remove contact",
+      "description": "Remove a person from Telegram contacts (the chat stays).",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "user_id": {
+          "name": "User ID",
+          "description": "Numeric Telegram user ID. May be replaced by the contact picker or the recipient field."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "block_user": {
+      "name": "Block user",
+      "description": "Block a person: they can no longer message or call you.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "user_id": {
+          "name": "User ID",
+          "description": "Numeric Telegram user ID. May be replaced by the contact picker or the recipient field."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "unblock_user": {
+      "name": "Unblock user",
+      "description": "Unblock a person.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "user_id": {
+          "name": "User ID",
+          "description": "Numeric Telegram user ID. May be replaced by the contact picker or the recipient field."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "create_group": {
+      "name": "Create group",
+      "description": "Create a new group with members (basic group).",
+      "fields": {
+        "title": {
+          "name": "Group title",
+          "description": "1-128 characters."
+        },
+        "user_ids": {
+          "name": "Members",
+          "description": "Telegram user IDs, comma separated."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "add_chat_member": {
+      "name": "Add group member",
+      "description": "Add a person to a group.",
+      "fields": {
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "user_id": {
+          "name": "User ID",
+          "description": "Numeric Telegram user ID of the member. Find it with find_user or get_contacts."
+        },
+        "forward_limit": {
+          "name": "Old messages shown",
+          "description": "Number of recent messages the new member sees (0-100); basic groups only."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "remove_chat_member": {
+      "name": "Remove group member",
+      "description": "Remove a person from a group (banned for about a minute, then can be re-added).",
+      "fields": {
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "user_id": {
+          "name": "User ID",
+          "description": "Numeric Telegram user ID of the member. Find it with find_user or get_contacts."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "create_invite_link": {
+      "name": "Create invite link",
+      "description": "Create an invite link for a group or channel.",
+      "fields": {
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "name": {
+          "name": "Link name",
+          "description": "A label only admins see."
+        },
+        "expire_seconds": {
+          "name": "Expires after (seconds)",
+          "description": "0 = never expires."
+        },
+        "member_limit": {
+          "name": "Member limit",
+          "description": "0 = unlimited."
+        },
+        "join_request": {
+          "name": "Needs approval",
+          "description": "On = joiners must be approved by an admin."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "join_chat": {
+      "name": "Join by invite link",
+      "description": "Join a group or channel with a t.me invite link.",
+      "fields": {
+        "invite_link": {
+          "name": "Invite link",
+          "description": "Like https://t.me/+abc… or https://t.me/joinchat/…."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "get_me": {
+      "name": "Get my account",
+      "description": "Return name, @username and phone of the logged-in Telegram account.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "set_name": {
+      "name": "Change account name",
+      "description": "Change the account's display name.",
+      "fields": {
+        "first_name": {
+          "name": "First name",
+          "description": "1-64 characters."
+        },
+        "last_name": {
+          "name": "Last name",
+          "description": "Up to 64 characters."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "set_bio": {
+      "name": "Change bio",
+      "description": "Change the account's bio.",
+      "fields": {
+        "bio": {
+          "name": "Bio",
+          "description": "Up to 70 characters; empty = clear."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
+    },
+    "set_username": {
+      "name": "Change @username",
+      "description": "Change the account's public @username.",
+      "fields": {
+        "username": {
+          "name": "@username",
+          "description": "5-32 characters a-z, 0-9, _; empty = remove."
+        },
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Only needed with several Telegram Call accounts."
+        }
+      }
     }
   },
   "options": {

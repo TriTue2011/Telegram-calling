@@ -1235,6 +1235,718 @@
           "description": "Chỉ cần khi có nhiều tài khoản."
         }
       }
+    },
+    "set_mute": {
+      "name": "Tắt/bật thông báo",
+      "description": "Tắt thông báo một cuộc trò chuyện trong một khoảng thời gian, hoặc bật lại.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "mute_for": {
+          "name": "Tắt thông báo trong (giây)",
+          "description": "0 = bật lại thông báo; -1 = theo mặc định của Telegram; số dương = tắt chừng đó giây (tối đa 1 năm: 31622400). Ví dụ 3600 = 1 giờ."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "pin_chat": {
+      "name": "Ghim/bỏ ghim hội thoại",
+      "description": "Ghim cuộc trò chuyện lên đầu danh sách (tối đa 5 cuộc ở danh sách chính).",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "pinned": {
+          "name": "Ghim",
+          "description": "Bật = ghim, tắt = bỏ ghim."
+        },
+        "archived": {
+          "name": "Trong mục lưu trữ",
+          "description": "Bật nếu cuộc trò chuyện đang nằm trong mục lưu trữ."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "archive_chat": {
+      "name": "Lưu trữ hội thoại",
+      "description": "Chuyển cuộc trò chuyện vào mục lưu trữ hoặc đưa ra lại danh sách chính.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "archive": {
+          "name": "Lưu trữ",
+          "description": "Bật = lưu trữ, tắt = đưa ra danh sách chính."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "mark_chat_unread": {
+      "name": "Đánh dấu chưa đọc",
+      "description": "Gắn hoặc bỏ dấu «chưa đọc» của cuộc trò chuyện.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "unread": {
+          "name": "Chưa đọc",
+          "description": "Bật = đánh dấu chưa đọc, tắt = bỏ dấu."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "set_auto_delete": {
+      "name": "Tự xoá tin nhắn",
+      "description": "Đặt thời gian tự xoá tin nhắn mới của cuộc trò chuyện (0 = tắt).",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "seconds": {
+          "name": "Sau (giây)",
+          "description": "0 = tắt; thường dùng 86400 (1 ngày), 604800 (1 tuần), 2678400 (1 tháng)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "send_typing": {
+      "name": "Gửi trạng thái «đang gõ»",
+      "description": "Hiện «đang gõ…» hoặc «đang ghi âm…» ở phía người kia vài giây.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "action": {
+          "name": "Trạng thái",
+          "description": "typing = đang gõ; recording_voice = đang ghi âm; cancel = tắt trạng thái."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "delete_chat_history": {
+      "name": "Xoá lịch sử hội thoại",
+      "description": "XOÁ toàn bộ tin nhắn của cuộc trò chuyện — KHÔNG hoàn tác được.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "revoke": {
+          "name": "Xoá cả phía người kia",
+          "description": "Bật = xoá luôn ở phía người kia (nếu Telegram cho phép)."
+        },
+        "remove_from_list": {
+          "name": "Bỏ khỏi danh sách",
+          "description": "Bật = bỏ luôn cuộc trò chuyện khỏi danh sách."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "rename_chat": {
+      "name": "Đổi tên nhóm",
+      "description": "Đổi tên nhóm hoặc kênh (cần quyền quản trị).",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "title": {
+          "name": "Tên mới",
+          "description": "1-128 ký tự."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "leave_chat": {
+      "name": "Rời nhóm",
+      "description": "Rời khỏi nhóm hoặc kênh.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "get_chat_info": {
+      "name": "Xem thông tin hội thoại",
+      "description": "Trả về tên, loại, số tin chưa đọc, thời gian tắt thông báo và hẹn giờ tự xoá.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "pin_message": {
+      "name": "Ghim tin nhắn",
+      "description": "Ghim một tin nhắn trong cuộc trò chuyện.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "message_id": {
+          "name": "ID tin nhắn",
+          "description": "Số ID của tin nhắn (lấy từ get_history hoặc kết quả gửi tin)."
+        },
+        "notify": {
+          "name": "Báo cho mọi người",
+          "description": "Bật = gửi thông báo ghim cho các thành viên."
+        },
+        "only_for_self": {
+          "name": "Chỉ ghim cho tôi",
+          "description": "Bật = chỉ ghim ở phía bạn (hội thoại riêng)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "unpin_message": {
+      "name": "Bỏ ghim tin nhắn",
+      "description": "Bỏ ghim một tin nhắn.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "message_id": {
+          "name": "ID tin nhắn",
+          "description": "Số ID của tin nhắn (lấy từ get_history hoặc kết quả gửi tin)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "send_poll": {
+      "name": "Gửi bình chọn",
+      "description": "Gửi bình chọn (2-10 lựa chọn) hoặc câu đố có đáp án đúng.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "question": {
+          "name": "Câu hỏi",
+          "description": "1-300 ký tự."
+        },
+        "options": {
+          "name": "Các lựa chọn",
+          "description": "Mỗi dòng một lựa chọn, 2-10 lựa chọn."
+        },
+        "anonymous": {
+          "name": "Ẩn danh",
+          "description": "Bật = người xem không biết ai bầu gì."
+        },
+        "multiple": {
+          "name": "Cho chọn nhiều",
+          "description": "Bật = được chọn nhiều đáp án (không dùng cho câu đố)."
+        },
+        "quiz_answer": {
+          "name": "Câu đố: đáp án đúng",
+          "description": "Số thứ tự (từ 1) của đáp án đúng; điền thì thành câu đố."
+        },
+        "explanation": {
+          "name": "Câu đố: giải thích",
+          "description": "Hiện sau khi trả lời (chỉ câu đố)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "vote_poll": {
+      "name": "Bỏ phiếu bình chọn",
+      "description": "Chọn đáp án cho một bình chọn (đánh số từ 1).",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "message_id": {
+          "name": "ID tin nhắn",
+          "description": "Số ID của tin nhắn (lấy từ get_history hoặc kết quả gửi tin)."
+        },
+        "options": {
+          "name": "Đáp án chọn",
+          "description": "Số thứ tự đáp án (từ 1), nhiều đáp án cách nhau bằng dấu phẩy. Để trống = rút phiếu."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "stop_poll": {
+      "name": "Đóng bình chọn",
+      "description": "Đóng một bình chọn do bạn gửi.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "message_id": {
+          "name": "ID tin nhắn",
+          "description": "Số ID của tin nhắn (lấy từ get_history hoặc kết quả gửi tin)."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "find_user": {
+      "name": "Tìm người dùng",
+      "description": "Tìm người theo số điện thoại (có mã nước) hoặc @username công khai. Nêu ĐÚNG MỘT trong hai.",
+      "fields": {
+        "phone": {
+          "name": "Số điện thoại",
+          "description": "Ví dụ +84900000001."
+        },
+        "username": {
+          "name": "@username",
+          "description": "Tên người dùng công khai, có hoặc không có @."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "get_user_info": {
+      "name": "Xem thông tin người dùng",
+      "description": "Trả về tên, @username, số điện thoại (nếu được xem) và trạng thái trực tuyến.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "user_id": {
+          "name": "ID người dùng",
+          "description": "Số ID Telegram của người. Có thể thay bằng ô «Chọn người từ danh bạ» hoặc nhập ở ô «Người nhận»."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "add_contact": {
+      "name": "Thêm vào danh bạ",
+      "description": "Lưu một người vào danh bạ Telegram của tài khoản.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "user_id": {
+          "name": "ID người dùng",
+          "description": "Số ID Telegram của người. Có thể thay bằng ô «Chọn người từ danh bạ» hoặc nhập ở ô «Người nhận»."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "first_name": {
+          "name": "Tên",
+          "description": "Tên hiển thị trong danh bạ."
+        },
+        "last_name": {
+          "name": "Họ",
+          "description": "Không bắt buộc."
+        },
+        "phone": {
+          "name": "Số điện thoại",
+          "description": "Không bắt buộc; lưu cùng danh bạ."
+        },
+        "share_phone": {
+          "name": "Chia sẻ số của tôi",
+          "description": "Bật = để người đó thấy số của bạn."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "remove_contact": {
+      "name": "Xoá khỏi danh bạ",
+      "description": "Xoá một người khỏi danh bạ Telegram (không xoá cuộc trò chuyện).",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "user_id": {
+          "name": "ID người dùng",
+          "description": "Số ID Telegram của người. Có thể thay bằng ô «Chọn người từ danh bạ» hoặc nhập ở ô «Người nhận»."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "block_user": {
+      "name": "Chặn người dùng",
+      "description": "Chặn một người: họ không nhắn hay gọi được cho bạn.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "user_id": {
+          "name": "ID người dùng",
+          "description": "Số ID Telegram của người. Có thể thay bằng ô «Chọn người từ danh bạ» hoặc nhập ở ô «Người nhận»."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "unblock_user": {
+      "name": "Bỏ chặn người dùng",
+      "description": "Bỏ chặn một người.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "user_id": {
+          "name": "ID người dùng",
+          "description": "Số ID Telegram của người. Có thể thay bằng ô «Chọn người từ danh bạ» hoặc nhập ở ô «Người nhận»."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "create_group": {
+      "name": "Tạo nhóm",
+      "description": "Tạo nhóm mới với các thành viên (nhóm cơ bản; lên siêu nhóm khi cần).",
+      "fields": {
+        "title": {
+          "name": "Tên nhóm",
+          "description": "1-128 ký tự."
+        },
+        "user_ids": {
+          "name": "Thành viên",
+          "description": "ID Telegram của các thành viên, cách nhau bằng dấu phẩy."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "add_chat_member": {
+      "name": "Thêm thành viên vào nhóm",
+      "description": "Mời một người vào nhóm.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "user_id": {
+          "name": "ID người dùng",
+          "description": "Số ID Telegram của người cần thêm/mời ra. Tìm bằng dịch vụ find_user hoặc get_contacts."
+        },
+        "forward_limit": {
+          "name": "Số tin cũ cho xem",
+          "description": "Số tin gần nhất người mới được thấy (0-100); chỉ cho nhóm cơ bản."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "remove_chat_member": {
+      "name": "Mời thành viên ra khỏi nhóm",
+      "description": "Mời một người ra khỏi nhóm (cấm khoảng 1 phút, sau đó mời lại được; không cấm vĩnh viễn).",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "user_id": {
+          "name": "ID người dùng",
+          "description": "Số ID Telegram của người cần thêm/mời ra. Tìm bằng dịch vụ find_user hoặc get_contacts."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "create_invite_link": {
+      "name": "Tạo link mời nhóm",
+      "description": "Tạo link mời tham gia nhóm hoặc kênh.",
+      "fields": {
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "name": {
+          "name": "Tên link",
+          "description": "Tên gợi nhớ, chỉ quản trị thấy."
+        },
+        "expire_seconds": {
+          "name": "Hết hạn sau (giây)",
+          "description": "0 = không hết hạn."
+        },
+        "member_limit": {
+          "name": "Giới hạn người vào",
+          "description": "0 = không giới hạn."
+        },
+        "join_request": {
+          "name": "Cần duyệt",
+          "description": "Bật = người vào phải được quản trị duyệt."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "join_chat": {
+      "name": "Tham gia nhóm bằng link",
+      "description": "Vào nhóm hoặc kênh bằng link mời t.me.",
+      "fields": {
+        "invite_link": {
+          "name": "Link mời",
+          "description": "Dạng https://t.me/+abc… hoặc https://t.me/joinchat/…."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "get_me": {
+      "name": "Xem tài khoản đang dùng",
+      "description": "Trả về tên, @username và số điện thoại của tài khoản Telegram đang đăng nhập.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "set_name": {
+      "name": "Đổi tên tài khoản",
+      "description": "Đổi tên hiển thị của tài khoản.",
+      "fields": {
+        "first_name": {
+          "name": "Tên",
+          "description": "1-64 ký tự."
+        },
+        "last_name": {
+          "name": "Họ",
+          "description": "Tối đa 64 ký tự."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "set_bio": {
+      "name": "Đổi giới thiệu",
+      "description": "Đổi dòng giới thiệu (bio) của tài khoản.",
+      "fields": {
+        "bio": {
+          "name": "Giới thiệu",
+          "description": "Tối đa 70 ký tự; để trống = xoá."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
+    },
+    "set_username": {
+      "name": "Đổi @username",
+      "description": "Đổi tên người dùng công khai (@username) của tài khoản.",
+      "fields": {
+        "username": {
+          "name": "@username",
+          "description": "5-32 ký tự a-z, 0-9, _; để trống = bỏ."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        }
+      }
     }
   },
   "options": {

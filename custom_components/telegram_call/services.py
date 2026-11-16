@@ -16,7 +16,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from . import call_rules
+from . import call_rules, catalog
 from .api import TelegramCallError
 from .rules import (CALL_TYPES, CONNECT, MAX_ANNOUNCE_REPEAT, MAX_NOTE_LEN, RULES_KEY, SCOPES, VIDEO_REQUEST, RuleError, get_rules, normalize as normalize_rule,
                     parse_tags, validate_scope)
@@ -82,6 +82,49 @@ ALERT_CALL = vol.All(cv.has_at_least_one_key("user_id", "peer"), vol.Schema({
     vol.Optional("mic"): cv.string, vol.Optional("mic_url"): cv.string, vol.Optional("camera"): cv.string, vol.Optional("speaker"): cv.string,
     vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100))}))
 NO_ARGS = vol.Schema({**_ENTRY})
+
+
+def _int_list(value: Any) -> list[int]:
+    """Danh sách số: «1, 2, 3», danh sách hoặc một số; rỗng là hợp lệ (vd rút phiếu bình chọn)."""
+    parts = value if isinstance(value, (list, tuple)) else str(value if value is not None else "").replace(";", ",").split(",")
+    try:
+        return [int(str(p).strip()) for p in parts if str(p).strip()]
+    except ValueError:
+        raise vol.Invalid("cần danh sách số nguyên, cách nhau bằng dấu phẩy")
+
+
+def _lines(value: Any) -> list[str]:
+    """Mỗi dòng một mục (ô văn bản nhiều dòng) hoặc danh sách chuỗi."""
+    items = value if isinstance(value, (list, tuple)) else [value]
+    return [ln.strip() for it in items for ln in str(it).splitlines() if ln.strip()]
+
+
+def _field_validator(f: catalog.F) -> Any:
+    if f.kind == "int":
+        return vol.All(vol.Coerce(int), vol.Range(min=f.lo, max=f.hi))
+    if f.kind == "bool":
+        return cv.boolean
+    if f.kind == "list_int":
+        return _int_list
+    if f.kind == "list_text":
+        return _lines
+    if f.kind == "select":
+        return vol.In(f.options)
+    return cv.string
+
+
+def _catalog_schema(spec: catalog.S) -> Any:
+    """Schema của một dịch vụ trong ``catalog.SERVICES``: ô riêng + ô nhắm (cuộc trò chuyện hoặc người) như các dịch vụ khác."""
+    fields: dict = {}
+    for f in spec.fields:
+        key = vol.Required(f.key) if f.required else (vol.Optional(f.key, default=f.default) if f.default is not None else vol.Optional(f.key))
+        fields[key] = _field_validator(f)
+    if spec.target == "chat":
+        return _target(fields)
+    if spec.target == "user":
+        user_keys = {} if any(f.key == "user_id" for f in spec.fields) else {vol.Optional("user_id"): vol.All(vol.Coerce(int), vol.Range(min=1))}
+        return vol.All(cv.has_at_least_one_key("user_id", "peer"), vol.Schema({**_ENTRY, **user_keys, vol.Optional("peer"): cv.string, **fields}))
+    return vol.Schema({**_ENTRY, **fields})
 
 # Tương thích với dịch vụ gửi tin của ``telegram_bot`` của HA: cùng một mẫu dữ liệu dùng được cho cả hai (blueprint gửi qua bot và qua Telegram Call).
 # ``message_thread_id`` (chủ đề trong nhóm) chưa hỗ trợ nên bỏ qua; ``parse_mode`` đổi thành ``format``.
@@ -178,10 +221,10 @@ def _schema_keys(schema: Any) -> set[str]:
 _RECIPIENT_KEYS = ("user_id", "chat_id", "thread_id")      # ô «ID» mà một người nhận chọn từ danh bạ sẽ điền thay (chỉ ô mà dịch vụ có khai)
 
 
-def _with_recipient(hass: HomeAssistant, schema: Any) -> Any:
+def _with_recipient(hass: HomeAssistant, schema: Any, fill: tuple[str, ...] | None = None) -> Any:
     """Ô ``recipient``: chọn NGƯỜI từ danh bạ (thực thể notify của Telegram Call) thay cho việc dán ID; người ngoài danh bạ vẫn dùng ``peer`` (@username, +số điện thoại) hoặc ID số.
     Giải trước khi kiểm schema nên các ràng buộc «ít nhất một trong chat_id / peer» vẫn đúng; ô khai tường minh luôn thắng ô điền từ người nhận."""
-    targets = [k for k in _RECIPIENT_KEYS if k in _schema_keys(schema)]
+    targets = [k for k in (_RECIPIENT_KEYS if fill is None else fill) if k in _schema_keys(schema)]
     if not targets:
         return schema
 
@@ -657,6 +700,23 @@ def async_register_services(hass: HomeAssistant) -> None:
             await hass.async_add_executor_job(_write)
             return {"path": path, "bytes": len(data)}
         return await run(call, go)
+
+    def _catalog_service(name: str, spec: catalog.S):
+        async def handler(call: ServiceCall) -> ServiceResponse:
+            payload = {k: v for k, v in call.data.items() if k not in ("config_entry_id", "peer", "target", "message_thread_id", "parse_mode", "format")}
+
+            async def go(rt):
+                if spec.target == "chat":
+                    payload["chat_id"] = await chat_of(rt, call.data)
+                elif spec.target == "user" and "user_id" not in payload:
+                    payload["user_id"] = await rt.api.resolve(call.data["peer"])      # cuộc trò chuyện riêng có chat_id = user_id
+                return await rt.api.do(name, payload)
+            return await run(call, go)
+        return handler
+
+    for name, spec in catalog.SERVICES.items():
+        hass.services.async_register(DOMAIN, name, _catalog_service(name, spec), schema=_with_recipient(hass, _catalog_schema(spec), spec.fill),
+                                     supports_response=SupportsResponse.ONLY if spec.response == "only" else SupportsResponse.OPTIONAL)
 
     R = SupportsResponse.OPTIONAL
     for name, fn, schema, resp in (("make_call", make_call, MAKE_CALL, R),

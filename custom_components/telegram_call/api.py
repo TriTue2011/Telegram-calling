@@ -186,6 +186,10 @@ class TelegramGatewayApi:
         await self._request("POST", "/api/messages/react", json={"chat_id": int(chat_id), "message_id": int(message_id),
                                                                  "emoji": emoji, "on": bool(on)})
 
+    async def do(self, name: str, payload: dict) -> dict:
+        """Dịch vụ theo danh mục của gateway (``POST /api/do/<tên>``): hội thoại, bình chọn, danh bạ, nhóm, tài khoản."""
+        return await self._request("POST", f"/api/do/{name}", json=payload)
+
     async def mark_read(self, chat_id: int, message_ids: list[int]) -> None:
         await self._request("POST", f"/api/chats/{int(chat_id)}/read", json={"message_ids": [int(i) for i in message_ids]})
 
