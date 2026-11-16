@@ -691,3 +691,31 @@ def test_live_view_routes_stream_mjpeg_and_snapshot_and_return_409_without_video
         first = next(s.iter_bytes())
         assert b"--frame" in first and b"image/jpeg" in first and b"JPEGDATA" in first
         call.state = "ended"                                                         # cuộc gọi hết: luồng tự dừng
+
+
+def test_p2p_tat_mac_dinh_nhu_zalo(monkeypatch):
+    """Docker bridge công bố IP container → P2P hỏng; mặc định tắt cả khai báo lẫn connect_p2p, TELEGRAM_P2P=1 bật lại."""
+    monkeypatch.delenv("TELEGRAM_P2P", raising=False)
+    assert live_call.p2p_enabled() is False
+    for v in ("1", "true", "ON"):
+        monkeypatch.setenv("TELEGRAM_P2P", v)
+        assert live_call.p2p_enabled() is True
+    monkeypatch.setenv("TELEGRAM_P2P", "0")
+    assert live_call.p2p_enabled() is False
+
+
+def test_protocol_khai_bao_p2p_theo_cong_tat_p2p(monkeypatch):
+    import types
+
+    class Nt:
+        class NTgCalls:
+            @staticmethod
+            def get_protocol():
+                return types.SimpleNamespace(udp_p2p=True, udp_reflector=True, min_layer=92, max_layer=92, library_versions=["11.0.0"])
+
+    rt = live_call.CallRuntime.__new__(live_call.CallRuntime)
+    rt.nt = Nt
+    monkeypatch.delenv("TELEGRAM_P2P", raising=False)
+    assert rt.protocol()["udp_p2p"] is False and rt.protocol()["udp_reflector"] is True
+    monkeypatch.setenv("TELEGRAM_P2P", "1")
+    assert rt.protocol()["udp_p2p"] is True

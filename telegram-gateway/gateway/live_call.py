@@ -36,6 +36,13 @@ MONITOR_EVERY = 3.0           # giây giữa hai lần đo media trong cuộc g�
 MAX_ENDED_CALLS = 20          # cuộc gọi đã kết thúc giữ lại để xem nhật ký; thừa thì bỏ cái cũ nhất
 
 
+def p2p_enabled() -> bool:
+    """Cho phép nối thẳng P2P với điện thoại? Mặc định TẮT (như ZALO_PC_P2P của Zalo Call): gateway chạy trong Docker bridge nên
+    IP nó công bố là IP container (172.x) mà điện thoại không tới được; tắt thì cuộc gọi đi qua máy chủ chuyển tiếp của Telegram.
+    Bật lại bằng TELEGRAM_P2P=1 (cần mạng host hoặc cổng UDP mở thẳng)."""
+    return os.environ.get("TELEGRAM_P2P", "0").strip().lower() in ("1", "true", "yes", "on")
+
+
 def mic_command(spec: str, fmt: str = "auto") -> str:
     """Lệnh shell xuất PCM16 48 kHz mono ra stdout (nguồn mic gửi lên cuộc gọi).
 
@@ -359,7 +366,7 @@ class LiveCall:
                 self.log("NTgCalls: skip_exchange")
                 await ntg.skip_exchange(self.user_id, m["encryption_key"], self.outgoing)
             self.log("NTgCalls: connect_p2p (%d máy chủ)" % len(servers))
-            await ntg.connect_p2p(self.user_id, servers, m["versions"], m["p2p_allowed"], m["custom_parameters"])
+            await ntg.connect_p2p(self.user_id, servers, m["versions"], bool(m["p2p_allowed"]) and p2p_enabled(), m["custom_parameters"])
             self.log("NTgCalls: connect_p2p xong")
             if self._monitor_task is None:
                 self._monitor_task = asyncio.ensure_future(self._monitor())
@@ -562,7 +569,7 @@ class CallRuntime:
 
     def protocol(self) -> dict:
         p = self.nt.NTgCalls.get_protocol()
-        return {"@type": "callProtocol", "udp_p2p": bool(p.udp_p2p), "udp_reflector": bool(p.udp_reflector),
+        return {"@type": "callProtocol", "udp_p2p": bool(p.udp_p2p) and p2p_enabled(), "udp_reflector": bool(p.udp_reflector),
                 "min_layer": int(p.min_layer), "max_layer": int(p.max_layer),
                 "library_versions": list(p.library_versions)}
 
