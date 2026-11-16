@@ -321,9 +321,19 @@ class LiveCall:
                     ours = list(self.runtime.protocol().get("library_versions") or [])
                 except Exception:  # noqa: BLE001 - chỉ để ghi nhật ký
                     ours = []
-                self._set("connecting", "TDLib: Ready (servers=%d, p2p=%s, emoji=%s, phiên bản bên kia=%s, phiên bản ta khai=%s)"
-                          % (len(st.get("servers") or []), st.get("allow_p2p"), "".join(self.emojis),
-                             list((st.get("protocol") or {}).get("library_versions") or []), ours))
+                kinds = []
+                for sv in st.get("servers") or []:                       # loại máy chủ (reflector/webrtc), cổng và cờ: quyết định kiểu đường truyền của cuộc gọi
+                    t = sv.get("type") or {}
+                    kinds.append("%s:%s%s%s%s" % ((t.get("@type") or "?").replace("callServerType", ""), sv.get("port"),
+                                                  "+turn" if t.get("supports_turn") else "", "+stun" if t.get("supports_stun") else "", "+tcp" if t.get("is_tcp") else ""))
+                try:
+                    import json as _json
+                    custom_keys = sorted((_json.loads(st.get("custom_parameters") or "{}") or {}).keys())
+                except ValueError:
+                    custom_keys = ["(không phải JSON)"]
+                self._set("connecting", "TDLib: Ready (servers=%d %s, p2p=%s, emoji=%s, phiên bản bên kia=%s, phiên bản ta khai=%s, custom_parameters=%s)"
+                          % (len(st.get("servers") or []), kinds, st.get("allow_p2p"), "".join(self.emojis),
+                             list((st.get("protocol") or {}).get("library_versions") or []), ours, custom_keys))
                 self.runtime.run(self._ready(st))
         elif kind == "callStateDiscarded":
             self._end("TDLib: bị kết thúc (%s)" % ((st.get("reason") or {}).get("@type", "?")))
