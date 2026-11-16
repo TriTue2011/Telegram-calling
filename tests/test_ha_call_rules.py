@@ -467,3 +467,44 @@ async def test_outgoing_calls_are_never_wired_by_an_incoming_rule(hass, setup, g
     assert await until(lambda: "c1" in rt.voice.answered_ids)
     await asyncio.sleep(0.8)
     assert not reqs(gw, "/api/live/media")
+
+
+# -- make_call / answer_call: ô chọn sẵn «nối ngay» và «khi nói trực tiếp» (như zalo_call) ---------------------------------
+
+async def test_make_call_connect_now_wires_only_the_ticked_parts_and_camera_means_video(hass, setup, gw):
+    _rt(setup)
+    await call(hass, "make_call", {"user_id": 5, "mic_url": "http://r1.local/mic.pcm", "connect_now": ["mic"]})
+    b = reqs(gw, "/api/live/call")[-1]
+    assert b["mic"] == "http://r1.local/mic.pcm" and b["camera"] == "black" and b["speaker"] == "" and b["video"] is False, b
+    gw.requests.clear()
+    gw.calls = []
+    await call(hass, "make_call", {"user_id": 6, "mic_url": "http://r1.local/mic.pcm", "connect_now": ["camera"]})
+    b = reqs(gw, "/api/live/call")[-1]
+    assert b["video"] is True and b["mic"] == "silence", b          # tích camera = gọi VIDEO; mic không tích thì im lặng, dù đã chọn mic_url
+
+
+async def test_make_call_without_connect_now_keeps_the_old_behaviour(hass, setup, gw):
+    _rt(setup)
+    await call(hass, "make_call", {"user_id": 5, "mic_url": "http://r1.local/mic.pcm"})
+    b = reqs(gw, "/api/live/call")[-1]
+    assert b["mic"] == "http://r1.local/mic.pcm" and "speaker" not in b and b["video"] is False, b
+
+
+async def test_make_call_remembers_its_own_take_over_devices(hass, setup, gw):
+    rt = _rt(setup)
+    await call(hass, "make_call", {"user_id": 5, "mic_url": "http://r1.local/mic.pcm", "connect_now": [], "connect": ["mic"]})
+    assert rt.voice.rule_of["n1"]["connect"] == ["mic"] and rt.voice.rule_of["n1"]["connect_now"] == []
+    assert reqs(gw, "/api/live/call")[-1]["mic"] == "silence"                         # chưa nối gì lúc nghe máy
+    gw.calls = [dict(ACTIVE, id="n1", user_id=5, outgoing=True)]
+    assert await until(lambda: "n1" in rt.voice.answered_ids)
+    res = await call(hass, "take_over_call", {"call_id": "n1"})
+    assert res["connected"] == ["mic"] and reqs(gw, "/api/live/media")[-1]["mic"] == "http://r1.local/mic.pcm"
+
+
+async def test_answer_call_connect_now_holds_the_unticked_parts_silent_and_black(hass, setup, gw):
+    rt = _rt(setup)
+    await _ring(gw, rt)
+    await call(hass, "answer_call", {"call_id": "c1", "mic_url": "http://r1.local/mic.pcm", "camera": "camera.khong_co", "connect_now": ["mic"]})
+    s = reqs(gw, "/api/live/settings")[-1]
+    assert s["mic"] == "http://r1.local/mic.pcm" and s["camera"] == "black", s
+    assert reqs(gw, "/api/live/accept")

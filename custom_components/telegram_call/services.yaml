@@ -39,6 +39,24 @@ make_call:
           max: 100
           mode: slider
           unit_of_measurement: '%'
+    connect_now:
+      selector:
+        select:
+          options:
+          - mic
+          - speaker
+          - camera
+          mode: list
+          multiple: true
+    connect:
+      selector:
+        select:
+          options:
+          - mic
+          - speaker
+          - camera
+          mode: list
+          multiple: true
     config_entry_id:
       selector:
         config_entry:
@@ -58,6 +76,24 @@ answer_call:
     camera: *id003
     speaker: *id004
     volume: *id005
+    connect_now:
+      selector:
+        select:
+          options:
+          - mic
+          - speaker
+          - camera
+          mode: list
+          multiple: true
+    connect:
+      selector:
+        select:
+          options:
+          - mic
+          - speaker
+          - camera
+          mode: list
+          multiple: true
 hangup_call:
   fields:
     call_id:

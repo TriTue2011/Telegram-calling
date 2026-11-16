@@ -133,6 +133,14 @@
         "config_entry_id": {
           "name": "Tài khoản",
           "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+        },
+        "connect_now": {
+          "name": "Nối ngay khi nghe máy",
+          "description": "Tích ô nào thì thiết bị đó nối NGAY khi người nhận nghe máy; không tích thì mic im lặng, camera gửi hình đen, loa không nối. Tích Camera = cuộc gọi VIDEO. Bỏ trống cả ô này = nối mọi thiết bị đã chọn hoặc mặc định như trước."
+        },
+        "connect": {
+          "name": "Nối khi nói trực tiếp",
+          "description": "Thiết bị nối khi người nhà bấm «Người nhà nói trực tiếp» (hoặc dịch vụ take_over_call) giữa cuộc gọi."
         }
       }
     },
@@ -147,6 +155,34 @@
         "config_entry_id": {
           "name": "Tài khoản",
           "description": "Chỉ cần khi có nhiều tài khoản."
+        },
+        "connect_now": {
+          "name": "Nối ngay khi nghe máy",
+          "description": "Tích ô nào thì thiết bị đó nối NGAY khi người nhận nghe máy; không tích thì mic im lặng, camera gửi hình đen, loa không nối. Tích Camera = cuộc gọi VIDEO. Bỏ trống cả ô này = nối mọi thiết bị đã chọn hoặc mặc định như trước."
+        },
+        "connect": {
+          "name": "Nối khi nói trực tiếp",
+          "description": "Thiết bị nối khi người nhà bấm «Người nhà nói trực tiếp» (hoặc dịch vụ take_over_call) giữa cuộc gọi."
+        },
+        "mic": {
+          "name": "Mic",
+          "description": "Ghi đè mic mặc định cho cuộc gọi này (camera hoặc vệ tinh Assist, ví dụ loa R1)."
+        },
+        "mic_url": {
+          "name": "Mic URL",
+          "description": "Ghi đè bằng một URL mic (rtsp/http…)."
+        },
+        "camera": {
+          "name": "Camera",
+          "description": "Ghi đè camera mặc định cho cuộc gọi này."
+        },
+        "speaker": {
+          "name": "Loa",
+          "description": "Ghi đè loa mặc định cho cuộc gọi này."
+        },
+        "volume": {
+          "name": "Âm lượng loa (%)",
+          "description": "0 = giữ nguyên âm lượng của loa."
         }
       }
     },

@@ -129,6 +129,8 @@ automation:
 
 **Kịp thời và đúng trạng thái.** Tích hợp hỏi gateway mỗi 1,5 giây khi rảnh (1 giây khi có cuộc gọi) nên cuộc gọi đến kích hoạt automation trong khoảng 1,5 giây. Sự kiện luôn bắn **sau** khi cảm biến *Cuộc gọi* đã đổi (automation đọc cảm biến thấy trạng thái mới). Cảm biến là `idle` khi không có cuộc gọi nào đang diễn ra; kết quả của cuộc vừa xong (`ended`, `missed`, `not_answered`…) nằm ở thuộc tính `last_state`.
 
+**Ô chọn sẵn «nối ngay» / «khi nói trực tiếp».** `make_call` và `answer_call` nhận thêm `connect_now` (tích mic / loa / camera: thứ nào nối NGAY khi nghe máy; không tích thì mic im lặng, camera gửi hình đen, loa không nối; tích camera = cuộc gọi VIDEO) và `connect` (thứ nối khi người nhà bấm «Người nhà nói trực tiếp» / `take_over_call`) — cùng ý nghĩa với quy tắc `apply_call_rule` và với `zalo_call`. Không điền `connect_now` thì giữ như trước: mọi thiết bị đã chọn hoặc mặc định nối ngay.
+
 **Nghe máy bằng thiết bị riêng.** `answer_call` nhận `speaker`, `mic` (hoặc `mic_url`), `camera`, `volume` như `make_call`: đặt cho cuộc này trước khi nghe, hết cuộc tự trả về thiết bị mặc định.
 
 #### Quy tắc cuộc gọi (giống Zalo Call)

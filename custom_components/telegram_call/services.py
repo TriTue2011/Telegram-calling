@@ -28,6 +28,7 @@ KINDS = ("photo", "video", "audio", "voice", "document")
 FORMATS = ("plain", "markdown", "html")
 
 _ENTRY = {vol.Optional("config_entry_id"): cv.string}
+_PARTS = vol.All(cv.ensure_list, [vol.In(["mic", "speaker", "camera"])])       # ô tích: mic / loa / camera (như connect_now, connect của quy tắc)
 MAKE_CALL = vol.All(cv.has_at_least_one_key("user_id", "peer"), vol.Schema({
     **_ENTRY,
     vol.Optional("user_id"): vol.All(vol.Coerce(int), vol.Range(min=1)),
@@ -36,12 +37,14 @@ MAKE_CALL = vol.All(cv.has_at_least_one_key("user_id", "peer"), vol.Schema({
     vol.Optional("mic"): cv.string, vol.Optional("mic_url"): cv.string, vol.Optional("camera"): cv.string,
     vol.Optional("speaker"): cv.string,
     vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+    vol.Optional("connect_now"): _PARTS, vol.Optional("connect"): _PARTS,
 }))
 CALL_ID = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string})
 ANSWER_CALL = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string,                  # thiết bị riêng cho cuộc gọi này (như make_call)
                           vol.Optional("mic"): cv.string, vol.Optional("mic_url"): cv.string, vol.Optional("camera"): cv.string,
                           vol.Optional("speaker"): cv.string,
-                          vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100))})
+                          vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+                          vol.Optional("connect_now"): _PARTS, vol.Optional("connect"): _PARTS})
 
 _RULE_FIELDS = ("name", "answer", "answer_delay", "call_types", "pipeline", "greeting", "hangup_after", "announce", "announce_to", "announce_text", "announce_repeat",
                 "announce_volume", "connect_now", "connect", "video_request", "speaker", "mic", "mic_url", "camera", "volume")
@@ -210,15 +213,32 @@ def async_register_services(hass: HomeAssistant) -> None:
         except TelegramCallError as err:
             raise HomeAssistantError(redact(str(err))) from err
 
+    def _own_rule(call: ServiceCall) -> dict:
+        """Quy tắc của RIÊNG cuộc gọi này từ các ô của dịch vụ (thiết bị + «nối ngay» + «khi nói trực tiếp»): cho take_over_call đọc lại giữa cuộc gọi."""
+        rule = {k: call.data[k] for k in ("mic", "mic_url", "camera", "speaker", "volume") if k in call.data}
+        rule["connect_now"], rule["connect"] = list(call.data.get("connect_now") or []), list(call.data.get("connect") or [])
+        return rule
+
     async def make_call(call: ServiceCall) -> ServiceResponse:
         override = {k: call.data[k] for k in ("mic", "mic_url", "camera", "speaker", "volume") if k in call.data}
+        now = call.data.get("connect_now")                                 # có ô này: CHỈ nối thứ đã tích lúc nghe máy; không có: nối mọi thiết bị đã chọn/mặc định như trước
+        if now is not None:
+            override = call_rules.rule_override(override, list(now))
+        video = bool(call.data["video"]) or "camera" in (now or [])         # tích camera = cuộc gọi VIDEO (như zalo_call)
 
         async def go(rt):
             rt.bridge.remember(None, override)                     # loa/âm lượng riêng cuộc này, dùng lúc nghe máy
             fields = await rt.bridge.async_call_fields(override)
-            return _public(await rt.api.live_call(call.data.get("user_id") or str(call.data["peer"]).strip(), call.data["video"], **{
+            if now is not None:                                    # thứ không tích: mic im lặng, hình đen, không loa (không rơi về thiết bị mặc định của gateway)
+                fields.setdefault("mic", "silence")
+                fields.setdefault("camera", "black")
+                fields.setdefault("speaker", "")
+            res = _public(await rt.api.live_call(call.data.get("user_id") or str(call.data["peer"]).strip(), video, **{
                 "mic": fields.get("mic"), "mic_format": fields.get("mic_format"), "camera": fields.get("camera"),
                 "speaker": fields.get("speaker")}))
+            if now is not None or call.data.get("connect"):        # «khi nói trực tiếp» (take_over_call) dùng đúng thiết bị này của cuộc gọi
+                rt.voice.rule_of[str(res["id"])] = _own_rule(call)
+            return res
         res = await run(call, go)
         await _refresh(hass, call)
         return res
@@ -237,11 +257,16 @@ def async_register_services(hass: HomeAssistant) -> None:
 
     async def answer_call(call: ServiceCall) -> ServiceResponse:
         override = {k: call.data[k] for k in ("mic", "mic_url", "camera", "speaker", "volume") if k in call.data}
+        now = call.data.get("connect_now")
+        if now is not None:                                       # chỉ nối thứ đã tích lúc nghe máy; còn lại im lặng / hình đen
+            override = call_rules.rule_override(override, list(now))
 
         async def go(rt):
             cid = await _pick(rt, call, True)
             if override:
-                await rt.bridge.async_apply_override(cid, override)      # loa/mic/âm lượng riêng cuộc này, đặt TRƯỚC khi nghe máy
+                await rt.bridge.async_apply_override(cid, override, held=now is not None)      # loa/mic/âm lượng riêng cuộc này, đặt TRƯỚC khi nghe máy
+            if now is not None or call.data.get("connect"):
+                rt.voice.rule_of[cid] = _own_rule(call)
             return _public(await rt.api.accept(cid))
         res = await run(call, go)
         await _refresh(hass, call)
