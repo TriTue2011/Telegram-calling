@@ -616,3 +616,78 @@ def test_peer_video_flags_from_remote_source_and_media_state_and_video_can_be_en
     assert call.video is False
     asyncio.run(call.set_capture(cam="http://cam/s", video=True))
     assert call.video is True and call.cam_off is False and seen[-1][3][0] == "VD"
+
+
+def test_video_view_encodes_i420_frames_to_jpeg_with_real_ffmpeg():
+    import shutil
+    import time
+    if not shutil.which("ffmpeg"):
+        pytest.skip("không có ffmpeg")
+    v = live_call.VideoView()
+    w, h = 64, 36
+    frame = bytes([128]) * (w * h) + bytes([128]) * (w * h // 2)                   # I420 xám
+    v.push(b"x", w, h)                                                              # sai độ dài: bỏ, đếm lỗi
+    assert v.bad == 1 and v.frames == 0
+    for _ in range(12):
+        v.push(frame, w, h)
+        time.sleep(0.05)
+    end = time.time() + 6
+    while not v.seq and time.time() < end:
+        time.sleep(0.1)
+    try:
+        assert v.seq >= 1 and v.jpeg[:2] == b"\xff\xd8" and v.jpeg[-2:] == b"\xff\xd9", v.info()
+        assert v.info()["size"] == "64x36"
+        v.push(bytes([128]) * (32 * 18 * 3 // 2), 32, 18)                           # đổi kích thước: dựng lại ffmpeg
+        assert v.info()["size"] == "32x18"
+    finally:
+        v.close()
+
+
+def test_frames_from_camera_device_go_to_the_view_not_the_audio_counters():
+    pushed = []
+
+    class FakeView:
+        def push(self, data, w, h):
+            pushed.append((len(data), w, h))
+
+    class RT(StubRuntime):
+        _first_frame_logged = False
+
+        def by_user(self, uid):
+            return call
+    rt = RT()
+    call = live_call.LiveCall(rt, "+84", StubClient(), 5, False, True)
+    call.view = FakeView()
+
+    class Dev:
+        name = "CAMERA"
+
+    class FD:
+        width, height = 8, 4
+
+    class Fr:
+        data, frame_data = b"\x00" * 48, FD()
+    live_call.CallRuntime._frames(rt, 5, None, Dev(), [Fr()])
+    assert pushed == [(48, 8, 4)] and call.frames_in == 0
+
+
+def test_live_view_routes_stream_mjpeg_and_snapshot_and_return_409_without_video(tmp_path):
+    app = build_app(Config(data_dir=str(tmp_path), gateway_token="tk"))
+    c = TestClient(app, raise_server_exceptions=False)
+    H = {"Authorization": "Bearer tk"}
+    assert c.get("/api/live/view/x").status_code == 401
+    assert c.get("/api/live/view/x", headers=H).status_code == 404
+    rt = StubRuntime()
+    call = live_call.LiveCall(rt, "+84", StubClient(), 5, False, True)
+    call.state = "active"
+    rt.calls = {call.id: call}
+    app.state.live["rt"] = rt
+    assert c.get("/api/live/snapshot/%s" % call.id, headers=H).status_code == 409
+    call.view.jpeg, call.view.seq = b"\xff\xd8JPEGDATA\xff\xd9", 1
+    r = c.get("/api/live/snapshot/%s" % call.id, headers=H)
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg" and r.content == call.view.jpeg
+    with c.stream("GET", "/api/live/view/%s" % call.id, headers=H) as s:
+        assert s.status_code == 200 and "multipart/x-mixed-replace" in s.headers["content-type"]
+        first = next(s.iter_bytes())
+        assert b"--frame" in first and b"image/jpeg" in first and b"JPEGDATA" in first
+        call.state = "ended"                                                         # cuộc gọi hết: luồng tự dừng

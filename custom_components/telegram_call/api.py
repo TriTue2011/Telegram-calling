@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from urllib.parse import quote
 
 import aiohttp
 
@@ -53,6 +54,14 @@ class TelegramGatewayApi:
                 return data
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise TelegramCallError(f"Không gọi được tới gateway: {redact(str(err))}") from err
+
+    def view_url(self, call_id: str) -> str:
+        """Địa chỉ luồng MJPEG hình video của bên kia (cho màn hình Dosen / ffmpeg). Cần header ``auth_header()``; KHÔNG đưa lên bus/nhật ký."""
+        return f"{self.url}/api/live/view/{call_id}" + (f"?account={quote(self.account, safe='')}" if self.account else "")
+
+    def auth_header(self) -> str:
+        """Tiêu đề HTTP «Authorization: Bearer …» dạng chuỗi ffmpeg (-headers) — chứa token, KHÔNG ghi nhật ký."""
+        return f"Authorization: Bearer {self._token}\r\n"
 
     async def health(self) -> dict:
         return await self._request("GET", "/health", auth=False, account=False)

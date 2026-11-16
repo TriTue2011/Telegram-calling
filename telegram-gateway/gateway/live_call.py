@@ -17,8 +17,10 @@ import asyncio
 import base64
 import logging
 import os
+import queue
 import re
 import shlex
+import subprocess
 import threading
 import time
 import uuid
@@ -115,6 +117,125 @@ def camera_command(spec: str) -> str:
     return f"{base} -re -i {src} -an {out}"
 
 
+
+VIEW_W, VIEW_H, VIEW_FPS = 640, 360, 15      # mô tả cho NTgCalls: hình bên kia nhận về (khung thật mang kích thước riêng trong frame_data)
+VIEW_OUT_FPS = 10
+
+
+class VideoView:
+    """Hình VIDEO của bên kia → JPEG mới nhất, để tầng REST phát MJPEG (``GET /api/live/view/<id>``) cho màn hình Dosen / trình duyệt.
+
+    NTgCalls đưa khung I420 thô qua ``on_frames``; ffmpeg (tiến trình riêng của gateway) nén thành dãy JPEG, mỗi khi kích thước đổi thì dựng lại.
+    Ghi vào ffmpeg qua hàng đợi nhỏ ở luồng riêng: ffmpeg chậm thì BỎ khung cũ, không chặn luồng NTgCalls."""
+
+    def __init__(self, log=lambda *_: None) -> None:
+        self.log = log
+        self.jpeg = b""
+        self.seq = 0
+        self.size = None
+        self.frames = 0
+        self.dropped = 0
+        self.bad = 0
+        self._proc = None
+        self._q = queue.Queue(maxsize=3)
+        self._closed = False
+        self._lock = threading.Lock()
+
+    def push(self, data: bytes, width: int, height: int) -> None:
+        if self._closed or width <= 0 or height <= 0:
+            return
+        if len(data) != width * height * 3 // 2:               # I420: Y + U + V; sai độ dài = khung lạ (có đệm?), bỏ và đếm
+            self.bad += 1
+            if self.bad == 1:
+                self.log("khung video lạ: %dx%d nhưng %d byte (cần %d)" % (width, height, len(data), width * height * 3 // 2))
+            return
+        with self._lock:
+            if self._proc is None or self.size != (width, height):
+                self._restart(width, height)
+        try:
+            self._q.put_nowait(data)
+            self.frames += 1
+        except queue.Full:
+            try:
+                self._q.get_nowait()                            # bỏ khung cũ nhất, giữ khung mới
+            except queue.Empty:
+                pass
+            self.dropped += 1
+            try:
+                self._q.put_nowait(data)
+            except queue.Full:
+                pass
+
+    def _restart(self, width: int, height: int) -> None:
+        self._stop_proc()
+        cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", "%dx%d" % (width, height),
+               "-r", str(VIEW_FPS), "-i", "pipe:0", "-vf", "fps=%d" % VIEW_OUT_FPS, "-q:v", "6", "-f", "image2pipe", "-vcodec", "mjpeg", "-flush_packets", "1", "pipe:1"]
+        try:
+            self._proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        except OSError as exc:
+            self.log("không chạy được ffmpeg cho hình video: %s" % exc)
+            self._proc = None
+            return
+        self.size = (width, height)
+        self.log("hình video bên kia: %dx%d" % (width, height))
+        threading.Thread(target=self._writer, args=(self._proc,), daemon=True).start()
+        threading.Thread(target=self._reader, args=(self._proc,), daemon=True).start()
+
+    def _writer(self, proc) -> None:
+        while not self._closed and proc is self._proc:
+            try:
+                data = self._q.get(timeout=1.0)
+            except queue.Empty:
+                continue
+            try:
+                proc.stdin.write(data)
+                proc.stdin.flush()
+            except (OSError, ValueError):
+                return
+
+    def _reader(self, proc) -> None:
+        """Tách dãy JPEG liền nhau ở stdout (mỗi ảnh bắt đầu FFD8, kết thúc FFD9)."""
+        buf = b""
+        while not self._closed and proc is self._proc:
+            try:
+                chunk = proc.stdout.read1(65536)         # read1: trả ngay phần đã có (read(n) sẽ chờ đủ n byte)
+            except (OSError, ValueError):
+                return
+            if not chunk:
+                return
+            buf += chunk
+            while True:
+                a = buf.find(b"\xff\xd8")
+                b = buf.find(b"\xff\xd9", a + 2) if a >= 0 else -1
+                if a < 0 or b < 0:
+                    buf = buf[a:] if a >= 0 else buf[-1:]
+                    break
+                self.jpeg = buf[a:b + 2]
+                self.seq += 1
+                buf = buf[b + 2:]
+
+    def _stop_proc(self) -> None:
+        proc, self._proc = self._proc, None
+        if proc is not None:
+            for stream in (proc.stdin, proc.stdout):
+                try:
+                    stream.close()
+                except Exception:  # noqa: BLE001
+                    pass
+            try:
+                proc.kill()
+            except Exception:  # noqa: BLE001
+                pass
+
+    def close(self) -> None:
+        self._closed = True
+        with self._lock:
+            self._stop_proc()
+
+    def info(self) -> dict:
+        return {"frames": self.frames, "jpeg": self.seq, "size": "%dx%d" % self.size if self.size else "", "dropped": self.dropped, "bad": self.bad}
+
+
 class LiveCall:
     def __init__(self, runtime, phone: str, client, user_id: int, outgoing: bool, video: bool = False,
                  mic: str = "test", mic_fmt: str = "auto", cam: str = "test"):
@@ -122,6 +243,8 @@ class LiveCall:
         self.user_id, self.outgoing, self.video = int(user_id), outgoing, video
         self.mic, self.mic_fmt, self.cam = mic, mic_fmt, cam
         self.cam_off = False
+        self.view = VideoView(self.log)    # hình video của bên kia (phát MJPEG cho màn Dosen)
+        self.view_on = bool(video)         # đã xin NTgCalls đưa hình video bên kia về (cuộc gọi video, hoặc bên kia vừa bật camera)
         self.peer_video = False         # bên kia đang BẬT camera (xin chuyển sang video / đang gọi video)
         self.diag: dict = {}            # số đo media (mẫu mỗi vài giây): capture_s = thời gian nguồn GỬI ĐI đã chạy, ratio = capture_s / thời gian thật
         self._monitor_task = None
@@ -152,7 +275,7 @@ class LiveCall:
         return {"id": self.id, "user_id": self.user_id, "outgoing": self.outgoing, "video": self.video,
                 "state": self.state, "emojis": self.emojis, "error": self.error,
                 "seconds": round((self.ended_at or time.time()) - (self.active_at or self.started_at), 1),
-                "peer_video": self.peer_video, "diag": self.diag, "mic_muted": self.mic == "silence", "cam_off": self.cam_off, "frames_in": self.frames_in, "frame_bytes": self.frame_bytes, "peak": getattr(self, "peak", 0),
+                "peer_video": self.peer_video, "view": self.view.info(), "diag": self.diag, "mic_muted": self.mic == "silence", "cam_off": self.cam_off, "frames_in": self.frames_in, "frame_bytes": self.frame_bytes, "peak": getattr(self, "peak", 0),
                 "playback": {"kind": self.playback_kind, "bytes": self._playback_size()},
                 "events": self.events[-40:]}
 
@@ -343,8 +466,22 @@ class LiveCall:
             kind, src, inp = "file", nt.MediaSource.FILE, self.playback_path
         self.playback_kind = kind
         self.log("NTgCalls: nhận tiếng bằng %s" % kind)
+        cam = nt.VideoDescription(nt.MediaSource.EXTERNAL, VIEW_W, VIEW_H, VIEW_FPS, "", False) if self.view_on else None
+        if cam is not None:
+            self.log("NTgCalls: nhận cả hình video bên kia (khung về on_frames)")
         await self.runtime.ntg.set_stream_sources(self.user_id, nt.StreamMode.PLAYBACK, nt.MediaDescription(
-            None, nt.AudioDescription(src, SAMPLE_RATE, CHANNELS, inp, False), None, None))
+            None, nt.AudioDescription(src, SAMPLE_RATE, CHANNELS, inp, False), cam, None))
+
+    async def enable_view(self) -> None:
+        """Bên kia vừa bật camera giữa cuộc thoại: xin NTgCalls đưa cả hình về (dựng lại mô tả PLAYBACK, giữ nguyên đường nhận tiếng)."""
+        if self.view_on or self.state not in ("connecting", "active"):
+            return
+        self.view_on = True
+        try:
+            await self._set_playback(self.playback_kind, self.speaker_url if self.playback_kind == "push" else "")
+        except Exception as exc:  # noqa: BLE001 - không được làm hỏng cuộc gọi đang chạy
+            self.view_on = False
+            self.log("không bật được nhận hình video: %s %s" % (type(exc).__name__, str(exc)[:100]))
 
     async def _send_signaling(self, data: bytes) -> None:
         try:
@@ -353,6 +490,7 @@ class LiveCall:
             self.log("NTgCalls send_signaling_data lỗi: %s" % exc)
 
     async def _stop(self) -> None:
+        self.view.close()
         if self._monitor_task is not None:
             self._monitor_task.cancel()
         try:
@@ -461,6 +599,11 @@ class CallRuntime:
         c = self.by_user(user_id)
         if c is None:
             return
+        if getattr(device, "name", str(device)) == "CAMERA":                 # khung HÌNH của bên kia (I420), không phải tiếng
+            for fr in frames:
+                fd = getattr(fr, "frame_data", None)
+                c.view.push(getattr(fr, "data", b"") or b"", int(getattr(fd, "width", 0) or 0), int(getattr(fd, "height", 0) or 0))
+            return
         for fr in frames:
             c.frames_in += 1
             data = getattr(fr, "data", b"") or b""
@@ -484,6 +627,8 @@ class CallRuntime:
             c.peer_video = on
             c.log("bên kia %s camera (%s)" % ("BẬT" if on else "tắt", why))
             self.on_event("peer_video", c)
+            if on and not c.view_on:
+                self.run(c.enable_view())
 
     def _remote_source(self, user_id, src):
         """Nguồn từ xa đổi trạng thái (camera/mic của bên kia bật hoặc tắt)."""

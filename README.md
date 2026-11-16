@@ -165,6 +165,8 @@ Khác Zalo Call: **chưa có trợ lý AI trò chuyện** trong cuộc gọi (ga
 
 **Điều khiển giữa cuộc gọi:** `take_over_call` (nút «Người nhà nói trực tiếp»: nối mic/loa/camera của quy tắc), `stop_call_mic` / `start_call_mic`, `stop_call_video` / `start_call_video` (bật hình cả khi cuộc đang là thoại), `accept_video`, `say_in_call` (đọc một câu vào cuộc gọi), `reject_call`, `end_call`, `alert_call` (gọi, đọc cảnh báo, rồi cúp / nối thiết bị nhà / giữ máy; báo bằng sự kiện `telegram_call_alert_done`). Trên thiết bị có các nút tương ứng, cảm biến *Đã đăng nhập Telegram* và *Trạng thái Telegram*.
 
+**Hình video bên kia ra màn hình / trình duyệt:** gateway nhận khung hình video của người gọi và phát MJPEG tại `GET /api/live/view/<call_id>` (header `Authorization: Bearer <token>`; ảnh chụp tại `/api/live/snapshot/<call_id>`; 409 khi chưa có hình). Tích hợp [Dosen Pro](https://github.com/TriTue2011/Dosen-pro) dùng luồng này để chiếu cuộc gọi Telegram lên màn camera, chỉ với các ID người gọi đã chọn. (Kiểm bằng test và ffmpeg thật; chưa kiểm bằng cuộc gọi video thật.)
+
 **Người nhận:** Cấu hình (bánh răng) → chọn người từ danh bạ Telegram; mỗi người là một thực thể `notify` (thuộc tính `user_id`) để chọn trong blueprint, không phải gõ ID.
 
 #### Blueprint (giống Zalo Call)

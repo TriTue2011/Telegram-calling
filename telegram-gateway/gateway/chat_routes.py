@@ -12,7 +12,7 @@ import time
 import uuid
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 
 from .chat import ChatService, Feed
 from .media_convert import to_ogg_opus, to_pcm48k
@@ -415,6 +415,50 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         except Exception as exc:  # noqa: BLE001 - lỗi NTgCalls báo lại rõ, không làm sập route
             raise ApiError(502, "MEDIA_FAILED", "Không đổi được nguồn: %s %s" % (type(exc).__name__, str(exc)[:120]))
         return c.info()
+
+    def _view_call(call_id: str):
+        rt = runtime["rt"]
+        c = rt.calls.get(call_id) if rt else None
+        if c is None or c.state == "ended":
+            raise not_found("Không có cuộc gọi đang diễn ra này.")
+        return c
+
+    @app.get("/api/live/view/{call_id}")
+    async def live_view(call_id: str, request: Request):
+        """Hình VIDEO của bên kia dạng MJPEG (multipart/x-mixed-replace) cho màn hình Dosen / trình duyệt. Chờ hình đầu tiên tối đa 8 giây; không có hình
+        (cuộc gọi thoại, bên kia tắt camera) thì 409 — nơi nhận coi là «hết hình». Cần token như mọi route khác (``Authorization: Bearer``)."""
+        auth(request)
+        c = _view_call(call_id)
+        for _ in range(80):
+            if c.view.seq:
+                break
+            if c.state == "ended":
+                raise not_found("Cuộc gọi đã kết thúc.")
+            await asyncio.sleep(0.1)
+        else:
+            raise ApiError(409, "NO_VIDEO", "Chưa có hình video của bên kia.")
+
+        async def gen():
+            last, idle = 0, 0
+            while c.state != "ended" and not await request.is_disconnected():
+                if c.view.seq != last:
+                    last, idle, jpg = c.view.seq, 0, c.view.jpeg
+                    yield b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %d\r\n\r\n" % len(jpg) + jpg + b"\r\n"
+                else:
+                    idle += 1
+                    if idle > 300:                         # 30 giây không có hình mới: bên kia đã tắt camera
+                        break
+                await asyncio.sleep(0.1)
+        return StreamingResponse(gen(), media_type="multipart/x-mixed-replace; boundary=frame", headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/live/snapshot/{call_id}")
+    async def live_snapshot(call_id: str, request: Request):
+        """Ảnh JPEG mới nhất của hình video bên kia (chẩn đoán / ảnh chụp)."""
+        auth(request)
+        c = _view_call(call_id)
+        if not c.view.jpeg:
+            raise ApiError(409, "NO_VIDEO", "Chưa có hình video của bên kia.")
+        return Response(content=c.view.jpeg, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
     @app.post("/api/live/say")
     async def live_say(request: Request):
