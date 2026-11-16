@@ -400,9 +400,26 @@ def test_set_capture_swaps_mic_and_camera_during_call():
     assert "k=1" not in str(c.info()), "URL mic (có khoá) không được lộ ra info"
 
 
-def test_live_media_route_validates_and_applies(tmp_path):
+def _start_loop():
+    """Vòng lặp asyncio chạy ở luồng riêng (giả vòng lặp NTgCalls); dọn bằng _stop_loop để không để luồng nền sống tới lúc thoát tiến trình."""
     import asyncio
     import threading
+    loop = asyncio.new_event_loop()
+    th = threading.Thread(target=loop.run_forever, daemon=True)
+    th.start()
+    return loop, th
+
+
+def _stop_loop(loop, th, futs=()):
+    for f in futs:
+        f.result(10)                               # đợi tác vụ nền xong (vd. đọc lời + trả mic) trước khi dừng vòng lặp
+    loop.call_soon_threadsafe(loop.stop)
+    th.join(10)
+    loop.close()
+
+
+def test_live_media_route_validates_and_applies(tmp_path):
+    import asyncio
     cfg = Config(data_dir=str(tmp_path), gateway_token="tk")
     app = build_app(cfg)
     c = TestClient(app, raise_server_exceptions=False)
@@ -410,8 +427,7 @@ def test_live_media_route_validates_and_applies(tmp_path):
     assert c.post("/api/live/media", json={"id": "x", "mic": "silence"}).status_code == 401
     app.state.live["rt"] = None
     assert c.post("/api/live/media", headers=H, json={"id": "x", "mic": "silence"}).status_code == 404
-    loop = asyncio.new_event_loop()
-    threading.Thread(target=loop.run_forever, daemon=True).start()
+    loop, th = _start_loop()
     seen = []
 
     class NTG:
@@ -435,7 +451,7 @@ def test_live_media_route_validates_and_applies(tmp_path):
         call.state = "ended"
         assert c.post("/api/live/media", headers=H, json={"id": call.id, "mic": "test"}).status_code == 404
     finally:
-        loop.call_soon_threadsafe(loop.stop)
+        _stop_loop(loop, th)
 
 
 def test_camera_black_command_and_setting(tmp_path):
@@ -475,15 +491,14 @@ def test_say_swaps_mic_to_speech_then_restores(tmp_path):
 
 def test_live_say_route(tmp_path):
     import asyncio
-    import threading
     app = build_app(Config(data_dir=str(tmp_path), gateway_token="tk"))
     c = TestClient(app, raise_server_exceptions=False)
     H = {"Authorization": "Bearer tk"}
     assert c.post("/api/live/say", json={"id": "x", "text": "a"}).status_code == 401
     assert c.post("/api/live/say", headers=H, json={"id": "x", "text": ""}).status_code == 400
     assert c.post("/api/live/say", headers=H, json={"id": "x", "text": "xin chào"}).status_code == 404
-    loop = asyncio.new_event_loop()
-    threading.Thread(target=loop.run_forever, daemon=True).start()
+    loop, th = _start_loop()
+    futs = []
 
     class NTG:
         async def set_stream_sources(self, uid, mode, desc):
@@ -493,7 +508,7 @@ def test_live_say_route(tmp_path):
         data_dir = str(tmp_path)
 
         def run(self, coro):
-            asyncio.run_coroutine_threadsafe(coro, loop)
+            futs.append(asyncio.run_coroutine_threadsafe(coro, loop))
 
     rt = RT()
     rt.nt, rt.ntg, rt.loop = _fake_nt(), NTG(), loop
@@ -525,4 +540,4 @@ def test_live_say_route(tmp_path):
         finally:
             chat_routes.to_pcm48k = monkey
     finally:
-        loop.call_soon_threadsafe(loop.stop)
+        _stop_loop(loop, th, futs)
