@@ -80,6 +80,9 @@ class FakeGateway:
                 await asyncio.sleep(0.05)
         if p == "/api/resolve":
             return web.json_response({"chat_id": {"@ben_bap": 6518712943}.get(body["peer"], 42)})
+        if p.endswith("/send_album"):
+            return web.json_response({"messages": [{"id": 600 + i, "chat_id": 42, "kind": "photo", "text": it.get("caption", ""), "date": 1, "outgoing": True}
+                                                   for i, it in enumerate((body or {}).get("items") or [])], "count": len((body or {}).get("items") or [])})
         if p.endswith("/send") or p.endswith("/send_file") or p == "/api/messages/edit":
             return web.json_response({"id": 500, "chat_id": 42, "kind": "text", "text": (body or {}).get("text", ""), "date": 1, "outgoing": True})
         if p == "/api/send_voice":
@@ -279,7 +282,7 @@ async def test_send_failed_item_fires_event(hass, setup, gw):
 
 async def test_send_services_take_the_same_data_as_telegram_bot_so_one_blueprint_template_serves_both(hass, setup, gw, tmp_path):
     """Blueprint gửi qua telegram_bot dùng mẫu {config_entry_id, chat_id, message_thread_id, parse_mode, file, caption}: telegram_call phải nhận cùng mẫu
-    (bỏ qua thread, đổi parse_mode), và có send_media_group (gửi lần lượt từng tệp)."""
+    (bỏ qua thread, đổi parse_mode), và có send_media_group (album thật khi ghép được, không thì gửi lần lượt từng tệp)."""
     await call(hass, "send_message", {"config_entry_id": "", "chat_id": 42, "message": "Có người", "parse_mode": "plain_text", "message_thread_id": ""})
     assert gw.last("/send")["json"]["text"] == "Có người"
     f1, f2 = tmp_path / "a.jpg", tmp_path / "b.jpg"
@@ -288,8 +291,17 @@ async def test_send_services_take_the_same_data_as_telegram_bot_so_one_blueprint
     before = len([r for r in gw.requests if r["path"].endswith("/send_file")])
     res = await call(hass, "send_media_group", {"chat_id": 42, "media": [{"media_type": "photo", "file": str(f1), "caption": "một"},
                                                                        {"media_type": "photo", "file": str(f2)}], "message_thread_id": ""})
-    assert res["count"] == 2
+    assert res["count"] == 2 and res["album"] is True
+    assert len([r for r in gw.requests if r["path"].endswith("/send_file")]) == before, "hai ảnh cùng nhóm: MỘT album thật, không gửi lẻ"
+    b = gw.last("/send_album")["json"]
+    assert [i["caption"] for i in b["items"]] == ["một", ""] and [i["kind"] for i in b["items"]] == ["photo", "photo"] and b["items"][0]["data_b64"]
+    f3 = tmp_path / "c.pdf"
+    f3.write_bytes(b"C" * 10)                                                                       # ảnh + tệp: không ghép được → lần lượt từng tệp
+    res = await call(hass, "send_media_group", {"chat_id": 42, "media": [{"media_type": "photo", "file": str(f1)}, {"media_type": "document", "file": str(f3)}]})
+    assert res["count"] == 2 and res["album"] is False
     assert len([r for r in gw.requests if r["path"].endswith("/send_file")]) - before == 2
+    res = await call(hass, "send_media_group", {"chat_id": 42, "media": [{"media_type": "photo", "file": str(f1)}]})      # một tệp: gửi thường
+    assert res["count"] == 1 and res["album"] is False
 
 
 async def test_send_message_accepts_telegram_bot_target_as_chat_id(hass, setup, gw):

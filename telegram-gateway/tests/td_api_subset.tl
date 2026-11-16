@@ -372,3 +372,4 @@ viewMessages chat_id:int53 message_ids:vector<int53> source:MessageSource force_
 webAppOpenModeCompact = WebAppOpenMode;
 webAppOpenModeFullScreen = WebAppOpenMode;
 webAppOpenModeFullSize = WebAppOpenMode;
+sendMessageAlbum chat_id:int53 topic_id:MessageTopic reply_to:InputMessageReplyTo options:messageSendOptions input_message_contents:vector<InputMessageContent> = Messages;

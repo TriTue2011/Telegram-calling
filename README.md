@@ -175,7 +175,7 @@ Khác Zalo Call: **chưa có trợ lý AI trò chuyện** trong cuộc gọi (ga
 
 Blueprint trong kho [Blueprint](https://github.com/TriTue2011/Blueprint): **Quy tắc cho cuộc gọi đến** (`telegram_call_incoming_rule.yaml`: gọi `apply_call_rule` cho từng cuộc, chọn người từ danh sách thực thể), **Nút bấm mọi loại, nhiều việc** (`nut_bam_nhieu_viec.yaml`: một automation cho mọi nút, thêm việc tuỳ ý như nghe/cúp/gọi đi bằng `telegram_call.*`, chọn theo cảm biến đổi gần nhất). Các blueprint thông báo có Telegram Bot (`alarm_person_camera` 1–4, `calendar_weather_notification`, `ai_creat_image_weather_3`) có thêm ô **«Telegram Calling»** để gửi ảnh, video, tin nhắn qua tài khoản Telegram thật.
 
-Dịch vụ gửi tin nhận cùng mẫu dữ liệu với `telegram_bot` (`config_entry_id` rỗng, `chat_id` hoặc `target`, `message_thread_id` được bỏ qua, `parse_mode` đổi thành `format`) và có `send_media_group` (nhiều ảnh/video một lệnh, gửi lần lượt từng tệp), nên một mẫu dùng được cho cả hai.
+Dịch vụ gửi tin nhận cùng mẫu dữ liệu với `telegram_bot` (`config_entry_id` rỗng, `chat_id` hoặc `target`, `message_thread_id` được bỏ qua, `parse_mode` đổi thành `format`) và có `send_media_group` (2-10 ảnh/video trong MỘT album thật, mỗi tệp có `caption` riêng; tệp hoặc âm thanh cũng ghép được với cùng loại. Không ghép được — trộn ảnh với tệp, tin thoại, hoặc chỉ một tệp — thì gửi lần lượt từng tệp, kết quả có `album: true/false`), nên một mẫu dùng được cho cả hai.
 
 Loa, mic, camera, âm lượng mặc định đặt ngay trên thiết bị **Telegram Call** (ô chọn *Loa mặc định*, *Mic*, *Camera*, *Âm lượng cuộc gọi*), `make_call`/`answer_call` chỉ cần ghi đè khi muốn khác. Quy tắc của automation chỉ nối thiết bị đã tích ở `connect_now` / `connect`.
 

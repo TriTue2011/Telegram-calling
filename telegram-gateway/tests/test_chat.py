@@ -181,6 +181,10 @@ class FakeTd:
                     "entities": [{"@type": "textEntity", "offset": 0, "length": 3, "type": {"@type": "textEntityType" + kind}}]}
         if t == "translateText":
             return {"@type": "formattedText", "text": "Hello (" + req["to_language_code"] + ")", "entities": []}
+        if t == "sendMessageAlbum":
+            return {"messages": [{"id": 80 + i, "chat_id": req["chat_id"], "date": 1, "is_outgoing": True,
+                                  "content": {"@type": "messagePhoto", "caption": {"text": (c.get("caption") or {}).get("text", "")}}}
+                                 for i, c in enumerate(req["input_message_contents"])]}
         if t == "sendMessage":
             return {"id": 77, "chat_id": req["chat_id"], "date": 1, "is_outgoing": True,
                     "content": {"@type": "messageText", "text": {"text": (req["input_message_content"].get("text") or {}).get("text", "")}}}
@@ -438,3 +442,46 @@ def test_to_pcm48k_wraps_ffmpeg_errors():
         raise FileNotFoundError()
     with pytest.raises(ValueError, match="ffmpeg"):
         media_convert.to_pcm48k(b"x", runner=boom)
+
+
+def test_send_album_is_one_real_album_with_a_caption_per_item_and_never_mixes_groups():
+    td = FakeTd()
+    svc = chat.ChatService(td)
+    out = svc.send_album(100, [{"path": "/u/a.jpg", "kind": "photo", "caption": "một"}, {"path": "/u/b.mp4", "kind": "video", "caption": "**hai**"}],
+                         reply_to=5 << 20, parse_mode="markdown")
+    req = [c for c in td.calls if c["@type"] == "sendMessageAlbum"][-1]
+    kinds = [c["@type"] for c in req["input_message_contents"]]
+    assert kinds == ["inputMessagePhoto", "inputMessageVideo"] and req["reply_to"]["message_id"] == 5 << 20
+    assert req["input_message_contents"][1]["caption"]["entities"], "caption từng ảnh/video có định dạng riêng"
+    assert [m["id"] for m in out] == [80, 81]
+    assert not [c for c in td.calls if c["@type"] == "sendMessage"], "album thật: không gửi lẻ từng tệp"
+    for bad, msg in (([{"path": "/u/a.jpg", "kind": "photo"}], "2-10"),
+                     ([{"path": "/u/a.jpg", "kind": "photo"}] * 11, "2-10"),
+                     ([{"path": "/u/a.jpg", "kind": "photo"}, {"path": "/u/b.pdf", "kind": "document"}], "không trộn"),
+                     ([{"path": "/u/a.ogg", "kind": "voice"}, {"path": "/u/b.ogg", "kind": "voice"}], "tin thoại")):
+        with pytest.raises(ValueError, match=msg):
+            svc.send_album(100, bad)
+    svc.send_album(100, [{"path": "/u/a.pdf", "kind": "document"}, {"path": "/u/b.pdf", "kind": "document"}])      # tệp với tệp thì được
+    assert [c["@type"] for c in td.calls[-1]["input_message_contents"]] == ["inputMessageDocument"] * 2
+
+
+def test_send_album_route_validates_items_and_sends_one_album(tmp_path):
+    import base64
+    client, app = make_app(tmp_path)
+    url = "/api/chats/100/send_album"
+
+    def item(kind="photo", data=b"jpegdata", name="a.jpg", caption=""):
+        return {"kind": kind, "name": name, "data_b64": base64.b64encode(data).decode(), "caption": caption}
+    assert client.post(url, json={"items": [item(), item()]}).status_code == 401
+    for bad in ({"items": [item()]}, {"items": [item()] * 11}, {"items": "x"}, {},
+                {"items": [item(), item(kind="exe")]}, {"items": [item(), item(data=b"")]},
+                {"items": [item(), {"kind": "photo", "name": "b.jpg", "data_b64": "***"}]},
+                {"items": [item(), item(kind="document", name="b.pdf")]}):
+        assert client.post(url, headers=H, json=bad).status_code == 400, bad
+    r = client.post(url, headers=H, json={"items": [item(caption="một", name="../../etc/a.jpg"), item(kind="video", name="b.mp4", caption="hai")], "reply_to": 0})
+    assert r.status_code == 200 and r.json()["count"] == 2 and [m["id"] for m in r.json()["messages"]] == [80, 81]
+    td = app.state.clients["+84900000000"]
+    req = [c for c in td.calls if c["@type"] == "sendMessageAlbum"][-1]
+    path = req["input_message_contents"][0]["photo"]["photo"]["path"]
+    assert path.startswith(str(tmp_path / "uploads")) and ".." not in path.replace(str(tmp_path), "")
+    assert [c["caption"]["text"] for c in req["input_message_contents"]] == ["một", "hai"]

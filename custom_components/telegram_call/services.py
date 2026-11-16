@@ -85,6 +85,7 @@ NO_ARGS = vol.Schema({**_ENTRY})
 _TARGET = {vol.Optional("chat_id"): vol.Coerce(int), vol.Optional("peer"): cv.string,
            vol.Optional("message_thread_id"): vol.Any(None, "", vol.Coerce(int)), vol.Optional("parse_mode"): cv.string,
            vol.Optional("target"): vol.Any(vol.Coerce(int), [vol.Coerce(int)])}       # ``telegram_bot.send_message`` dùng ``target`` (số hoặc danh sách) thay cho chat_id
+_ALBUM_GROUP = {"photo": "media", "video": "media", "document": "document", "audio": "audio"}       # Telegram không cho trộn các nhóm trong một album
 _PARSE_MODES = {"plain_text": "plain", "plain": "plain", "markdown": "markdown", "markdownv2": "markdown", "html": "html"}
 
 
@@ -474,16 +475,23 @@ def async_register_services(hass: HomeAssistant) -> None:
         return await run(call, go)
 
     async def send_media_group(call: ServiceCall) -> ServiceResponse:
-        """Nhiều ảnh/video MỘT lệnh (cùng dạng ``telegram_bot.send_media_group``). Gateway chưa gửi được album thật nên gửi lần lượt từng tệp, đúng thứ tự;
-        một tệp lỗi thì dừng và báo lỗi (các tệp trước đã gửi)."""
+        """Nhiều ảnh/video MỘT lệnh (cùng dạng ``telegram_bot.send_media_group``). 2-10 tệp cùng nhóm (ảnh+video | tệp | âm thanh) và cùng định dạng chữ thì gửi thành MỘT album thật,
+        mỗi tệp có caption riêng; còn lại (tệp lạ nhóm, tin thoại, định dạng khác nhau, 1 hoặc hơn 10 tệp) thì gửi lần lượt từng tệp, đúng thứ tự (tệp lỗi thì dừng và báo lỗi)."""
         async def go(rt):
             chat = await chat_of(rt, call.data)
-            sent = []
+            items = []
             for item in call.data["media"]:
                 name, data = await _read_source(hass, item["file"])
                 fmt = _PARSE_MODES.get(str(item.get("parse_mode") or "").lower(), call.data["format"])
-                sent.append(_msg(await rt.api.send_file(chat, item["media_type"], name, data, item["caption"], call.data.get("reply_to", 0), fmt)))
-            return {"messages": sent, "count": len(sent)}
+                items.append((item["media_type"], name, data, item["caption"], fmt))
+            reply = call.data.get("reply_to", 0)
+            groups = {_ALBUM_GROUP.get(k) for k, _n, _d, _c, _f in items}
+            if 2 <= len(items) <= 10 and None not in groups and len(groups) == 1 and len({f for *_x, f in items}) == 1:
+                res = await rt.api.send_album(chat, [(k, n, d, c) for k, n, d, c, _f in items], reply, items[0][4])
+                sent = [_msg(m) for m in res.get("messages") or []]
+                return {"messages": sent, "count": len(sent), "album": True}
+            sent = [_msg(await rt.api.send_file(chat, k, n, d, c, reply, f)) for k, n, d, c, f in items]
+            return {"messages": sent, "count": len(sent), "album": False}
         return await run(call, go)
 
     async def send_file(call: ServiceCall) -> ServiceResponse:

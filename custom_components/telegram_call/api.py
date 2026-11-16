@@ -150,6 +150,16 @@ class TelegramGatewayApi:
         return await self._request("POST", f"/api/chats/{int(chat_id)}/send_file", params=params, data=data,
                                    timeout=aiohttp.ClientTimeout(total=120))
 
+    async def send_album(self, chat_id: int, items: list[tuple[str, str, bytes, str]], reply_to: int = 0, parse_mode: str = "") -> dict:
+        """MỘT album thật (2-10 ảnh/video, hoặc tệp, hoặc âm thanh). items: [(kind, tên, nội dung, caption)]; mỗi tệp có caption riêng."""
+        import base64
+        body: dict[str, Any] = {"items": [{"kind": k, "name": n, "data_b64": base64.b64encode(d).decode("ascii"), "caption": c} for k, n, d, c in items]}
+        if reply_to:
+            body["reply_to"] = int(reply_to)
+        if parse_mode and parse_mode != "plain":
+            body["parse_mode"] = parse_mode
+        return await self._request("POST", f"/api/chats/{int(chat_id)}/send_album", json=body, timeout=aiohttp.ClientTimeout(total=180))
+
     async def send_voice_tts(self, peer: str, text: str, voice: str = "", rate: str = "") -> dict:
         body: dict[str, Any] = {"peer": str(peer), "tts_text": text}
         if voice:

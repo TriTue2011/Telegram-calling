@@ -297,13 +297,13 @@ class ChatService:
             req["reply_to"] = {"@type": "inputMessageReplyToMessage", "message_id": self.final_id(reply_to)}
         return normalize_message(self.client.call(req), "")
 
-    def send_file(self, chat_id: int, path: str, kind: str, caption: str = "", reply_to: int = 0, parse_mode: str = "") -> dict:
-        """kind: photo | video | document | voice | audio."""
+    def _content(self, path: str, kind: str, caption: str = "", parse_mode: str = "") -> dict:
+        """InputMessageContent của một tệp đã nằm trên đĩa. kind: photo | video | document | voice | audio."""
         cap = self.formatted(caption, parse_mode)
         f = {"@type": "inputFileLocal", "path": path}
         # TDLib >= 1.8.x bọc tệp trong lớp riêng (inputPhoto/inputVideo/...): đưa thẳng inputFileLocal vào
         # thì lỗi "InputFile is not specified" (đã gặp thật).
-        content = {
+        return {
             "photo": {"@type": "inputMessagePhoto", "caption": cap,
                       "photo": {"@type": "inputPhoto", "photo": f, "width": 0, "height": 0, "added_sticker_file_ids": []}},
             "video": {"@type": "inputMessageVideo", "caption": cap,
@@ -314,10 +314,32 @@ class ChatService:
                       "audio": {"@type": "inputAudio", "audio": f}},
         }.get(kind) or {"@type": "inputMessageDocument", "caption": cap,
                         "document": {"@type": "inputDocument", "document": f}}
-        req = {"@type": "sendMessage", "chat_id": int(chat_id), "input_message_content": content}
+
+    def send_file(self, chat_id: int, path: str, kind: str, caption: str = "", reply_to: int = 0, parse_mode: str = "") -> dict:
+        """kind: photo | video | document | voice | audio."""
+        req = {"@type": "sendMessage", "chat_id": int(chat_id), "input_message_content": self._content(path, kind, caption, parse_mode)}
         if reply_to:
             req["reply_to"] = {"@type": "inputMessageReplyToMessage", "message_id": self.final_id(reply_to)}
         return normalize_message(self.client.call(req, timeout=60), "")
+
+    ALBUM_GROUPS = {"photo": "media", "video": "media", "document": "document", "audio": "audio"}   # Telegram không cho trộn các nhóm trong một album
+
+    def send_album(self, chat_id: int, items: list[dict], reply_to: int = 0, parse_mode: str = "") -> list[dict]:
+        """Nhiều ảnh/video (hoặc nhiều tệp/âm thanh) trong MỘT album thật (``sendMessageAlbum``), mỗi tệp có caption riêng.
+        ``items``: [{"path", "kind" (photo|video|document|audio), "caption"}], 2-10 tệp, cùng một nhóm (ảnh+video | tệp | âm thanh)."""
+        if not 2 <= len(items) <= 10:
+            raise ValueError("album cần 2-10 tệp")
+        groups = {self.ALBUM_GROUPS.get(i.get("kind", "document")) for i in items}
+        if None in groups:
+            raise ValueError("album chỉ nhận ảnh, video, tệp hoặc âm thanh (không nhận tin thoại)")
+        if len(groups) > 1:
+            raise ValueError("album không trộn ảnh/video với tệp hoặc âm thanh: gửi riêng từng nhóm")
+        req = {"@type": "sendMessageAlbum", "chat_id": int(chat_id),
+               "input_message_contents": [self._content(i["path"], i.get("kind", "document"), i.get("caption", ""), parse_mode) for i in items]}
+        if reply_to:
+            req["reply_to"] = {"@type": "inputMessageReplyToMessage", "message_id": self.final_id(reply_to)}
+        out = self.client.call(req, timeout=120)
+        return [normalize_message(m, "") for m in (out.get("messages") or [])]
 
     def edit_text(self, chat_id: int, message_id: int, text: str, parse_mode: str = "") -> dict:
         return normalize_message(self.client.call({

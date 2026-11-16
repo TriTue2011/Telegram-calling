@@ -5,6 +5,7 @@ Mọi đường cần ``Authorization: Bearer <GATEWAY_TOKEN>`` như phần còn
 """
 
 import asyncio
+import base64
 import logging
 import os
 import threading
@@ -147,6 +148,42 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         return await run(service(acct(request)).send_file, chat_id, path, kind,
                          request.query_params.get("caption", ""), int_arg(request, "reply_to"),
                          request.query_params.get("parse_mode", ""))
+
+    @app.post("/api/chats/{chat_id}/send_album")
+    async def send_album(request: Request, chat_id: int):
+        """Album thật: JSON {"items": [{"kind", "name", "data_b64", "caption"}], "reply_to", "parse_mode"} — 2-10 tệp, tổng tối đa 64 MB."""
+        auth(request)
+        body = await body_dict(request)
+        raw_items = body.get("items")
+        if not isinstance(raw_items, list) or not 2 <= len(raw_items) <= 10:
+            raise bad_request("items phải là danh sách 2-10 tệp.")
+        items, total = [], 0
+        for it in raw_items:
+            if not isinstance(it, dict):
+                raise bad_request("Mỗi phần tử của items phải là một đối tượng.")
+            kind = str(it.get("kind") or "document")
+            if kind not in ("photo", "video", "document", "audio"):
+                raise bad_request("kind trong album phải là photo, video, document hoặc audio.")
+            try:
+                data = base64.b64decode(str(it.get("data_b64") or ""), validate=True)
+            except (ValueError, TypeError):
+                raise bad_request("data_b64 không phải base64 hợp lệ.")
+            if not data:
+                raise bad_request("Có tệp rỗng trong album.")
+            total += len(data)
+            if total > MAX_UPLOAD_BYTES:
+                raise bad_request("Album vượt 64 MB.")
+            name = os.path.basename(str(it.get("name") or "") or "tep") or "tep"
+            path = os.path.join(uploads, uuid.uuid4().hex + "_" + name.replace("/", "_"))
+            with open(path, "wb") as fh:
+                fh.write(data)
+            items.append({"path": path, "kind": kind, "caption": str(it.get("caption") or "")})
+        _sweep_uploads()
+        try:
+            msgs = await run(service(acct(request)).send_album, chat_id, items, int(body.get("reply_to") or 0), str(body.get("parse_mode") or ""))
+        except ValueError as exc:
+            raise bad_request(str(exc))
+        return {"messages": msgs, "count": len(msgs)}
 
     def _sweep_uploads() -> None:
         """Tệp tải lên phải còn tới khi TDLib gửi xong; dọn tệp quá một ngày."""
