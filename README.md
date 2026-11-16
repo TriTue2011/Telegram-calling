@@ -105,6 +105,8 @@ data:
 
 Người nhận phải cho phép cuộc gọi từ bạn (Telegram → Quyền riêng tư → Cuộc gọi). Kết thúc: `telegram_call.hangup_call`.
 
+**Thoại và video: chỉ gọi 1-1.** Cuộc gọi video 1-1 chạy cả gọi đi (`video: true`) lẫn nhận (hình gửi đi là camera đã chọn; không chọn thì hình đen). **Cuộc gọi nhóm KHÔNG hỗ trợ** (kể cả nhóm có người trong đó): quy tắc không có phạm vi «nhóm» như Zalo Call. Chưa có chuyển cuộc thoại đang nói sang video giữa chừng.
+
 ### Nhận cuộc gọi
 
 Có người gọi tài khoản Telegram → sự kiện **`telegram_call_call_state`** (và cảm biến *Cuộc gọi*). `state`:
