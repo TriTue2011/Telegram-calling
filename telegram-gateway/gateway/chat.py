@@ -13,6 +13,7 @@ import threading
 import time
 
 PREVIEW_MAX = 120
+USERS_MAX = 2000
 FEED_MAX = 2000
 
 
@@ -149,7 +150,7 @@ class ChatService:
         self.client = client
         self.feed = feed or Feed()
         self.account = account
-        self._users: dict[int, dict] = {}
+        self._users: collections.OrderedDict[int, dict] = collections.OrderedDict()   # bộ nhớ đệm người dùng, có trần USERS_MAX (LRU)
         self._lock = threading.Lock()
         self.me_id: int | None = None
         # id tạm (do sendMessage trả) -> id thật (do updateMessageSendSucceeded); có trần để không phình mãi.
@@ -186,11 +187,20 @@ class ChatService:
     def user(self, user_id: int) -> dict:
         with self._lock:
             u = self._users.get(user_id)
+            if u is not None:
+                self._users.move_to_end(user_id)
         if u is None:
             u = self.client.call({"@type": "getUser", "user_id": int(user_id)})
             with self._lock:
-                self._users[user_id] = u
+                self._remember_user(user_id, u)
         return u
+
+    def _remember_user(self, user_id: int, u: dict) -> None:
+        """Gọi khi đã giữ khoá. Bỏ người cũ nhất khi vượt USERS_MAX: nhóm lớn có hàng nghìn thành viên, bộ nhớ đệm không được phình mãi."""
+        self._users[user_id] = u
+        self._users.move_to_end(user_id)
+        while len(self._users) > USERS_MAX:
+            self._users.popitem(last=False)
 
     def sender_name(self, m: dict) -> str:
         s = m.get("sender_id") or {}
@@ -213,7 +223,7 @@ class ChatService:
         m = self.client.call({"@type": "getMe"})
         self.me_id = m.get("id")
         with self._lock:
-            self._users[m["id"]] = m
+            self._remember_user(m["id"], m)
         return {"id": m.get("id"), "name": _user_name(m), "phone": m.get("phone_number", "")}
 
     # -- hội thoại ----------------------------------------------------
@@ -427,7 +437,7 @@ class ChatService:
             u = obj.get("user") or {}
             if u.get("id"):
                 with self._lock:
-                    self._users[u["id"]] = u
+                    self._remember_user(u["id"], u)
         elif t == "updateChatAction":
             self.feed.push("typing", chat_id=obj.get("chat_id"),
                            action=(obj.get("action") or {}).get("@type", ""))

@@ -27,6 +27,7 @@ from abc import ABC, abstractmethod
 UPLOAD_DIR = "tts_uploads"
 UPLOAD_TTL_SECONDS = 3600  # 1 giờ
 MAX_CHUNK_BYTES = 300_000  # khối base64 tối đa theo thiết kế §6.4
+UPLOAD_TTL = 600                # giây: phiên tải lên chưa xong quá lâu thì bỏ
 
 
 class Synthesizer(ABC):
@@ -97,10 +98,18 @@ class TtsUploadStore:
         self._parts: dict[str, list[bytes]] = {}
         self._created: dict[str, float] = {}
 
+    def _sweep(self) -> None:
+        """Phiên tải lên bị bỏ dở (client chết giữa chừng) thì xoá sau UPLOAD_TTL giây: nếu không, các khối âm thanh nằm trong bộ nhớ mãi."""
+        cutoff = time.time() - UPLOAD_TTL
+        for uid in [u for u, t in self._created.items() if t < cutoff]:
+            self._created.pop(uid, None)
+            self._parts.pop(uid, None)
+
     def add_chunk(self, upload_id: str | None, chunk_b64: str,
                   done: bool = False) -> dict:
         """Trả {'upload_id': ...} khi chưa xong, hoặc
         {'tts_audio_id': ..., 'size': ...} khi done."""
+        self._sweep()
         if upload_id is None:
             upload_id = uuid.uuid4().hex
             self._parts[upload_id] = []

@@ -589,3 +589,22 @@ async def test_make_call_with_message_but_without_hangup_connects_the_devices_af
     assert await until(lambda: events, 12)
     assert events[0]["after"] == "connect" and not reqs(gw, "/api/live/hangup")
     assert reqs(gw, "/api/live/media")[-1]["mic"] == "http://r1.local/mic.pcm", "đọc xong thì nối mic đã chọn để nói chuyện"
+
+
+# -- cuộc gọi biến mất không kèm trạng thái kết thúc (gateway khởi động lại giữa cuộc gọi): không được để rác theo call_id --------------
+
+async def test_a_call_that_vanishes_without_an_end_state_is_fully_cleaned_up(hass, setup, gw):
+    from pytest_homeassistant_custom_component.common import async_capture_events
+    rt = _rt(setup)
+    await _ring(gw, rt)
+    rt.voice.rule_of["c1"] = {"connect": ["mic"]}
+    rt.voice.connected.add("c1")
+    rt.bridge._restore_defaults.add("c1")
+    events = async_capture_events(hass, const.EVENT_STATE)
+    gw.calls = []                                          # gateway dựng lại: danh sách cuộc gọi rỗng, KHÔNG có «ended»
+    await rt.coordinator.async_refresh()
+    await hass.async_block_till_done()
+    v = rt.voice
+    assert "c1" not in v.incoming and "c1" not in v.rule_of and "c1" not in v.connected and "c1" not in v.announced, "bảng theo call_id phải sạch"
+    assert not rt.bridge.has_devices("c1"), "thiết bị riêng của cuộc đã mất phải được trả về mặc định"
+    assert not [e for e in events if e.data.get("state") == "ended"], "không bịa sự kiện «ended» cho automation"

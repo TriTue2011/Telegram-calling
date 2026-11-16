@@ -139,10 +139,21 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
         ids = {str(c.get("id")) for c in calls}
         for old in [k for k in self._peer_video if k not in ids]:
             self._peer_video.pop(old, None)
-        for old in [k for k in self._seen if k not in ids]:           # gateway chỉ giữ 10 cuộc gần nhất
+        for old in [k for k in self._seen if k not in ids]:           # gateway chỉ giữ một số cuộc gần nhất
+            if self._seen.get(old) not in TERMINAL:                   # cuộc biến mất khi chưa thấy kết thúc (gateway khởi động lại giữa cuộc gọi): HA không bao giờ nhận «ended»
+                self._forget_vanished(old)
             self._seen.pop(old, None)
             self._was_active.discard(old)
         return events
+
+    def _forget_vanished(self, cid: str) -> None:
+        """Dọn mọi thứ gắn theo call_id (hẹn giờ, tác vụ, quy tắc đã chốt, âm lượng loa đã hạ) cho cuộc gọi biến mất mà không có trạng thái kết thúc.
+        Không bắn sự kiện lên bus: automation không được báo một cuộc «kết thúc» mà HA chưa từng thấy kết thúc."""
+        rt = getattr(self.config_entry, "runtime_data", None)
+        if self.bridge is not None:
+            self.hass.async_create_task(self.bridge.stop(cid))
+        if rt is not None:
+            call_rules.on_call_state(self.hass, rt, "ended", cid, TERMINAL)
 
 
 class AccountCoordinator(DataUpdateCoordinator[dict]):

@@ -231,6 +231,7 @@ class VideoView:
                     pass
             try:
                 proc.kill()
+                proc.wait(timeout=2)           # thu xác tiến trình: kill không wait thì ffmpeg thành zombie tới lần Popen sau
             except Exception:  # noqa: BLE001
                 pass
 

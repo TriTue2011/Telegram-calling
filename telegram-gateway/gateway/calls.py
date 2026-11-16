@@ -54,6 +54,9 @@ class _Queued:
     payload: dict = field(compare=False)
 
 
+MAX_ENDED = 100          # cuộc đã kết thúc còn giữ để xem lại; thừa thì bỏ cái cũ nhất
+
+
 class CallManager:
     def __init__(self, queue_depth: int = 10, queue_timeout: int = 120):
         self.queue_depth = queue_depth
@@ -67,6 +70,12 @@ class CallManager:
         # (route dùng để claim endpoint cho nó).
         self.last_promoted: Call | None = None
 
+    def _prune(self) -> None:
+        """Giữ tối đa MAX_ENDED cuộc đã kết thúc (cũ nhất đi trước); cuộc đang chạy hoặc đang xếp hàng không bao giờ bị bỏ."""
+        ended = sorted((c for c in self._calls.values() if c.state == "ended"), key=lambda c: c.ended_at or 0)
+        for c in ended[:max(0, len(ended) - MAX_ENDED)]:
+            self._calls.pop(c.call_id, None)
+
     def active_for(self, account: str) -> Call | None:
         return self._active.get(account)
 
@@ -74,6 +83,7 @@ class CallManager:
                    tts_text: str = "", queue: bool = False,
                    priority: str = "normal", endpoint: str = "ha",
                    tts_audio_id: str = "") -> Call:
+        self._prune()
         if mode not in ("tts", "live"):
             from .errors import bad_request
             raise bad_request("mode phải là 'tts' hoặc 'live'.")
