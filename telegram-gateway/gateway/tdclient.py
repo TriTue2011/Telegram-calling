@@ -473,10 +473,12 @@ class TdlibClient:
         self.call({"@type": "acceptCall", "call_id": int(call_id),
                    "protocol": protocol})
 
-    def discard_call(self, call_id: int, reason: str = "hangup") -> None:
-        self.call({"@type": "discardCall", "call_id": int(call_id),
-                   "is_disconnected": False, "duration": 0,
-                   "is_video": False, "connection_id": 0})
+    def discard_call(self, call_id: int, reason: str = "hangup", duration: int = 0, is_video: bool = False) -> None:
+        """discardCall theo td_api.tl: ``duration`` = số giây cuộc gọi đã nói (0 nếu chưa nối), ``is_video`` = cuộc gọi VIDEO (Telegram ghi «cuộc gọi video» thay vì «cuộc gọi» vào lịch sử
+        trò chuyện của hai bên). ``connection_id`` = ID máy chủ chuyển tiếp ưa dùng (chỉ để thống kê, 0 = không biết)."""
+        self.call({"@type": "discardCall", "call_id": int(call_id), "invite_link": "",
+                   "is_disconnected": False, "duration": max(0, int(duration)),
+                   "is_video": bool(is_video), "connection_id": 0})
 
     def send_signaling_data(self, call_id: int, data: bytes) -> None:
         if not isinstance(data, (bytes, bytearray)):

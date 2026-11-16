@@ -1,6 +1,7 @@
 """Cuộc gọi thật: lệnh nguồn mic/camera (rắc rối an toàn), chuyển trạng thái, nhận cuộc gọi đi tới sớm. Không mạng."""
 
 import shlex
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,8 +27,9 @@ class StubClient:
         self.discarded = []
         self.accepted = []
 
-    def discard_call(self, cid):
+    def discard_call(self, cid, duration=0, is_video=False):
         self.discarded.append(cid)
+        self.discard_args = {"duration": duration, "is_video": is_video}
 
     def accept_call(self, cid, protocol):
         self.accepted.append(cid)
@@ -763,3 +765,17 @@ def test_connected_schedules_the_capture_refresh_only_for_outgoing_video_calls()
         rt.calls[c.id] = c
         rt._conn(uid, connected)
         assert len(ran) == expect, (uid, outgoing, video, len(ran))
+
+
+def test_hangup_tells_telegram_the_duration_and_that_it_was_a_video_call():
+    """discardCall (td_api.tl): duration + is_video để lịch sử trò chuyện ghi đúng «cuộc gọi video» và thời lượng; cuộc chưa nối thì duration 0."""
+    rt, cl = StubRuntime(), StubClient()
+    c = live_call.LiveCall(rt, "+84", cl, 5, True, True)
+    c.tdlib_call_id = 7
+    c.active_at = time.time() - 42.4
+    c.hangup()
+    assert cl.discarded == [7] and cl.discard_args["is_video"] is True and 41 <= cl.discard_args["duration"] <= 43, cl.discard_args
+    d = live_call.LiveCall(rt, "+84", cl, 6, True, False)
+    d.tdlib_call_id = 8
+    d.hangup()
+    assert cl.discard_args == {"duration": 0, "is_video": False}, "chưa nối máy: duration 0, cuộc thoại"

@@ -539,7 +539,8 @@ class LiveCall:
     def hangup(self) -> None:
         if self.tdlib_call_id is not None and self.state != "ended":
             try:
-                self.client.discard_call(self.tdlib_call_id)
+                talked = int(time.time() - self.active_at) if self.active_at else 0
+                self.client.discard_call(self.tdlib_call_id, duration=talked, is_video=bool(self.video))
             except Exception as exc:  # noqa: BLE001
                 self.log("discardCall lỗi: %s" % exc)
         self._end("người dùng cúp")
