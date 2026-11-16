@@ -131,6 +131,8 @@ automation:
 
 **Ô chọn sẵn «nối ngay» / «khi nói trực tiếp».** `make_call` và `answer_call` nhận thêm `connect_now` (tích mic / loa / camera: thứ nào nối NGAY khi nghe máy; không tích thì mic im lặng, camera gửi hình đen, loa không nối; tích camera = cuộc gọi VIDEO) và `connect` (thứ nối khi người nhà bấm «Người nhà nói trực tiếp» / `take_over_call`) — cùng ý nghĩa với quy tắc `apply_call_rule` và với `zalo_call`. Không điền `connect_now` thì giữ như trước: mọi thiết bị đã chọn hoặc mặc định nối ngay.
 
+**Thiết bị lấy từ đâu (cùng thứ tự với `zalo_call`).** (1) ô khai ngay trong lời gọi dịch vụ (`mic`, `mic_url`, `camera`, `speaker`); (2) quy tắc của automation cho cuộc gọi ĐẾN (`apply_call_rule`); (3) thiết bị mặc định trên thiết bị «Telegram Call»; (4) không có gì: mic im lặng, hình đen, không loa. Gọi đi bằng `make_call` mà không khai và cũng chưa đặt mặc định thì dịch vụ **báo lỗi nêu đúng phần thiếu** (mic hoặc loa; thêm camera nếu gọi video) thay vì gọi một cuộc im lặng; muốn gọi im lặng thì đặt `connect_now: []`. `answer_call` không chặn (chặn là mất cuộc gọi), cuộc không có thiết bị thì chỉ nghe máy im lặng.
+
 **`make_call` có lời nhắn** (giống `make_call` của `zalo_call`): điền `message` thì khi người nhận nghe máy, giọng đọc đọc lời đó `repeat` lần (1-3; chọn giọng bằng `pipeline` / `tts_engine` / `language`), rồi cúp nếu bật `hangup_after`, không thì nối thiết bị nhà đã chọn để nói chuyện. Cuộc gọi cảnh báo thuần vẫn dùng `alert_call` (nhận cùng các ô, thêm `after`).
 
 **Nghe máy bằng thiết bị riêng.** `answer_call` nhận `speaker`, `mic` (hoặc `mic_url`), `camera`, `volume` như `make_call`: đặt cho cuộc này trước khi nghe, hết cuộc tự trả về thiết bị mặc định.

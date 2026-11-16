@@ -200,6 +200,28 @@ def _with_recipient(hass: HomeAssistant, schema: Any) -> Any:
     return vol.All(resolve, schema)
 
 
+_PART_LABEL = {"mic": "Mic", "speaker": "Loa", "camera": "Camera"}
+
+
+def _require_devices(fields: dict[str, str], now: list[str] | None, video: bool) -> None:
+    """Gọi đi KHÔNG khai thiết bị mà cũng chưa đặt mặc định thì báo lỗi, không gọi một cuộc im lặng / hình đen mà người dùng không để ý. Thứ tự nguồn thiết bị: ô khai trong lần gọi dịch vụ →
+    quy tắc automation (cuộc gọi ĐẾN) → thiết bị mặc định trên thiết bị «Telegram Call». ``connect_now`` = [] (chủ động trống) là cách xin gọi im lặng.
+    Phần đã tích mà không có thiết bị → lỗi nêu đúng phần còn thiếu."""
+    have = {"mic": bool(fields.get("mic")), "speaker": bool(fields.get("speaker")), "camera": bool(fields.get("camera"))}
+    if now is not None:
+        wanted = list(now) + (["camera"] if video and "camera" not in now else [])
+        missing = [p for p in wanted if not have[p]]
+    else:                                                          # không nêu connect_now: cần ít nhất một đường nói chuyện (mic hoặc loa), và camera nếu gọi video
+        missing = (["camera"] if video and not have["camera"] else [])
+        if not (have["mic"] or have["speaker"]):
+            missing.append("mic hoặc loa")
+    if missing:
+        names = ", ".join(_PART_LABEL.get(p, p) for p in missing)
+        raise ServiceValidationError(
+            "Chưa có thiết bị để nối: %s. Điền ô tương ứng trong lời gọi, hoặc chọn thiết bị mặc định trên thiết bị «Telegram Call» (Mic / Loa / Camera). "
+            "Muốn gọi im lặng thì để ô «Nối ngay khi nghe máy» trống (connect_now: [])." % names)
+
+
 def _public(info: dict) -> dict:
     """Thông tin cuộc gọi trả cho người dùng/automation: không có nhật ký sự kiện (có thể kèm lỗi dài/URL)."""
     return {k: (redact(str(v)) if k == "error" else v) for k, v in info.items()
@@ -277,6 +299,7 @@ def async_register_services(hass: HomeAssistant) -> None:
         async def go(rt):
             rt.bridge.remember(None, override)                     # loa/âm lượng riêng cuộc này, dùng lúc nghe máy
             fields = await rt.bridge.async_call_fields(override)
+            _require_devices(fields, now, video)
             if now is not None:                                    # thứ không tích: mic im lặng, hình đen, không loa (không rơi về thiết bị mặc định của gateway)
                 fields.setdefault("mic", "silence")
                 fields.setdefault("camera", "black")

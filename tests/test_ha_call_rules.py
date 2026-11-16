@@ -476,11 +476,22 @@ async def test_make_call_connect_now_wires_only_the_ticked_parts_and_camera_mean
     await call(hass, "make_call", {"user_id": 5, "mic_url": "http://r1.local/mic.pcm", "connect_now": ["mic"]})
     b = reqs(gw, "/api/live/call")[-1]
     assert b["mic"] == "http://r1.local/mic.pcm" and b["camera"] == "black" and b["speaker"] == "" and b["video"] is False, b
-    gw.requests.clear()
-    gw.calls = []
-    await call(hass, "make_call", {"user_id": 6, "mic_url": "http://r1.local/mic.pcm", "connect_now": ["camera"]})
+    from homeassistant.exceptions import ServiceValidationError
+    with pytest.raises(ServiceValidationError, match="Camera"):                     # tích camera = gọi VIDEO nên cần camera: không có thì báo lỗi, không gửi hình đen
+        await call(hass, "make_call", {"user_id": 6, "mic_url": "http://r1.local/mic.pcm", "connect_now": ["camera"]})
+
+
+async def test_make_call_without_any_device_is_refused_unless_silence_is_asked_for_explicitly(hass, setup, gw):
+    from homeassistant.exceptions import ServiceValidationError
+    _rt(setup)
+    with pytest.raises(ServiceValidationError, match="mic hoặc loa"):               # không khai, cũng chưa đặt mặc định: không gọi một cuộc im lặng ngầm
+        await call(hass, "make_call", {"user_id": 5})
+    assert not reqs(gw, "/api/live/call")
+    with pytest.raises(ServiceValidationError, match="Camera"):                     # gọi video mà không có camera
+        await call(hass, "make_call", {"user_id": 5, "video": True, "mic_url": "http://r1.local/mic.pcm"})
+    await call(hass, "make_call", {"user_id": 5, "connect_now": []})                 # chủ động trống = xin gọi im lặng
     b = reqs(gw, "/api/live/call")[-1]
-    assert b["video"] is True and b["mic"] == "silence", b          # tích camera = gọi VIDEO; mic không tích thì im lặng, dù đã chọn mic_url
+    assert b["mic"] == "silence" and b["speaker"] == "" and b["video"] is False, b
 
 
 async def test_make_call_without_connect_now_keeps_the_old_behaviour(hass, setup, gw):
