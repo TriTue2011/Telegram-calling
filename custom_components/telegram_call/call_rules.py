@@ -539,6 +539,8 @@ async def async_run_alert(hass: HomeAssistant, rt: Any, cid: str, user_id: Any, 
         after = after or ("connect" if has_devices else "hangup")
         connected: list[str] = []
         if after == "connect":
+            if rt.voice.tasks.get(cid) is asyncio.current_task():        # async_take_over huỷ tác vụ của cuộc gọi: đừng để nó huỷ chính tác vụ đang đọc/nối này (sự kiện xong không bao giờ phát)
+                rt.voice.tasks.pop(cid, None)
             try:
                 connected = (await async_take_over(hass, rt, cid, explicit))["connected"]
             except TelegramCallError as err:

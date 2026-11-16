@@ -543,3 +543,38 @@ async def test_unknown_recipient_is_refused_with_a_clear_message(hass, setup, gw
     for who in ("notify.khong_co", "notify.khong_phai_nguoi"):
         with pytest.raises(vol.Invalid, match="Không tìm thấy người nhận"):
             await call(hass, "send_message", {"recipient": who, "message": "x"})
+
+
+# -- make_call có LỜI NHẮN (giống make_call của zalo_call): đọc khi nghe máy rồi cúp hoặc nối thiết bị nhà ------------------------
+
+async def test_make_call_with_message_reads_it_on_answer_then_hangs_up(hass, setup, gw):
+    rt = _rt(setup)
+    events = []
+
+    @callback
+    def _on(e):
+        events.append(dict(e.data))
+    hass.bus.async_listen("telegram_call_alert_done", _on)
+    res = await call(hass, "make_call", {"user_id": 7, "message": "Nhà có khách", "hangup_after": True})
+    assert res["id"] == "n1"
+    dial = reqs(gw, "/api/live/call")[-1]
+    assert dial["speaker"] == "" and dial["mic"] == "silence", dial                    # nghe máy xong chưa nối gì của nhà, như alert_call
+    gw.calls = [dict(gw.calls[-1], state="active")]
+    assert await until(lambda: events, 12)
+    assert reqs(gw, "/api/live/say") and reqs(gw, "/api/live/hangup")[-1] == {"id": "n1"}
+    assert events[0]["after"] == "hangup"
+
+
+async def test_make_call_with_message_but_without_hangup_connects_the_devices_after_reading(hass, setup, gw):
+    rt = _rt(setup)
+    events = []
+
+    @callback
+    def _on(e):
+        events.append(dict(e.data))
+    hass.bus.async_listen("telegram_call_alert_done", _on)
+    await call(hass, "make_call", {"user_id": 7, "message": "Chào", "mic_url": "http://r1.local/mic.pcm"})
+    gw.calls = [dict(gw.calls[-1], state="active")]
+    assert await until(lambda: events, 12)
+    assert events[0]["after"] == "connect" and not reqs(gw, "/api/live/hangup")
+    assert reqs(gw, "/api/live/media")[-1]["mic"] == "http://r1.local/mic.pcm", "đọc xong thì nối mic đã chọn để nói chuyện"

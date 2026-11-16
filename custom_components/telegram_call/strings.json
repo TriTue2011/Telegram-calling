@@ -134,10 +134,6 @@
           "name": "Volume",
           "description": "Speaker volume 1-100 % while on the call, restored afterwards. 0 or empty = use the default / leave the speaker alone."
         },
-        "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
-        },
         "connect_now": {
           "name": "Nối ngay khi nghe máy",
           "description": "Tích ô nào thì thiết bị đó nối NGAY khi người nhận nghe máy; không tích thì mic im lặng, camera gửi hình đen, loa không nối. Tích Camera = cuộc gọi VIDEO. Bỏ trống cả ô này = nối mọi thiết bị đã chọn hoặc mặc định như trước."
@@ -145,6 +141,34 @@
         "connect": {
           "name": "Nối khi nói trực tiếp",
           "description": "Thiết bị nối khi người nhà bấm «Người nhà nói trực tiếp» (hoặc dịch vụ take_over_call) giữa cuộc gọi."
+        },
+        "message": {
+          "name": "Lời nhắn đọc khi nghe máy",
+          "description": "Câu đọc thành giọng ngay khi người nhận nghe máy. Bỏ trống = không đọc gì (cuộc gọi bình thường)."
+        },
+        "repeat": {
+          "name": "Số lần đọc",
+          "description": "Đọc lời nhắn mấy lần (1-3)."
+        },
+        "hangup_after": {
+          "name": "Cúp máy sau khi đọc xong",
+          "description": "Bật = đọc xong thì cúp; tắt = đọc xong nối thiết bị nhà đã chọn để nói chuyện."
+        },
+        "pipeline": {
+          "name": "Pipeline giọng đọc",
+          "description": "Assist pipeline dùng giọng TTS của nó để đọc lời nhắn (tên hoặc id)."
+        },
+        "tts_engine": {
+          "name": "Giọng đọc (TTS)",
+          "description": "Thực thể tts.* (trống = của pipeline hoặc mặc định)."
+        },
+        "language": {
+          "name": "Ngôn ngữ",
+          "description": "Ngôn ngữ giọng đọc."
+        },
+        "config_entry_id": {
+          "name": "Tài khoản",
+          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
         }
       }
     },

@@ -38,6 +38,9 @@ MAKE_CALL = vol.All(cv.has_at_least_one_key("user_id", "peer"), vol.Schema({
     vol.Optional("speaker"): cv.string,
     vol.Optional("volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
     vol.Optional("connect_now"): _PARTS, vol.Optional("connect"): _PARTS,
+    vol.Optional("message"): cv.string, vol.Optional("hangup_after", default=False): cv.boolean,       # lời nhắn đọc khi nghe máy (như make_call của zalo_call)
+    vol.Optional("pipeline"): cv.string, vol.Optional("tts_engine"): cv.entity_id, vol.Optional("language"): cv.string,
+    vol.Optional("repeat", default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=3)),
 }))
 CALL_ID = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string})
 ANSWER_CALL = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string,                  # thiết bị riêng cho cuộc gọi này (như make_call)
@@ -262,6 +265,9 @@ def async_register_services(hass: HomeAssistant) -> None:
         return rule
 
     async def make_call(call: ServiceCall) -> ServiceResponse:
+        message = str(call.data.get("message") or "").strip()
+        if message:                                                # có lời nhắn: đọc khi nghe máy rồi cúp (hangup_after) hoặc nối thiết bị nhà
+            return await _alert(call, message, "hangup" if call.data["hangup_after"] else "connect")
         override = {k: call.data[k] for k in ("mic", "mic_url", "camera", "speaker", "volume") if k in call.data}
         now = call.data.get("connect_now")                                 # có ô này: CHỈ nối thứ đã tích lúc nghe máy; không có: nối mọi thiết bị đã chọn/mặc định như trước
         if now is not None:
@@ -378,11 +384,9 @@ def async_register_services(hass: HomeAssistant) -> None:
             return {"call_id": cid, "seconds": seconds}
         return await run(call, go)
 
-    async def alert_call(call: ServiceCall) -> ServiceResponse:
+    async def _alert(call: ServiceCall, message: str, after: str) -> ServiceResponse:
+        """Cuộc gọi có LỜI NHẮN: chờ nghe máy, đọc `message`, rồi làm theo `after` (cúp / nối thiết bị đã chọn / giữ máy). Dùng chung cho alert_call và make_call có `message`."""
         override = {k: call.data[k] for k in ("mic", "mic_url", "camera", "speaker", "volume") if k in call.data}
-        message = str(call.data["message"]).strip()
-        if not message:
-            raise ServiceValidationError("message (nội dung cảnh báo) không được trống")
 
         async def go(rt):
             held = call_rules.rule_override({}, [])                     # lúc nghe máy mọi thiết bị nhà TẮT; chỉ nối sau khi đọc cảnh báo
@@ -396,11 +400,17 @@ def async_register_services(hass: HomeAssistant) -> None:
             engine, language, options = _tts_of(call)
             cid = str(info.get("id"))
             rt.voice.tasks[cid] = hass.async_create_task(call_rules.async_run_alert(
-                hass, rt, cid, info.get("user_id"), message, call.data["repeat"], call.data.get("after") or "", engine, language, options, override or None))
+                hass, rt, cid, info.get("user_id"), message, call.data["repeat"], after, engine, language, options, override or None))
             return _public(info)
         res = await run(call, go)
         await _refresh(hass, call)
         return res
+
+    async def alert_call(call: ServiceCall) -> ServiceResponse:
+        message = str(call.data["message"]).strip()
+        if not message:
+            raise ServiceValidationError("message (nội dung cảnh báo) không được trống")
+        return await _alert(call, message, call.data.get("after") or "")
 
     # -- quy tắc (cùng mô hình với zalo_call) ---------------------------------------------------------------
     def _rules_copy(rt) -> dict:
