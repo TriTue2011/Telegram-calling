@@ -1,0 +1,210 @@
+"""Nhat ky CHI TIET tung cuoc goi Telegram (call_trace.py): ra tep, giu 5 cuoc, che bi mat, tran dung luong, hieu bo dem moi giay, noi vao LiveCall va API."""
+import os
+import re
+import time
+
+import pytest
+from fastapi.testclient import TestClient
+
+from gateway import call_trace as ct
+from gateway import live_call
+from gateway.config import Config
+from gateway.routes import build_app
+
+
+class StubRuntime:
+    data_dir = "/tmp/live-test"
+    calls = {}
+
+    def run(self, coro):
+        coro.close()
+
+
+class StubClient:
+    def discard_call(self, *a, **k):
+        pass
+
+    def accept_call(self, *a, **k):
+        pass
+
+
+def _setup(tmp_path, keep=5, max_kb=64, stats=None):
+    ct.reset_for_tests()
+    ct.KEEP, ct.MAX_BYTES, ct.SAMPLE_SECONDS = keep, max_kb * 1024, 0.0           # 0: khong luong lay mau; test goi sample_once truc tiep
+    ct.configure(str(tmp_path), stats=stats, version="test-1")
+    return tmp_path / "calltrace"
+
+
+def _txt(d, cid):
+    ct.reset_for_tests()
+    return (d / ("%s.log" % cid)).read_text(encoding="utf-8")
+
+
+def test_lines_go_to_the_calls_file_with_header_and_relative_time(tmp_path):
+    d = _setup(tmp_path)
+    ct.line("aaaaaaaaaa", "su-kien", "TDLib: Ready (servers=4)")
+    ct.line("aaaaaaaaaa", "su-kien", "NTgCalls kết nối: CONNECTED")
+    txt = _txt(d, "aaaaaaaaaa")
+    assert "mo-dau call=aaaaaaaaaa gateway=test-1" in txt and "su-kien TDLib: Ready (servers=4)" in txt and "CONNECTED" in txt
+    assert re.search(r"^\d\d:\d\d:\d\d\.\d{3} \+\d+\.\d{3}s su-kien ", txt, re.M)
+
+
+def test_only_the_last_KEEP_calls_survive_and_keep_zero_turns_it_off(tmp_path):
+    d = _setup(tmp_path, keep=5)
+    for i in range(8):
+        ct.line("%010x" % (i + 1), "su-kien", "x")
+        time.sleep(0.02)
+    assert sorted(f[:-4] for f in os.listdir(d)) == ["%010x" % i for i in range(4, 9)]
+    d2 = _setup(tmp_path / "tat", keep=0)
+    ct.line("bbbbbbbbbb", "su-kien", "x"); ct.packet("bbbbbbbbbb", "tx", b"abc")
+    assert not d2.exists() and not ct.enabled()
+
+
+def test_secrets_are_masked_and_env_secrets_never_listed(tmp_path, monkeypatch):
+    d = _setup(tmp_path)
+    monkeypatch.setenv("TELEGRAM_API_HASH", "hash-bi-mat"); monkeypatch.setenv("TELEGRAM_DEBUG", "1"); monkeypatch.setenv("TELEGRAM_GATEWAY_TOKEN", "tok-bi-mat")
+    ct.line("cccccccccc", "su-kien", "khoa=" + "A" * 60 + " ok")
+    txt = _txt(d, "cccccccccc")
+    assert "hash-bi-mat" not in txt and "tok-bi-mat" not in txt and "A" * 40 not in txt and "<ẩn>" in txt
+    assert "TELEGRAM_DEBUG=1" in txt
+
+
+def test_size_cap_keeps_the_final_summary(tmp_path):
+    d = _setup(tmp_path, max_kb=4)
+    for i in range(400):
+        ct.line("dddddddddd", "su-kien", "dong du dai de lam day tep so=%d %s" % (i, "x" * 30))
+    ct.finish("dddddddddd", "TONG KET CUOI")
+    txt = _txt(d, "dddddddddd")
+    assert txt.count("trần dung lượng") == 1 and "TONG KET CUOI" in txt and len(txt.encode()) < 4 * 1024 + 2048
+
+
+def test_signaling_packets_are_logged_one_by_one(tmp_path):
+    d = _setup(tmp_path)
+    ct.packet("eeeeeeeeee", "tx", b"\x01\x02\x03" + b"\x00" * 40)
+    ct.packet("eeeeeeeeee", "rx", b"\xff" * 5)
+    txt = _txt(d, "eeeeeeeeee")
+    assert "goi-tx #1 baohieu len=43 hex=010203000000000000000000" in txt and "goi-rx #1 baohieu len=5 hex=ffffffffff" in txt
+
+
+def test_per_second_sample_logs_DIFFERENCES_network_and_resources(tmp_path):
+    cnt = {"khung_tieng_vao": 0, "bao_hieu_tx_goi": 0, "ten": "x"}
+    d = _setup(tmp_path, stats=lambda cid: cnt)
+    ct.line("ffffffffff", "su-kien", "bat dau")
+    t = ct._traces["ffffffffff"]
+    cnt["khung_tieng_vao"], cnt["bao_hieu_tx_goi"] = 50, 3
+    ct.sample_once(t, 0)
+    cnt["khung_tieng_vao"] = 100
+    ct.sample_once(t, 1)
+    ct.sample_once(t, 2)                                       # khong doi -> khong co dong dem-1s moi
+    txt = _txt(d, "ffffffffff")
+    lines = [ln for ln in txt.splitlines() if " dem-1s " in ln]
+    assert len(lines) == 2 and "khung_tieng_vao+50" in lines[0] and "bao_hieu_tx_goi+3" in lines[0] and "bao_hieu_tx_goi" not in lines[1], lines
+    assert "dem-tong " in txt and "khung_tieng_vao=50" in txt and "tai-nguyen cpu=" in txt and "rss=" in txt and "load=" in txt
+    net = ct._net_totals()
+    assert set(net) >= {"rx_pkt", "tx_pkt", "rx_drop", "tx_drop", "udp_drop"} and all(isinstance(v, int) for v in net.values())
+
+
+def test_read_only_accepts_hex_ids_and_list_is_newest_first(tmp_path):
+    _setup(tmp_path)
+    ct.line("1111111111", "su-kien", "x"); time.sleep(0.02); ct.line("2222222222", "su-kien", "y")
+    assert ct.read("../../etc/passwd") is None and ct.read("11/../22") is None and ct.read("ZZZ") is None
+    assert "su-kien x" in ct.read("1111111111")
+    assert [r["id"] for r in ct.list_traces()] == ["2222222222", "1111111111"]
+
+
+def test_live_call_log_signaling_and_end_reach_the_trace_untruncated(tmp_path):
+    rt = StubRuntime(); rt.calls = {}
+    d = _setup(tmp_path, stats=lambda cid: rt.calls[cid].sig if cid in rt.calls else None)
+    c = live_call.LiveCall(rt, "+84", StubClient(), 5, False)
+    rt.calls[c.id] = c
+    for i in range(300):                                        # nhieu hon MAX_EVENTS (200): nhat ky chi tiet khong bi cat
+        c.log("su kien so %d" % i)
+    c.on_signaling(b"\x10" * 20)
+    c.tdlib_call_id = 9
+    c.on_call_state({"state": {"@type": "callStateDiscarded", "reason": {"@type": "callDiscardReasonMissed"}}})
+    txt = _txt(d, c.id)
+    assert "su kien so 0" in txt and "su kien so 299" in txt, "chi con %d dong su-kien" % txt.count("su-kien")
+    assert "goi-rx #1 baohieu len=20" in txt and "Missed" in txt and "tong-ket " in txt
+    assert '"state": "ended"' in txt.split("tong-ket ")[1], "tong ket phai co trang thai cuoi"
+
+
+def test_api_lists_and_downloads_with_token_only(tmp_path):
+    ct.reset_for_tests()
+    cfg = Config(data_dir=str(tmp_path), gateway_token="test-token", rate_limit_per_minute=1000)
+    client = TestClient(build_app(cfg), raise_server_exceptions=False)
+    ct.KEEP, ct.MAX_BYTES, ct.SAMPLE_SECONDS = 5, 64 * 1024, 0.0
+    ct.line("abcdef0123", "su-kien", "noi dung thu")
+    h = {"Authorization": "Bearer test-token"}
+    assert client.get("/api/calltrace").status_code == 401 and client.get("/api/calltrace/abcdef0123").status_code == 401
+    r = client.get("/api/calltrace", headers=h).json()
+    assert r["ok"] and r["enabled"] and "abcdef0123" in [x["id"] for x in r["calls"]]
+    t = client.get("/api/calltrace/abcdef0123", headers=h)
+    assert t.status_code == 200 and t.headers["content-type"].startswith("text/plain") and "noi dung thu" in t.text
+    assert client.get("/api/calltrace/khong-co", headers=h).status_code == 404 and client.get("/api/calltrace/abcdef0124", headers=h).status_code == 404
+    ct.reset_for_tests()
+
+
+def _feed(monkeypatch, t, rx_rates, tx_rate=2000):
+    """Giả lập giao diện mạng: mỗi giây nhận rx_rates[i] byte, gửi tx_rate byte; chạy sample_once từng giây."""
+    state = {"rx": 0, "tx": 0}
+    monkeypatch.setattr(ct, "_net_totals", lambda: {"rx_pkt": 0, "rx_byte": state["rx"], "rx_err": 0, "rx_drop": 0,
+                                                    "tx_pkt": 0, "tx_byte": state["tx"], "tx_err": 0, "tx_drop": 0, "udp_drop": 0})
+    for i, r in enumerate([0] + list(rx_rates)):
+        state["rx"] += r
+        state["tx"] += tx_rate
+        ct.sample_once(t, i)
+
+
+def test_signal_that_decays_gradually_is_flagged_bad_and_kept(tmp_path, monkeypatch):
+    d = _setup(tmp_path, keep=1)
+    ct.line("aaaa000001", "su-kien", "bat dau")
+    t = ct._traces["aaaa000001"]
+    _feed(monkeypatch, t, [12000] * 10 + [9000, 6000, 4000, 3000, 2500, 2000, 1500, 1000, 800, 600])        # tut dan toi gan het
+    txt = _txt(d, "aaaa000001")
+    assert "xu-huong nhan=" in txt and "dinh_nhan=" in txt and "danh-dau-loi toc_do_nhan_tut_duoi_30%_dinh" in txt, txt
+    assert (d / "aaaa000001.loi").read_text(encoding="utf-8").startswith("toc_do_nhan_tut")
+
+
+def test_steady_call_is_good_and_old_good_calls_are_deleted_but_bad_ones_stay(tmp_path, monkeypatch):
+    d = _setup(tmp_path, keep=1)
+    ct.KEEP_BAD = 30
+    ct.line("aaaa000010", "su-kien", "cuoc loi")
+    ct.mark_bad("aaaa000010", "ntgcalls_failed")
+    for i in range(4):                                          # 4 cuoc tot lien tiep
+        time.sleep(0.02)
+        ct.line("aaaa00002%d" % i, "su-kien", "cuoc tot")
+        t = ct._traces["aaaa00002%d" % i]
+        _feed(monkeypatch, t, [10000] * 12)
+        ct.finish("aaaa00002%d" % i, "xong")
+        t.sampler = None
+        t.closed = True
+        ct._prune()
+    names = sorted(os.listdir(d))
+    assert "aaaa000010.log" in names and "aaaa000010.loi" in names, names                  # cuoc loi con
+    assert [n for n in names if n.endswith(".log") and "aaaa00001" not in n] == ["aaaa000023.log"], names     # chi 1 cuoc tot cuoi
+    assert not any(n.startswith("aaaa00002") and n.endswith(".loi") for n in names), names
+    ls = {r["id"]: r["loi"] for r in ct.list_traces()}
+    assert ls["aaaa000010"] == "ntgcalls_failed" and ls["aaaa000023"] is None
+
+
+def test_call_ending_while_receive_rate_is_far_below_peak_is_bad(tmp_path, monkeypatch):
+    d = _setup(tmp_path, keep=1)
+    ct.line("aaaa000030", "su-kien", "bat dau")
+    t = ct._traces["aaaa000030"]
+    _feed(monkeypatch, t, [12000] * 8 + [500] * 5)                # ket thuc khi toc do chi con ~4% dinh (chua du 5 giay tut -> do finish bat)
+    t.low_streak = 0
+    ct.finish("aaaa000030", "nguoi dung cup may")
+    assert (d / "aaaa000030.loi").exists() and "ket_thuc_khi_toc_do_nhan_con_" in (d / "aaaa000030.loi").read_text(encoding="utf-8")
+
+
+def test_live_call_marks_ntgcalls_failure_bad(tmp_path):
+    rt_calls = {}
+
+    class RT(StubRuntime):
+        calls = rt_calls
+
+    d = _setup(tmp_path)
+    c = live_call.LiveCall(RT(), "+84", StubClient(), 5, False)
+    c.log("bat dau")
+    ct.mark_bad(c.id, "ntgcalls_timeout")
+    assert (d / (c.id + ".loi")).read_text(encoding="utf-8").strip() == "ntgcalls_timeout"

@@ -35,7 +35,7 @@ from collections import defaultdict, deque
 
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from .audio import AudioHub, resample_pcm
 from .calls import CallManager
@@ -414,6 +414,22 @@ def build_app(cfg: Config, store: AccountStore | None = None,
             "started_at": c.started_at,
             "duration_seconds": round(c.duration_seconds, 1),
         } for c in calls.list_calls()]}
+
+    @app.get("/api/calltrace")
+    async def list_calltrace(request: Request):
+        """Nhật ký CHI TIẾT các cuộc gọi gần nhất (call_trace.py): danh sách, mới nhất trước."""
+        _auth(request)
+        from . import call_trace
+        return {"ok": True, "enabled": call_trace.enabled(), "keep": call_trace.KEEP, "calls": call_trace.list_traces()}
+
+    @app.get("/api/calltrace/{call_id}")
+    async def get_calltrace(request: Request, call_id: str):
+        _auth(request)
+        from . import call_trace
+        text = call_trace.read(call_id)
+        if text is None:
+            raise not_found("Không có nhật ký cho cuộc gọi này.")
+        return Response(content=text, media_type="text/plain; charset=utf-8", headers={"Content-Disposition": 'inline; filename="calltrace-%s.log"' % call_id})
 
     @app.get("/api/events")
     async def poll_events(request: Request, since: int = 0):

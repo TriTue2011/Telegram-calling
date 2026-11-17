@@ -25,6 +25,7 @@ import threading
 import time
 import uuid
 
+from . import call_trace
 from .engine import map_ready
 
 logger = logging.getLogger("telegram_gateway")
@@ -317,6 +318,7 @@ class LiveCall:
         self.events.append({"t": round(time.time() - self.started_at, 2), "e": text})
         del self.events[:-MAX_EVENTS]
         logger.info("live_call %s: %s", self.id, text)
+        call_trace.line(getattr(self, "id", "?"), "su-kien", text)        # nhật ký chi tiết: không bị cắt ở MAX_EVENTS
 
     def info(self) -> dict:
         return {"id": self.id, "user_id": self.user_id, "outgoing": self.outgoing, "video": self.video,
@@ -386,6 +388,7 @@ class LiveCall:
     def on_signaling(self, data: bytes) -> None:
         self.sig["rx_n"] += 1
         self.sig["rx_b"] += len(data)
+        call_trace.packet(self.id, "rx", data)
         self.runtime.run(self._send_signaling(data))
 
     def _set(self, state: str, why: str) -> None:
@@ -398,6 +401,11 @@ class LiveCall:
             return
         self.state, self.ended_at = "ended", time.time()
         self.log(why)
+        try:
+            import json as _json
+            call_trace.finish(self.id, _json.dumps({k: v for k, v in self.info().items() if k != "events"}, ensure_ascii=False, default=str))
+        except Exception:  # noqa: BLE001 - chẩn đoán
+            pass
         self.runtime.run(self._stop())
 
     # -- NTgCalls (chạy trên vòng lặp riêng) -------------------------------------------------------
@@ -459,8 +467,8 @@ class LiveCall:
                     self.diag = {"capture_s": round(cap, 1), "wall_s": round(now - t0, 1), "ratio": ratio}
                     if ratio < 0.5:
                         self.log("nguồn gửi đi chậm: chạy %.0f%% so với thời gian thật (mic/camera đói dữ liệu?)" % (ratio * 100))
-                if debug_enabled():
-                    await self._debug_line(cpu, last_cap is not None and cap - last_cap)
+                        call_trace.mark_bad(self.id, "nguon_gui_cham")
+                await self._debug_line(cpu, last_cap is not None and cap - last_cap)       # luôn ghi vào nhật ký chi tiết; ra log/events khi TELEGRAM_DEBUG=1
                 last_cap, last_wall = cap, now
         except asyncio.CancelledError:
             raise
@@ -478,9 +486,13 @@ class LiveCall:
             except Exception as exc:  # noqa: BLE001
                 extra.append("%s=?%s" % (name, type(exc).__name__))
         load, threads = _load_and_threads()
-        self.log("[dbg] cpu_gateway=%s%% tai_may=%.2f luong=%d bao_hieu tx=%d/%dB rx=%d/%dB nhip_gui=%s %s" % (
+        text = ("cpu_gateway=%s%% tai_may=%.2f luong=%d bao_hieu tx=%d/%dB rx=%d/%dB nhip_gui=%s %s" % (
             "?" if cpu is None else cpu, load, threads, self.sig["tx_n"], self.sig["tx_b"], self.sig["rx_n"], self.sig["rx_b"],
             ("%.2fs" % cap_delta) if cap_delta not in (False, None) else "?", " ".join(extra)))
+        if debug_enabled():
+            self.log("[dbg] " + text)                       # log() đã chép vào nhật ký chi tiết
+        else:
+            call_trace.line(self.id, "ntg", text)
 
     def _capture_description(self):
         """Mô tả nguồn GỬI ĐI (mic + camera nếu là cuộc gọi video) theo trạng thái hiện tại của cuộc gọi."""
@@ -644,6 +656,12 @@ class CallRuntime:
         self._t = threading.Thread(target=self.loop.run_forever, name="ntg-loop", daemon=True)
         self._t.start()
         self.calls: dict[str, LiveCall] = {}
+        try:
+            from .config import _doc_phien_ban
+            _ver = _doc_phien_ban()
+        except Exception:  # noqa: BLE001
+            _ver = "?"
+        call_trace.configure(data_dir, stats=self._trace_stats, version=_ver, extra_header=self._trace_header)
         self.on_event = on_event or (lambda kind, call: None)
         self.ntg.on_signaling_data(self._sig)
         self.ntg.on_connection_change(self._conn)
@@ -652,6 +670,22 @@ class CallRuntime:
         self.ntg.on_remote_source_change(self._remote_source)
         self.ntg.on_upgrade(self._upgrade)
         self._first_frame_logged = False
+
+    def _trace_stats(self, call_id):
+        """Số đếm cộng dồn của một cuộc gọi cho bộ lấy mẫu mỗi giây của nhật ký chi tiết (None khi cuộc gọi không còn)."""
+        c = self.calls.get(str(call_id))
+        if c is None:
+            return None
+        v = c.view
+        return {"bao_hieu_tx_goi": c.sig["tx_n"], "bao_hieu_tx_byte": c.sig["tx_b"], "bao_hieu_rx_goi": c.sig["rx_n"], "bao_hieu_rx_byte": c.sig["rx_b"],
+                "khung_tieng_vao": c.frames_in, "byte_tieng_vao": c.frame_bytes, "dinh_tieng": getattr(c, "peak", 0),
+                "khung_hinh_nhan": v.frames, "khung_hinh_jpeg": v.seq, "khung_hinh_rot": v.dropped, "khung_hinh_hong": v.bad}
+
+    def _trace_header(self, call_id):
+        c = self.calls.get(str(call_id))
+        if c is None:
+            return "chua co cuoc goi"
+        return "huong=%s video=%s mic=%s cam=%s tdlib_call=%s" % ("di" if c.outgoing else "den", c.video, c.mic, c.cam, c.tdlib_call_id)
 
     def _prune(self) -> None:
         """Giữ tối đa MAX_ENDED_CALLS cuộc gọi đã kết thúc (cái cũ nhất đi trước); cuộc đang chạy không bao giờ bị bỏ."""
@@ -681,6 +715,7 @@ class CallRuntime:
         if c is not None and c.tdlib_call_id is not None:
             c.sig["tx_n"] += 1
             c.sig["tx_b"] += len(data)
+            call_trace.packet(c.id, "tx", bytes(data))
             try:
                 c.client.send_signaling_data(c.tdlib_call_id, bytes(data))
             except Exception as exc:  # noqa: BLE001
@@ -699,6 +734,8 @@ class CallRuntime:
             if c.outgoing and c.video:
                 self.run(c.refresh_capture())
         elif name in ("FAILED", "TIMEOUT", "CLOSED") and c.state != "ended":
+            if name != "CLOSED":
+                call_trace.mark_bad(c.id, "ntgcalls_" + name.lower())
             c._end("NTgCalls: %s" % name)
             self.on_event("ended", c)
 
