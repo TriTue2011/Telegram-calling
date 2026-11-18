@@ -308,7 +308,7 @@ def test_own_udp_ports_finds_a_socket_we_opened():
 def test_rx_video_spec_parses_wxh_at_fps_and_falls_back_on_bad_input():
     assert live_call.parse_rx_video("1280x720@30") == (1280, 720, 30)
     assert live_call.parse_rx_video(" 640x360@15 ") == (640, 360, 15)
-    assert live_call.parse_rx_video("640x360") == (1280, 720, 30)             # thiếu @fps → mặc định
-    assert live_call.parse_rx_video("99999x720@30") == (1280, 720, 30)       # ngoài khoảng
-    assert live_call.parse_rx_video("abc") == (1280, 720, 30) and live_call.parse_rx_video(None) == (1280, 720, 30)
-    assert live_call.parse_rx_video("bad", default=(640, 360, 15)) == (640, 360, 15)
+    assert live_call.parse_rx_video("640x360") == (640, 360, 15)             # thiếu @fps → mặc định
+    assert live_call.parse_rx_video("99999x720@30") == (640, 360, 15)       # ngoài khoảng
+    assert live_call.parse_rx_video("abc") == (640, 360, 15) and live_call.parse_rx_video(None) == (640, 360, 15)
+    assert live_call.parse_rx_video("bad", default=(1280, 720, 30)) == (1280, 720, 30)

@@ -163,7 +163,7 @@ def camera_command(spec: str) -> str:
 
 
 
-def parse_rx_video(text, default=(1280, 720, 30)):
+def parse_rx_video(text, default=(640, 360, 15)):
     """«WxH@F» (vd 1280x720@30) → (rộng, cao, fps); sai định dạng / ngoài khoảng hợp lý thì dùng mặc định."""
     import re as _re
     m = _re.fullmatch(r"\s*(\d{3,4})x(\d{3,4})@(\d{1,2})\s*", str(text or ""))
@@ -176,9 +176,9 @@ def parse_rx_video(text, default=(1280, 720, 30)):
 
 
 # 18/11/2026: mô tả hình bên kia nhận về khai cho NTgCalls (bên kia/điện thoại căn bitrate và độ phân giải theo khả năng NHẬN mà ta khai). Trước đó khai 640x360@15 trong khi
-# điện thoại tự hạ bitrate video từ ~1,2 Mbit/s xuống ~0,1 Mbit/s trong 30 s (số đo pcap 18/11): thử khai 1280x720@30. Đổi bằng TELEGRAM_RX_VIDEO=WxH@F (vd 640x360@15 là cách cũ).
+# điện thoại tự hạ bitrate video từ ~1,2 Mbit/s xuống ~0,1 Mbit/s trong 30 s (số đo pcap 18/11): đã thử khai 1280x720@30 (18/11): điện thoại VẪN tự hạ ⇒ trả mặc định về 640x360@15. Đổi bằng TELEGRAM_RX_VIDEO=WxH@F.
 # Khung thật vẫn mang kích thước riêng trong frame_data; ffmpeg dựng lại theo từng kích thước.
-VIEW_W, VIEW_H, VIEW_FPS = parse_rx_video(os.environ.get("TELEGRAM_RX_VIDEO", "1280x720@30"))
+VIEW_W, VIEW_H, VIEW_FPS = parse_rx_video(os.environ.get("TELEGRAM_RX_VIDEO", "640x360@15"))
 VIEW_OUT_FPS = 10
 
 
