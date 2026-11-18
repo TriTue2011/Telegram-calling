@@ -287,6 +287,116 @@ _udp_state = {"thread": None, "ok": None}
 _udp_last = {"rx": None, "tx": None}                       # thời điểm gói trước (giây, đồng hồ hạt nhân) theo hướng
 _udp_win = {"rx": [0, 0.0, 0], "tx": [0, 0.0, 0]}          # cửa sổ 1 s: [số khoảng, khoảng lớn nhất (s), số khoảng >40 ms]
 JITTER_GAP_S = 0.04
+# Phân loại gói UDP theo ĐẦU gói (phần không mã hoá): RTP (đếm theo SSRC: mất gói theo số thứ tự, gói đến lệch thứ tự), RTCP (đếm theo loại gói đầu: 200 SR,
+# 201 RR, 205 phản hồi truyền tải/NACK/TWCC, 206 phản hồi tải trọng/PLI/REMB — nội dung SRTCP bị mã hoá nhưng đầu thì rõ), STUN, DTLS. Hai chiều tách riêng:
+# «rx» = điện thoại → gateway (chất lượng đường GỬI LÊN của điện thoại), «tx» = gateway → điện thoại; số RTCP loại 205/206 ở «rx» cho biết điện thoại đang
+# XIN gửi lại gói / xin khung chính vì mất gói ở chiều gateway → điện thoại.
+_rtp_win = {"rx": None, "tx": None}                       # cửa sổ 1 s: {"rtp": {ssrc: [gói, byte, mất, lệch]}, "rtcp": {pt: n}, "stun": n, "dtls": n, "khac": {byte0: n}}
+_rtp_hi = {}                                               # (hướng, ssrc) -> số thứ tự cao nhất đã thấy (16 bit)
+_rtp_tot = {}                                              # (hướng, ssrc) -> [gói, byte, mất, lệch] CỘNG DỒN
+RTP_MAX_SSRC = 64
+STUN_COOKIE = b"\x21\x12\xa4\x42"
+
+
+def _win_new():
+    return {"rtp": {}, "rtcp": {}, "stun": 0, "dtls": 0, "khac": {}}
+
+
+_rtp_win.update({"rx": _win_new(), "tx": _win_new()})
+
+
+def classify_udp(payload):
+    """('rtp', ssrc, seq) | ('rtcp', pt) | ('stun',) | ('dtls',) | ('khac', byte0) | None. Tự bỏ phần bọc ChannelData 4 byte của TURN (0x4000–0x7FFF)."""
+    if len(payload) < 4:
+        return None
+    b0 = payload[0]
+    if 0x40 <= b0 <= 0x7F and len(payload) >= 16 and int.from_bytes(payload[2:4], "big") <= len(payload) - 4:
+        payload, b0 = payload[4:], payload[4]
+    if b0 <= 1 and payload[4:8] == STUN_COOKIE:
+        return ("stun",)
+    if 20 <= b0 <= 63:
+        return ("dtls",)
+    if 0x80 <= b0 <= 0xBF and len(payload) >= 12:
+        if 192 <= payload[1] <= 223:
+            return ("rtcp", payload[1])
+        return ("rtp", int.from_bytes(payload[8:12], "big"), int.from_bytes(payload[2:4], "big"))
+    return ("khac", b0)
+
+
+def _rtp_account(key, payload, size):
+    """Cộng một gói vào cửa sổ + cộng dồn (gọi trong _udp_lock)."""
+    c = classify_udp(payload)
+    if c is None:
+        return
+    w = _rtp_win[key]
+    if c[0] == "rtp":
+        ssrc, seq = c[1], c[2]
+        e = w["rtp"].setdefault(ssrc, [0, 0, 0, 0])
+        tot = _rtp_tot.get((key, ssrc))
+        if tot is None and len(_rtp_tot) < RTP_MAX_SSRC:
+            tot = _rtp_tot[(key, ssrc)] = [0, 0, 0, 0]
+        e[0] += 1
+        e[1] += size
+        hi = _rtp_hi.get((key, ssrc))
+        missing = late = 0
+        if hi is None:
+            _rtp_hi[(key, ssrc)] = seq
+        else:
+            d = (seq - hi) & 0xFFFF
+            if 1 <= d < 0x8000:
+                missing = d - 1
+                _rtp_hi[(key, ssrc)] = seq
+            elif d >= 0x8000:
+                late = 1                               # gói cũ đến muộn (đã tính vào «mất» lúc nhảy qua nó)
+        e[2] += missing
+        e[3] += late
+        if tot is not None:
+            tot[0] += 1
+            tot[1] += size
+            tot[2] += missing
+            tot[3] += late
+    elif c[0] == "rtcp":
+        w["rtcp"][c[1]] = w["rtcp"].get(c[1], 0) + 1
+    elif c[0] in ("stun", "dtls"):
+        w[c[0]] += 1
+    else:
+        w["khac"][c[1]] = w["khac"].get(c[1], 0) + 1
+
+
+def _rtp_window_take():
+    """Lấy (và xoá) cửa sổ 1 s vừa qua của hai hướng."""
+    with _udp_lock:
+        out = {k: v for k, v in _rtp_win.items()}
+        for k in _rtp_win:
+            _rtp_win[k] = _win_new()
+    return out
+
+
+def rtp_line(win):
+    """Một dòng nhật ký cho cửa sổ lấy từ _rtp_window_take(); chuỗi rỗng nếu không có gì."""
+    parts = []
+    for k in ("rx", "tx"):
+        w = win[k]
+        seg = []
+        for ssrc, (n, byt, miss, late) in sorted(w["rtp"].items(), key=lambda kv: -kv[1][1])[:3]:
+            seg.append("%08x:%dgoi/%dB(tb%dB) mat=%d lech=%d" % (ssrc, n, byt, byt // max(1, n), max(0, miss - late), late))
+        if w["rtcp"]:
+            seg.append("rtcp[" + ",".join("%d×%d" % (pt, n) for pt, n in sorted(w["rtcp"].items())) + "]")
+        for name in ("stun", "dtls"):
+            if w[name]:
+                seg.append("%s=%d" % (name, w[name]))
+        if w["khac"]:
+            seg.append("khac[" + ",".join("0x%02x×%d" % (b, n) for b, n in sorted(w["khac"].items())) + "]")
+        if seg:
+            parts.append("%s: %s" % (k, " ".join(seg)))
+    return " | ".join(parts)
+
+
+def rtp_totals_line():
+    """Số CỘNG DỒN theo (hướng, SSRC): gói, byte, mất theo số thứ tự (đã trừ gói đến muộn), lệch thứ tự."""
+    with _udp_lock:
+        items = sorted(_rtp_tot.items(), key=lambda kv: -kv[1][1])[:6]
+    return " ".join("%s:%08x=%dgoi/%dB mat=%d lech=%d" % (k, ssrc, v[0], v[1], max(0, v[2] - v[3]), v[3]) for (k, ssrc), v in items)
 _own_ports = {"set": None, "at": 0.0}                      # cổng UDP cục bộ của CHÍNH tiến trình (None = chưa biết: đếm mọi UDP)
 
 
@@ -354,6 +464,10 @@ def _udp_account(frame, pkttype, ts=None):
     with _udp_lock:
         _udp[key + "_byte"] += n
         _udp[key + "_pkt"] += 1
+        try:
+            _rtp_account(key, frame[14 + ihl + 8:], n)
+        except Exception:  # noqa: BLE001 - phân loại hỏng không được làm mất bộ đếm chính
+            pass
         if ts is not None:
             last = _udp_last[key]
             _udp_last[key] = ts
@@ -472,6 +586,13 @@ def sample_once(t, tick):
             ud2 = _diff(t, "udpmeter", udp)
             if ud2:
                 t.write("udp-flujo-1s", " ".join(ud2))
+            rl = rtp_line(_rtp_window_take())
+            if rl:
+                t.write("rtp-1s", rl)
+            if tick % SNAP_EVERY == 0:
+                rt = rtp_totals_line()
+                if rt:
+                    t.write("rtp-tong", rt)
             jit = _udp_window_take()
             if any(v[0] for v in jit.values()):
                 t.write("udp-khoang-1s", " ".join("%s_khoang_max=%.0fms %s_tren40ms=%d/%d" % (k, v[1], k, v[2], v[0]) for k, v in sorted(jit.items()) if v[0]))
@@ -572,6 +693,11 @@ def read(call_id):
 
 
 def reset_for_tests():
+    with _udp_lock:
+        for k in _rtp_win:
+            _rtp_win[k] = _win_new()
+        _rtp_hi.clear()
+        _rtp_tot.clear()
     with _lock:
         for t in _traces.values():
             t.ended_at = t.ended_at or time.time()

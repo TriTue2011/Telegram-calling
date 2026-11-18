@@ -281,6 +281,54 @@ def test_udp_meter_measures_gaps_between_packets_for_jitter():
     assert ct._udp_window_take()["rx"][0] == 0                                   # đã xoá
 
 
+def _rtp(ssrc, seq, pt=96, size=60):
+    return bytes([0x80, pt]) + seq.to_bytes(2, "big") + b"\0\0\0\0" + ssrc.to_bytes(4, "big") + b"z" * (size - 12)
+
+
+def test_rtp_loss_reorder_and_rtcp_feedback_are_counted_per_direction_and_ssrc(monkeypatch):
+    monkeypatch.setattr(ct, "host_network", lambda: False)         # máy chủ có cầu docker: không lọc theo cổng của tiến trình
+    ct.reset_for_tests()
+    for seq in (10, 11, 14, 13, 15):                   # 12 mất, 13 đến muộn (lệch thứ tự)
+        assert ct._udp_account(_frame(1400, 40000, _rtp(0xAABBCCDD, seq)), 0)
+    assert ct._udp_account(_frame(40000, 1400, _rtp(0x11223344, 7)), 4)
+    rtcp = bytes([0x80, 205]) + b"\0" * 14
+    for _ in range(3):
+        ct._udp_account(_frame(1400, 40000, rtcp), 0)
+    ct._udp_account(_frame(1400, 40000, bytes([0x00, 0x01, 0, 0]) + ct.STUN_COOKIE + b"\0" * 12), 0)
+    ct._udp_account(_frame(1400, 40000, bytes([22]) + b"\0" * 20), 0)
+    w = ct._rtp_window_take()
+    assert w["rx"]["rtp"][0xAABBCCDD] == [5, 300, 2, 1]                  # 5 gói, 2 «nhảy» (12 và 13 lúc ấy), 1 gói muộn
+    assert w["rx"]["rtcp"] == {205: 3} and w["rx"]["stun"] == 1 and w["rx"]["dtls"] == 1
+    assert w["tx"]["rtp"][0x11223344][0] == 1
+    line = ct.rtp_line(w)
+    assert "aabbccdd:5goi" in line and "mat=1 lech=1" in line and "rtcp[205×3]" in line and line.startswith("rx:") and "| tx:" in line
+    assert ct._rtp_window_take()["rx"]["rtp"] == {} and ct.rtp_line(ct._rtp_window_take()) == ""     # đã xoá
+    assert "rx:aabbccdd=5goi" in ct.rtp_totals_line()
+
+
+def test_rtp_seq_wraparound_is_not_loss_and_turn_channeldata_wrapper_is_unwrapped(monkeypatch):
+    monkeypatch.setattr(ct, "host_network", lambda: False)         # máy chủ có cầu docker: không lọc theo cổng của tiến trình
+    ct.reset_for_tests()
+    for seq in (65534, 65535, 0, 1):
+        ct._udp_account(_frame(1400, 40000, _rtp(5, seq)), 0)
+    inner = _rtp(6, 100)
+    wrapped = (0x4001).to_bytes(2, "big") + len(inner).to_bytes(2, "big") + inner
+    ct._udp_account(_frame(1400, 40000, wrapped), 0)
+    w = ct._rtp_window_take()["rx"]
+    assert w["rtp"][5] == [4, 240, 0, 0] and w["rtp"][6][0] == 1
+    assert ct.classify_udp(b"\x17\x03\x03") is None and ct.classify_udp(b"\xff" * 20) == ("khac", 0xff)
+
+
+def test_per_second_sample_writes_rtp_line(tmp_path, monkeypatch):
+    monkeypatch.setattr(ct, "host_network", lambda: False)         # máy chủ có cầu docker: không lọc theo cổng của tiến trình
+    d = _setup(tmp_path)
+    ct.line("abc", "su-kien", "x")
+    ct._udp_state["ok"] = True
+    ct._udp_account(_frame(1400, 40000, _rtp(9, 1)), 0)
+    ct.sample_once(ct._get("abc"), 1)
+    assert "rtp-1s rx: 00000009:1goi" in _txt(d, "abc")
+
+
 def test_on_host_network_only_own_udp_ports_are_counted(monkeypatch):
     """network_mode: host — giao diện chở mọi thứ của máy chủ; chỉ tính gói có cổng nguồn/đích là cổng của chính tiến trình."""
     monkeypatch.setattr(ct, "host_network", lambda: True)
