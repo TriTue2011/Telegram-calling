@@ -26,6 +26,7 @@ import time
 import uuid
 
 from . import call_trace
+from . import versions as versions_mod
 from .engine import map_ready
 
 logger = logging.getLogger("telegram_gateway")
@@ -388,9 +389,18 @@ class LiveCall:
                     custom_keys = sorted((_json.loads(st.get("custom_parameters") or "{}") or {}).keys())
                 except ValueError:
                     custom_keys = ["(không phải JSON)"]
-                self._set("connecting", "TDLib: Ready (servers=%d %s, p2p=%s, emoji=%s, phiên bản bên kia=%s, phiên bản ta khai=%s, custom_parameters=%s)"
-                          % (len(st.get("servers") or []), kinds, st.get("allow_p2p"), "".join(self.emojis),
-                             list((st.get("protocol") or {}).get("library_versions") or []), ours, custom_keys))
+                peer_versions = list((st.get("protocol") or {}).get("library_versions") or [])
+                common, vtext = versions_mod.describe(peer_versions, ours)
+                self._set("connecting", "TDLib: Ready (servers=%d %s, p2p=%s, emoji=%s, phiên bản bên kia=%s, phiên bản ta khai=%s, thương lượng=%s, custom_parameters=%s)"
+                          % (len(st.get("servers") or []), kinds, st.get("allow_p2p"), "".join(self.emojis), peer_versions, ours, vtext, custom_keys))
+                if peer_versions and ours and common is None:        # bên kia có khai phiên bản mà không trùng phiên bản nào của ta: NTgCalls sẽ không nối được → ngắt rõ ràng, không để treo không tiếng
+                    self.error = "phiên bản tgcalls không tương thích: " + vtext
+                    try:
+                        self.client.discard_call(self.tdlib_call_id, duration=0, is_video=bool(self.video))
+                    except Exception as exc:  # noqa: BLE001
+                        self.log("discardCall lỗi: %s" % exc)
+                    self._end("tương thích: " + vtext)
+                    return
                 self.runtime.run(self._ready(st))
         elif kind == "callStateDiscarded":
             self._end("TDLib: bị kết thúc (%s)" % ((st.get("reason") or {}).get("@type", "?")))
