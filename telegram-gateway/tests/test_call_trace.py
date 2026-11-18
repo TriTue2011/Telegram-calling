@@ -266,3 +266,16 @@ def test_trend_uses_udp_meter_when_available_instead_of_whole_interface(tmp_path
         ct.sample_once(t, i)
     txt = _txt(d, "aaaa000060")
     assert "udp-flujo-1s" in txt and not (d / "aaaa000060.loi").exists(), txt
+
+
+def test_udp_meter_measures_gaps_between_packets_for_jitter():
+    ct._udp_window_take()
+    ct._udp_last.update({"rx": None, "tx": None})
+    for ts in (10.000, 10.020, 10.040, 10.200, 10.220):          # khoảng 20, 20, 160, 20 ms
+        ct._udp_account(_frame(1400, 40000), 0, ts)
+    ct._udp_account(_frame(40000, 1400), 4, 11.0)
+    ct._udp_account(_frame(40000, 1400), 4, 11.5)
+    w = ct._udp_window_take()
+    assert w["rx"][0] == 4 and abs(w["rx"][1] - 160.0) < 1 and w["rx"][2] == 1, w
+    assert w["tx"][0] == 1 and abs(w["tx"][1] - 500.0) < 1 and w["tx"][2] == 1, w
+    assert ct._udp_window_take()["rx"][0] == 0                                   # đã xoá

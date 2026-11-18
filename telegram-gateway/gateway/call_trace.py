@@ -284,10 +284,14 @@ def _proc_stats(t):
 _udp_lock = threading.Lock()
 _udp = {"rx_byte": 0, "tx_byte": 0, "rx_pkt": 0, "tx_pkt": 0}
 _udp_state = {"thread": None, "ok": None}
+_udp_last = {"rx": None, "tx": None}                       # thời điểm gói trước (giây, đồng hồ hạt nhân) theo hướng
+_udp_win = {"rx": [0, 0.0, 0], "tx": [0, 0.0, 0]}          # cửa sổ 1 s: [số khoảng, khoảng lớn nhất (s), số khoảng >40 ms]
+JITTER_GAP_S = 0.04
 
 
-def _udp_account(frame, pkttype):
-    """Cộng một khung Ethernet/IPv4/UDP vào bộ đếm. pkttype 4 (PACKET_OUTGOING) = gói ra. Trả True nếu tính."""
+def _udp_account(frame, pkttype, ts=None):
+    """Cộng một khung Ethernet/IPv4/UDP vào bộ đếm. pkttype 4 (PACKET_OUTGOING) = gói ra. ts = giờ hạt nhân của gói (giây) để đo KHOẢNG CÁCH giữa các gói.
+    Trả True nếu tính."""
     if len(frame) < 42 or frame[12:14] != b"\x08\x00" or frame[23] != 17:
         return False
     ihl = (frame[14] & 15) * 4
@@ -301,12 +305,32 @@ def _udp_account(frame, pkttype):
     with _udp_lock:
         _udp[key + "_byte"] += n
         _udp[key + "_pkt"] += 1
+        if ts is not None:
+            last = _udp_last[key]
+            _udp_last[key] = ts
+            if last is not None and ts >= last:
+                w = _udp_win[key]
+                gap = ts - last
+                w[0] += 1
+                w[1] = max(w[1], gap)
+                w[2] += 1 if gap > JITTER_GAP_S else 0
     return True
+
+
+def _udp_window_take():
+    """Lấy (và xoá) thống kê khoảng cách gói của 1 giây vừa qua: {rx|tx: (số khoảng, khoảng lớn nhất ms, số khoảng >40 ms)}."""
+    with _udp_lock:
+        out = {k: (v[0], v[1] * 1000.0, v[2]) for k, v in _udp_win.items()}
+        for v in _udp_win.values():
+            v[0], v[1], v[2] = 0, 0.0, 0
+    return out
 
 
 def _udp_loop():
     import ctypes
+    import fcntl
     import socket
+    import struct
     try:
         sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
         prog = [(0x28, 0, 0, 12), (0x15, 0, 3, 0x0800), (0x30, 0, 0, 23), (0x15, 0, 1, 17), (0x06, 0, 0, 65535), (0x06, 0, 0, 0)]      # chỉ IPv4/UDP
@@ -330,7 +354,13 @@ def _udp_loop():
             _udp_state["ok"] = False
             return
         try:
-            _udp_account(data, addr[2])
+            ts = None
+            try:
+                sec, usec = struct.unpack("ll", fcntl.ioctl(sock.fileno(), 0x8906, b"\0" * 16)[:16])        # SIOCGSTAMP: giờ hạt nhân của gói vừa nhận
+                ts = sec + usec / 1e6
+            except Exception:  # noqa: BLE001
+                pass
+            _udp_account(data, addr[2], ts)
         except Exception:  # noqa: BLE001
             pass
 
@@ -393,6 +423,9 @@ def sample_once(t, tick):
             ud2 = _diff(t, "udpmeter", udp)
             if ud2:
                 t.write("udp-flujo-1s", " ".join(ud2))
+            jit = _udp_window_take()
+            if any(v[0] for v in jit.values()):
+                t.write("udp-khoang-1s", " ".join("%s_khoang_max=%.0fms %s_tren40ms=%d/%d" % (k, v[1], k, v[2], v[0]) for k, v in sorted(jit.items()) if v[0]))
         if prev and t.ended_at is None:
             if udp is not None and uprev:
                 _trend(t, tick, udp["rx_byte"] - uprev.get("rx_byte", 0), udp["tx_byte"] - uprev.get("tx_byte", 0))     # chỉ media UDP
