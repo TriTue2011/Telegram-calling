@@ -287,6 +287,52 @@ _udp_state = {"thread": None, "ok": None}
 _udp_last = {"rx": None, "tx": None}                       # thời điểm gói trước (giây, đồng hồ hạt nhân) theo hướng
 _udp_win = {"rx": [0, 0.0, 0], "tx": [0, 0.0, 0]}          # cửa sổ 1 s: [số khoảng, khoảng lớn nhất (s), số khoảng >40 ms]
 JITTER_GAP_S = 0.04
+_own_ports = {"set": None, "at": 0.0}                      # cổng UDP cục bộ của CHÍNH tiến trình (None = chưa biết: đếm mọi UDP)
+
+
+def host_network():
+    """Container dùng mạng của máy chủ (network_mode: host)? Khi đó giao diện mạng và ổ UDP thấy là của CẢ máy chủ, không phải riêng gateway."""
+    try:
+        names = set(os.listdir("/sys/class/net"))
+    except OSError:
+        return False
+    return "docker0" in names or any(n.startswith("br-") for n in names)
+
+
+def _own_udp_ports():
+    """Cổng UDP cục bộ mà tiến trình này đang mở (đọc inode ổ cắm từ /proc/self/fd rồi tra /proc/net/udp[6])."""
+    inodes = set()
+    try:
+        for fd in os.listdir("/proc/self/fd"):
+            try:
+                tgt = os.readlink("/proc/self/fd/" + fd)
+            except OSError:
+                continue
+            if tgt.startswith("socket:["):
+                inodes.add(tgt[8:-1])
+    except OSError:
+        return None
+    ports = set()
+    for path in ("/proc/net/udp", "/proc/net/udp6"):
+        try:
+            with open(path) as f:
+                for ln in f.read().splitlines()[1:]:
+                    c = ln.split()
+                    if len(c) > 9 and c[9] in inodes:
+                        ports.add(int(c[1].rsplit(":", 1)[1], 16))
+        except (OSError, ValueError, IndexError):
+            return None
+    return ports
+
+
+def _ports_for_filter():
+    """Chỉ lọc theo cổng khi chạy mạng máy chủ (bridge: mọi UDP của container đều là của gateway). Làm mới ≤ 2 lần/giây."""
+    if not host_network():
+        return None
+    now = time.monotonic()
+    if _own_ports["set"] is None or now - _own_ports["at"] > 0.5:
+        _own_ports["set"], _own_ports["at"] = _own_udp_ports(), now
+    return _own_ports["set"]
 
 
 def _udp_account(frame, pkttype, ts=None):
@@ -300,6 +346,9 @@ def _udp_account(frame, pkttype, ts=None):
     sport, dport = int.from_bytes(frame[14 + ihl:16 + ihl], "big"), int.from_bytes(frame[16 + ihl:18 + ihl], "big")
     if 53 in (sport, dport):
         return False
+    own = _ports_for_filter() if _udp_state.get("filter", True) else None
+    if own is not None and sport not in own and dport not in own:
+        return False                                                       # lưu lượng của tiến trình khác trên máy chủ
     n = max(0, len(frame) - 14 - ihl - 8)
     key = "tx" if pkttype == 4 else "rx"
     with _udp_lock:
@@ -431,13 +480,13 @@ def sample_once(t, tick):
                 _trend(t, tick, udp["rx_byte"] - uprev.get("rx_byte", 0), udp["tx_byte"] - uprev.get("tx_byte", 0))     # chỉ media UDP
             elif udp is None:
                 _trend(t, tick, net["rx_byte"] - prev.get("rx_byte", 0), net["tx_byte"] - prev.get("tx_byte", 0))
-            if t.bad is None and any(net[k] - prev.get(k, 0) > 0 for k in ("rx_err", "rx_drop", "tx_err", "tx_drop")):
-                mark_bad(t.call_id, "goi_rot_hoac_loi_giao_dien_mang")
+            if t.bad is None and not host_network() and any(net[k] - prev.get(k, 0) > 0 for k in ("rx_err", "rx_drop", "tx_err", "tx_drop")):
+                mark_bad(t.call_id, "goi_rot_hoac_loi_giao_dien_mang")             # (mạng máy chủ: số rớt là của cả máy, không quy cho cuộc gọi)
         ud_prev = t.last.get("udp", {}).get("udp_drop")
         ud = _diff(t, "udp", {"udp_drop": net["udp_drop"]})
         if ud:
             t.write("udp-1s", " ".join(ud))
-            if ud_prev is not None and t.ended_at is None and t.bad is None and net["udp_drop"] > ud_prev:
+            if ud_prev is not None and t.ended_at is None and t.bad is None and not host_network() and net["udp_drop"] > ud_prev:
                 mark_bad(t.call_id, "o_udp_rot_goi")
     except (OSError, ValueError, IndexError):
         if tick % SNAP_EVERY == 0:

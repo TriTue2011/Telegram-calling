@@ -279,3 +279,27 @@ def test_udp_meter_measures_gaps_between_packets_for_jitter():
     assert w["rx"][0] == 4 and abs(w["rx"][1] - 160.0) < 1 and w["rx"][2] == 1, w
     assert w["tx"][0] == 1 and abs(w["tx"][1] - 500.0) < 1 and w["tx"][2] == 1, w
     assert ct._udp_window_take()["rx"][0] == 0                                   # đã xoá
+
+
+def test_on_host_network_only_own_udp_ports_are_counted(monkeypatch):
+    """network_mode: host — giao diện chở mọi thứ của máy chủ; chỉ tính gói có cổng nguồn/đích là cổng của chính tiến trình."""
+    monkeypatch.setattr(ct, "host_network", lambda: True)
+    monkeypatch.setattr(ct, "_own_udp_ports", lambda: {40000})
+    ct._own_ports.update({"set": None, "at": 0.0})
+    ct._udp.update({"rx_byte": 0, "tx_byte": 0, "rx_pkt": 0, "tx_pkt": 0})
+    assert ct._udp_account(_frame(1400, 40000), 0)                         # của ta
+    assert not ct._udp_account(_frame(5353, 5353), 0) and not ct._udp_account(_frame(1400, 41234), 0)   # mDNS / tiến trình khác
+    assert ct._udp["rx_pkt"] == 1
+    monkeypatch.setattr(ct, "host_network", lambda: False)
+    assert ct._udp_account(_frame(5353, 5353), 0)                          # bridge: đếm hết (mọi UDP trong container là của gateway)
+    ct._own_ports.update({"set": None, "at": 0.0})
+
+
+def test_own_udp_ports_finds_a_socket_we_opened():
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind(("127.0.0.1", 0))
+    try:
+        assert s.getsockname()[1] in ct._own_udp_ports()
+    finally:
+        s.close()
