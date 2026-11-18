@@ -116,14 +116,14 @@ def _bad_path(log_path):
 
 
 def _prune():
-    """Cuộc TỐT: giữ KEEP cuộc mới nhất; cuộc LỖI (có tệp .loi): giữ KEEP_BAD. Cuộc vừa kết thúc mà bộ lấy mẫu còn ghi đuôi thì chưa đụng."""
+    """Cuộc TỐT: giữ KEEP cuộc mới nhất; cuộc LỖI (có tệp .loi): giữ KEEP_BAD. Cuộc chưa chốt kết luận (còn ghi) không tính vào suất «tốt» và không bị xoá."""
     try:
-        live = {t.path for t in _traces.values() if t.ended_at is not None and not t.closed}
+        pending = {t.path for t in _traces.values() if not t.closed}
         files = [os.path.join(_dir, f) for f in os.listdir(_dir) if f.endswith(".log")]
         files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-        good = [p for p in files if not os.path.exists(_bad_path(p))]
+        good = [p for p in files if not os.path.exists(_bad_path(p)) and p not in pending]
         bad = [p for p in files if os.path.exists(_bad_path(p))]
-        for p in [q for q in good[KEEP:] if q not in live] + bad[KEEP_BAD:]:
+        for p in good[KEEP:] + bad[KEEP_BAD:]:
             for victim in (p, _bad_path(p)):
                 try:
                     os.remove(victim)

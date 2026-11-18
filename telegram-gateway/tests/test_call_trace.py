@@ -53,7 +53,9 @@ def test_only_the_last_KEEP_calls_survive_and_keep_zero_turns_it_off(tmp_path):
     d = _setup(tmp_path, keep=5)
     for i in range(8):
         ct.line("%010x" % (i + 1), "su-kien", "x")
+        ct._traces["%010x" % (i + 1)].closed = True
         time.sleep(0.02)
+    ct._prune()
     assert sorted(f[:-4] for f in os.listdir(d)) == ["%010x" % i for i in range(4, 9)]
     d2 = _setup(tmp_path / "tat", keep=0)
     ct.line("bbbbbbbbbb", "su-kien", "x"); ct.packet("bbbbbbbbbb", "tx", b"abc")
