@@ -1,13 +1,13 @@
 """Nhật ký CHI TIẾT từng cuộc gọi Telegram (17/11/2026), cùng tinh thần và định dạng với Zalo (zalo_pc_app/call_trace.py).
 
-Mỗi cuộc một tệp `<DATA_DIR>/calltrace/<id>.log` (volume dữ liệu của container), cuộc TỐT chỉ giữ ``KEEP`` cuộc gần nhất (mặc định 2), cuộc LỖI (tệp đánh dấu `<id>.loi`) giữ tới ``KEEP_BAD`` (mặc định 30); KHÔNG đi vào cơ sở dữ liệu của Home Assistant.
+Mỗi cuộc một tệp `<DATA_DIR>/calltrace/<id>.log` (volume dữ liệu của container), cuộc TỐT chỉ giữ ``KEEP`` cuộc gần nhất (mặc định 3), cuộc LỖI (tệp đánh dấu `<id>.loi`) giữ tới ``KEEP_BAD`` (mặc định 30); KHÔNG đi vào cơ sở dữ liệu của Home Assistant.
 Dòng: `HH:MM:SS.mmm +T.TTTs <loại> nội dung` (T = giây từ dòng đầu của cuộc gọi). Gồm:
   - `su-kien`: MỌI dòng của LiveCall.log (TDLib: trạng thái/lý do kết thúc/emoji/máy chủ; NTgCalls: kết nối, khung đầu, nguồn gửi chậm…), không bị cắt 200 dòng như bộ nhớ;
   - `goi-tx` / `goi-rx`: TỪNG gói BÁO HIỆU giữa TDLib và NTgCalls (độ dài, 12 byte đầu hex). Media (SRTP/ICE) chạy trong thư viện NTgCalls nên Python không thấy từng gói:
     thay bằng số liệu mạng của container mỗi giây (`mang-1s`: gói/byte nhận-gửi, lỗi, rớt của giao diện mạng; `udp-1s`: gói rớt ở ổ UDP của tiến trình);
   - `dem-1s`: mỗi giây HIỆU của mọi bộ đếm cuộc gọi (báo hiệu tx/rx, khung tiếng vào, byte, khung hình nhận/rớt/hỏng…); `dem-tong`, `tai-nguyen` (CPU %, RSS, luồng, tải) mỗi 5 giây;
   - `xu-huong` (mỗi 5 giây): tốc độ nhận/gửi trung bình 5 giây, đỉnh và TỈ LỆ so với đỉnh — để thấy «vạch sóng tụt dần» (bên kia hạ bitrate vì họ đo mất gói/trễ) thay vì chỉ biết «tín hiệu yếu»;
-  - cuộc LỖI = có đánh dấu tường minh (`mark_bad`: NTgCalls FAILED/TIMEOUT, nguồn gửi chậm), hoặc tốc độ nhận tụt dưới 30% đỉnh liên tục ≥ 5 giây (đỉnh ≥ 2 KB/s), hoặc có gói rớt/lỗi ở giao diện mạng hay ổ UDP khi đang gọi;
+  - cuộc LỖI = có đánh dấu tường minh (`mark_bad`: NTgCalls FAILED/TIMEOUT, nguồn gửi chậm), hoặc tốc độ nhận tụt dưới 60% đỉnh liên tục ≥ 5 giây (đỉnh ≥ 2 KB/s), hoặc có gói rớt/lỗi ở giao diện mạng hay ổ UDP khi đang gọi;
   - `ntg`: mỗi 3 giây trạng thái NTgCalls (CPU, chế độ kết nối, trạng thái) — luôn ghi, không cần TELEGRAM_DEBUG;
   - phần mở đầu: phiên bản, mọi biến TELEGRAM_* (trừ giá trị có PASSWORD/TOKEN/KEY/SECRET/HASH), phiên bản thư viện; phần kết: tổng kết toàn bộ (info) của cuộc gọi.
 Không bao giờ ghi bí mật; chuỗi dài giống token bị che; lỗi của bộ ghi bị nuốt (chẩn đoán không được làm hỏng cuộc gọi). Tắt: TELEGRAM_CALLTRACE_KEEP=0."""
@@ -17,7 +17,7 @@ import re
 import threading
 import time
 
-KEEP = int(os.environ.get("TELEGRAM_CALLTRACE_KEEP", "2") or 0)                 # số cuộc TỐT giữ lại; 0 = tắt hẳn
+KEEP = int(os.environ.get("TELEGRAM_CALLTRACE_KEEP", "3") or 0)                 # số cuộc TỐT giữ lại; 0 = tắt hẳn
 KEEP_BAD = int(os.environ.get("TELEGRAM_CALLTRACE_KEEP_BAD", "30") or 30)       # số cuộc LỖI giữ lại
 MAX_BYTES = int(os.environ.get("TELEGRAM_CALLTRACE_MAX_KB", "6144") or 6144) * 1024
 SAMPLE_SECONDS = 1.0
@@ -26,7 +26,7 @@ TAIL_AFTER_END = 6.0
 BAD_SUFFIX = ".loi"
 TREND_WINDOW = 5                 # giây: cửa sổ trung bình tốc độ nhận/gửi
 TREND_MIN_PEAK = 2048            # B/s: đỉnh nhận thấp hơn thì không đủ dữ liệu để nói «tụt»
-TREND_LOW_RATIO = 0.30
+TREND_LOW_RATIO = 0.60
 TREND_LOW_SECONDS = 5
 MAX_SAMPLER_SECONDS = 4 * 3600
 _SECRET_NAME = re.compile(r"PASSWORD|TOKEN|KEY|SECRET|HASH|COOKIE", re.I)

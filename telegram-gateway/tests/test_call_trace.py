@@ -161,7 +161,7 @@ def test_signal_that_decays_gradually_is_flagged_bad_and_kept(tmp_path, monkeypa
     t = ct._traces["aaaa000001"]
     _feed(monkeypatch, t, [12000] * 10 + [9000, 6000, 4000, 3000, 2500, 2000, 1500, 1000, 800, 600])        # tut dan toi gan het
     txt = _txt(d, "aaaa000001")
-    assert "xu-huong nhan=" in txt and "dinh_nhan=" in txt and "danh-dau-loi toc_do_nhan_tut_duoi_30%_dinh" in txt, txt
+    assert "xu-huong nhan=" in txt and "dinh_nhan=" in txt and "danh-dau-loi toc_do_nhan_tut_duoi_60%_dinh" in txt, txt
     assert (d / "aaaa000001.loi").read_text(encoding="utf-8").startswith("toc_do_nhan_tut")
 
 
@@ -208,3 +208,13 @@ def test_live_call_marks_ntgcalls_failure_bad(tmp_path):
     c.log("bat dau")
     ct.mark_bad(c.id, "ntgcalls_timeout")
     assert (d / (c.id + ".loi")).read_text(encoding="utf-8").strip() == "ntgcalls_timeout"
+
+
+def test_phone_bitrate_halving_over_30s_like_real_calls_is_flagged(tmp_path, monkeypatch):
+    """Số đo thật 18/11 (2 cuộc Telegram): tốc độ nhận 150 -> 57 KB/s dần dần trong ~30 s (còn 38-42% đỉnh) — vạch sóng tụt dần. Phải bị đánh dấu LỖI."""
+    d = _setup(tmp_path, keep=1)
+    ct.line("aaaa000040", "su-kien", "bat dau")
+    t = ct._traces["aaaa000040"]
+    _feed(monkeypatch, t, [150000, 150000, 140000, 120000, 105000, 92000, 83000, 74000, 71000, 88000, 58000, 47000, 45000, 44000, 43000, 42000])
+    assert (d / "aaaa000040.loi").exists()
+    ct.reset_for_tests()
