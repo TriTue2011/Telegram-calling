@@ -147,6 +147,7 @@ def test_api_lists_and_downloads_with_token_only(tmp_path):
 def _feed(monkeypatch, t, rx_rates, tx_rate=2000):
     """Giả lập giao diện mạng: mỗi giây nhận rx_rates[i] byte, gửi tx_rate byte; chạy sample_once từng giây."""
     state = {"rx": 0, "tx": 0}
+    monkeypatch.setattr(ct, "_udp_totals", lambda: None)                         # không có ổ raw: dùng số đo giao diện
     monkeypatch.setattr(ct, "_net_totals", lambda: {"rx_pkt": 0, "rx_byte": state["rx"], "rx_err": 0, "rx_drop": 0,
                                                     "tx_pkt": 0, "tx_byte": state["tx"], "tx_err": 0, "tx_drop": 0, "udp_drop": 0})
     for i, r in enumerate([0] + list(rx_rates)):
@@ -231,3 +232,35 @@ def test_cpu_throttling_of_the_container_is_logged_and_flags_the_call(tmp_path, 
         ct.sample_once(t, i)
     txt = _txt(d, "aaaa000050")
     assert "cpu-bi-bop" in txt and "nr_throttled+3" in txt and "throttled_usec+90000" in txt and (d / "aaaa000050.loi").read_text(encoding="utf-8").strip() == "container_bi_bop_cpu", txt
+
+
+def _frame(sport, dport, payload=b"x" * 100):
+    ip = bytearray(20); ip[0] = 0x45; ip[9] = 17
+    udp = sport.to_bytes(2, "big") + dport.to_bytes(2, "big") + (8 + len(payload)).to_bytes(2, "big") + b"\0\0"
+    return b"\0" * 12 + b"\x08\x00" + bytes(ip) + udp + payload
+
+
+def test_udp_meter_counts_only_udp_media_not_dns_or_tcp_and_splits_direction():
+    ct._udp.update({"rx_byte": 0, "tx_byte": 0, "rx_pkt": 0, "tx_pkt": 0})
+    assert ct._udp_account(_frame(1400, 40000), 0) and ct._udp_account(_frame(40000, 1400, b"y" * 60), 4)
+    assert not ct._udp_account(_frame(53, 40000), 0) and not ct._udp_account(_frame(40000, 53), 4)         # DNS bỏ
+    tcp = bytearray(_frame(1400, 40000)); tcp[23] = 6
+    assert not ct._udp_account(bytes(tcp), 0) and not ct._udp_account(b"\0" * 20, 0)                       # TCP / khung ngắn bỏ
+    assert ct._udp["rx_byte"] == 100 and ct._udp["rx_pkt"] == 1 and ct._udp["tx_byte"] == 60 and ct._udp["tx_pkt"] == 1
+
+
+def test_trend_uses_udp_meter_when_available_instead_of_whole_interface(tmp_path, monkeypatch):
+    """Giao diện chở cả RTSP camera nên «nhận» to giả; xu hướng phải theo UDP (media Telegram)."""
+    d = _setup(tmp_path, keep=1)
+    ct.line("aaaa000060", "su-kien", "x")
+    t = ct._traces["aaaa000060"]
+    iface = {"rx": 0}
+    udp = {"rx_byte": 0, "tx_byte": 0, "rx_pkt": 0, "tx_pkt": 0}
+    monkeypatch.setattr(ct, "_net_totals", lambda: {"rx_pkt": 0, "rx_byte": iface["rx"], "rx_err": 0, "rx_drop": 0, "tx_pkt": 0, "tx_byte": 0, "tx_err": 0, "tx_drop": 0, "udp_drop": 0})
+    monkeypatch.setattr(ct, "_udp_totals", lambda: dict(udp))
+    for i in range(14):
+        iface["rx"] += 500000 if i < 3 else 100000                 # giao diện tụt vì RTSP, UDP vẫn đều
+        udp["rx_byte"] += 120000
+        ct.sample_once(t, i)
+    txt = _txt(d, "aaaa000060")
+    assert "udp-flujo-1s" in txt and not (d / "aaaa000060.loi").exists(), txt

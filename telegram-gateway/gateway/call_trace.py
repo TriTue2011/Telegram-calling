@@ -186,6 +186,7 @@ def _get(call_id, create=True):
             _traces.pop(k).close()
         _header(t)
         _prune()
+        _udp_start()
         _start_sampler(t)
         return t
 
@@ -277,6 +278,75 @@ def _proc_stats(t):
         return "tai-nguyen: khong doc duoc"
 
 
+# ---------------------------------------------------------------- đếm RIÊNG lưu lượng UDP (media Telegram)
+# Giao diện mạng của container còn chở RTSP camera (TCP, vào), luồng loa/mic HTTP tới R1 và gọi API: đếm cả giao diện làm «tốc độ nhận» lẫn các thứ đó
+# (18/11: nhận 553 KB/s trong khi điện thoại chỉ gửi ≤150 KB/s). Media Telegram đi bằng UDP tới relay/điện thoại ⇒ chỉ đếm UDP (bỏ DNS cổng 53).
+_udp_lock = threading.Lock()
+_udp = {"rx_byte": 0, "tx_byte": 0, "rx_pkt": 0, "tx_pkt": 0}
+_udp_state = {"thread": None, "ok": None}
+
+
+def _udp_account(frame, pkttype):
+    """Cộng một khung Ethernet/IPv4/UDP vào bộ đếm. pkttype 4 (PACKET_OUTGOING) = gói ra. Trả True nếu tính."""
+    if len(frame) < 42 or frame[12:14] != b"\x08\x00" or frame[23] != 17:
+        return False
+    ihl = (frame[14] & 15) * 4
+    if len(frame) < 14 + ihl + 8:
+        return False
+    sport, dport = int.from_bytes(frame[14 + ihl:16 + ihl], "big"), int.from_bytes(frame[16 + ihl:18 + ihl], "big")
+    if 53 in (sport, dport):
+        return False
+    n = max(0, len(frame) - 14 - ihl - 8)
+    key = "tx" if pkttype == 4 else "rx"
+    with _udp_lock:
+        _udp[key + "_byte"] += n
+        _udp[key + "_pkt"] += 1
+    return True
+
+
+def _udp_loop():
+    import ctypes
+    import socket
+    try:
+        sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+        prog = [(0x28, 0, 0, 12), (0x15, 0, 3, 0x0800), (0x30, 0, 0, 23), (0x15, 0, 1, 17), (0x06, 0, 0, 65535), (0x06, 0, 0, 0)]      # chỉ IPv4/UDP
+        buf = ctypes.create_string_buffer(b"".join(__import__("struct").pack("HBBI", *i) for i in prog), 8 * len(prog))
+
+        class _Fprog(ctypes.Structure):
+            _fields_ = [("len", ctypes.c_ushort), ("filter", ctypes.c_void_p)]
+        fp = _Fprog(len(prog), ctypes.cast(buf, ctypes.c_void_p))
+        sock.setsockopt(socket.SOL_SOCKET, 26, bytes(ctypes.string_at(ctypes.addressof(fp), ctypes.sizeof(fp))))     # SO_ATTACH_FILTER
+        sock.settimeout(1.0)
+        _udp_state["ok"] = True
+    except Exception:  # noqa: BLE001 - không có quyền raw: dùng số đo giao diện mạng
+        _udp_state["ok"] = False
+        return
+    while True:
+        try:
+            data, addr = sock.recvfrom(65535)
+        except socket.timeout:
+            continue
+        except OSError:
+            _udp_state["ok"] = False
+            return
+        try:
+            _udp_account(data, addr[2])
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _udp_totals():
+    """Số đếm UDP cộng dồn {rx_byte, tx_byte, rx_pkt, tx_pkt}; None nếu không đếm được (thiếu quyền raw)."""
+    with _udp_lock:
+        return dict(_udp) if _udp_state["ok"] else None
+
+
+def _udp_start():
+    if _udp_state["thread"] is None:
+        _udp_state["thread"] = threading.Thread(target=_udp_loop, daemon=True, name="calltrace-udp")
+        _udp_state["thread"].start()
+
+
 def _cgroup_cpu():
     """Số lần / thời gian container bị BÓP CPU (hạn mức `cpus` của docker). Bị bóp thì gói UDP nhận bị trễ theo cụm → bên gửi (điện thoại) đo độ trễ tăng
     và tự hạ tốc độ (đồ thị tụt dần, vạch sóng giảm). {} nếu không đọc được (cgroup v1 / không có)."""
@@ -317,8 +387,17 @@ def sample_once(t, tick):
         nd = _diff(t, "net", {k: v for k, v in net.items() if k != "udp_drop"})
         if nd:
             t.write("mang-1s", " ".join(nd))
+        udp = _udp_totals()
+        if udp is not None:
+            uprev = dict(t.last.get("udpmeter", {}))
+            ud2 = _diff(t, "udpmeter", udp)
+            if ud2:
+                t.write("udp-flujo-1s", " ".join(ud2))
         if prev and t.ended_at is None:
-            _trend(t, tick, net["rx_byte"] - prev.get("rx_byte", 0), net["tx_byte"] - prev.get("tx_byte", 0))
+            if udp is not None and uprev:
+                _trend(t, tick, udp["rx_byte"] - uprev.get("rx_byte", 0), udp["tx_byte"] - uprev.get("tx_byte", 0))     # chỉ media UDP
+            elif udp is None:
+                _trend(t, tick, net["rx_byte"] - prev.get("rx_byte", 0), net["tx_byte"] - prev.get("tx_byte", 0))
             if t.bad is None and any(net[k] - prev.get(k, 0) > 0 for k in ("rx_err", "rx_drop", "tx_err", "tx_drop")):
                 mark_bad(t.call_id, "goi_rot_hoac_loi_giao_dien_mang")
         ud_prev = t.last.get("udp", {}).get("udp_drop")
