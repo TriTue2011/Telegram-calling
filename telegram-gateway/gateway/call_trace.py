@@ -277,6 +277,17 @@ def _proc_stats(t):
         return "tai-nguyen: khong doc duoc"
 
 
+def _cgroup_cpu():
+    """Số lần / thời gian container bị BÓP CPU (hạn mức `cpus` của docker). Bị bóp thì gói UDP nhận bị trễ theo cụm → bên gửi (điện thoại) đo độ trễ tăng
+    và tự hạ tốc độ (đồ thị tụt dần, vạch sóng giảm). {} nếu không đọc được (cgroup v1 / không có)."""
+    try:
+        with open("/sys/fs/cgroup/cpu.stat") as f:
+            kv = dict(ln.split()[:2] for ln in f.read().splitlines() if len(ln.split()) >= 2)
+        return {"nr_throttled": int(kv["nr_throttled"]), "throttled_usec": int(kv["throttled_usec"]), "cpu_usec": int(kv["usage_usec"])}
+    except (OSError, KeyError, ValueError):
+        return {}
+
+
 def _diff(t, key, cur):
     out = []
     prev = t.last.get(key, {})
@@ -319,6 +330,14 @@ def sample_once(t, tick):
     except (OSError, ValueError, IndexError):
         if tick % SNAP_EVERY == 0:
             t.write("mang-1s", "khong doc duoc /proc/net")
+    cg = _cgroup_cpu()
+    if cg:
+        prev_cg = dict(t.last.get("cg", {}))
+        d = _diff(t, "cg", cg)
+        if prev_cg and (cg["nr_throttled"] > prev_cg.get("nr_throttled", 0)):
+            t.write("cpu-bi-bop", " ".join(d))
+            if t.bad is None and t.ended_at is None:
+                mark_bad(t.call_id, "container_bi_bop_cpu")
     if tick % SNAP_EVERY == 0:
         t.write("tai-nguyen", _proc_stats(t))
 

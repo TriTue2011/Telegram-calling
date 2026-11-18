@@ -218,3 +218,16 @@ def test_phone_bitrate_halving_over_30s_like_real_calls_is_flagged(tmp_path, mon
     _feed(monkeypatch, t, [150000, 150000, 140000, 120000, 105000, 92000, 83000, 74000, 71000, 88000, 58000, 47000, 45000, 44000, 43000, 42000])
     assert (d / "aaaa000040.loi").exists()
     ct.reset_for_tests()
+
+
+def test_cpu_throttling_of_the_container_is_logged_and_flags_the_call(tmp_path, monkeypatch):
+    d = _setup(tmp_path, keep=1)
+    ct.line("aaaa000050", "su-kien", "bat dau")
+    t = ct._traces["aaaa000050"]
+    seq = iter([{"nr_throttled": 0, "throttled_usec": 0, "cpu_usec": 100}, {"nr_throttled": 0, "throttled_usec": 0, "cpu_usec": 200},
+                {"nr_throttled": 3, "throttled_usec": 90000, "cpu_usec": 400}])
+    monkeypatch.setattr(ct, "_cgroup_cpu", lambda: next(seq))
+    for i in range(3):
+        ct.sample_once(t, i)
+    txt = _txt(d, "aaaa000050")
+    assert "cpu-bi-bop" in txt and "nr_throttled+3" in txt and "throttled_usec+90000" in txt and (d / "aaaa000050.loi").read_text(encoding="utf-8").strip() == "container_bi_bop_cpu", txt
