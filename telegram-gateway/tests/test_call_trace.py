@@ -242,7 +242,10 @@ def _frame(sport, dport, payload=b"x" * 100):
     return b"\0" * 12 + b"\x08\x00" + bytes(ip) + udp + payload
 
 
-def test_udp_meter_counts_only_udp_media_not_dns_or_tcp_and_splits_direction():
+def test_udp_meter_counts_only_udp_media_not_dns_or_tcp_and_splits_direction(monkeypatch):
+    # Kiểm ĐẾM, không kiểm lọc cổng: máy có docker0/br-* (CI GitHub, máy .38) bị coi là mạng host → chỉ đếm cổng của chính
+    # tiến trình → gói thử bị bỏ. Tắt lọc để test không phụ thuộc máy chạy.
+    monkeypatch.setitem(ct._udp_state, "filter", False)
     ct._udp.update({"rx_byte": 0, "tx_byte": 0, "rx_pkt": 0, "tx_pkt": 0})
     assert ct._udp_account(_frame(1400, 40000), 0) and ct._udp_account(_frame(40000, 1400, b"y" * 60), 4)
     assert not ct._udp_account(_frame(53, 40000), 0) and not ct._udp_account(_frame(40000, 53), 4)         # DNS bỏ
@@ -268,7 +271,8 @@ def test_trend_uses_udp_meter_when_available_instead_of_whole_interface(tmp_path
     assert "udp-flujo-1s" in txt and not (d / "aaaa000060.loi").exists(), txt
 
 
-def test_udp_meter_measures_gaps_between_packets_for_jitter():
+def test_udp_meter_measures_gaps_between_packets_for_jitter(monkeypatch):
+    monkeypatch.setitem(ct._udp_state, "filter", False)      # như trên: đo khoảng cách gói, không kiểm lọc cổng
     ct._udp_window_take()
     ct._udp_last.update({"rx": None, "tx": None})
     for ts in (10.000, 10.020, 10.040, 10.200, 10.220):          # khoảng 20, 20, 160, 20 ms
