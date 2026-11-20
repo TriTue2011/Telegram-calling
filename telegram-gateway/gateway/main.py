@@ -16,10 +16,14 @@ from .redact import setup_logging
 from .routes import build_app
 from .tdclient import TdlibClient
 from .tts import EdgeTtsSynthesizer
+from . import webrtc_log
 
 cfg = load_config()
 logger = setup_logging(cfg.log_level, secrets=(cfg.gateway_token,
                                                cfg.ha_webhook_token))
+_webrtc_log = webrtc_log.bat(cfg.data_dir)
+if _webrtc_log:
+    logger.info("Nhật ký WebRTC/NTgCalls BẬT (TELEGRAM_WEBRTC_LOG) → %s", _webrtc_log)
 
 # Engine thật chỉ bật khi GATEWAY_MOCK=0 và có api_id/api_hash (chủ máy
 # tự tạo ở my.telegram.org, nhập qua web UI nội bộ hoặc .env). Mặc định
