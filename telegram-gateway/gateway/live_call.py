@@ -606,8 +606,13 @@ class LiveCall:
         cam = nt.VideoDescription(nt.MediaSource.EXTERNAL, VIEW_W, VIEW_H, VIEW_FPS, "", False) if self.view_on else None
         if cam is not None:
             self.log("NTgCalls: nhận cả hình video bên kia (khung về on_frames), khai %dx%d@%d" % (VIEW_W, VIEW_H, VIEW_FPS))
+        # Tiếng bên kia PHẢI nằm ở ô `microphone` của PLAYBACK: NTgCalls chỉ bật kênh nhận tiếng khi có writer Microphone
+        # (stream_manager.optimize_sources → enable_audio_incoming(writers_.contains(Microphone))). Đặt ở ô `speaker` thì
+        # kênh nhận tiếng không được tạo: mọi gói tiếng của điện thoại bị bỏ ở bước phân luồng («Failed to demux RTP packet:
+        # PT=111», đo 20/11: 2108 gói/2 phút), không vào báo cáo TWCC → điện thoại tưởng mất gói, tự hạ băng thông tới đáy
+        # («Weak network signal»). Gọi bằng tên tham số để không nhầm vị trí.
         await self.runtime.ntg.set_stream_sources(self.user_id, nt.StreamMode.PLAYBACK, nt.MediaDescription(
-            None, nt.AudioDescription(src, SAMPLE_RATE, CHANNELS, inp, False), cam, None))
+            microphone=nt.AudioDescription(src, SAMPLE_RATE, CHANNELS, inp, False), speaker=None, camera=cam, screen=None))
 
     async def enable_view(self) -> None:
         """Bên kia vừa bật camera giữa cuộc thoại: xin NTgCalls đưa cả hình về (dựng lại mô tả PLAYBACK, giữ nguyên đường nhận tiếng)."""

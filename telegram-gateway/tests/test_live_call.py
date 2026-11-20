@@ -202,8 +202,8 @@ def test_set_playback_push_builds_fixed_command_for_ntgcalls():
             return ("AD",) + a
 
         @staticmethod
-        def MediaDescription(*a):
-            return ("MD",) + a
+        def MediaDescription(microphone, speaker, camera, screen):   # đúng chữ ký binding ntgcalls 3.0.7
+            return {"microphone": microphone, "speaker": speaker, "camera": camera, "screen": screen}
 
     class NTG:
         async def set_stream_sources(self, uid, mode, desc):
@@ -213,7 +213,10 @@ def test_set_playback_push_builds_fixed_command_for_ntgcalls():
     rt.nt, rt.ntg = NT, NTG()
     c = live_call.LiveCall(rt, "+84", StubClient(), 5, True)
     asyncio.run(c._set_playback("push", _R1_URL))
-    ad = seen[0][2]                                  # MediaDescription(None, AudioDescription(...), None, None)
+    # Tiếng bên kia ở ô MICROPHONE của PLAYBACK (NTgCalls chỉ bật kênh nhận tiếng theo ô này); ô speaker phải trống,
+    # nếu không kênh nhận tiếng không được tạo và gói tiếng của điện thoại bị bỏ (đo 20/11).
+    assert seen[0]["speaker"] is None
+    ad = seen[0]["microphone"]
     assert ad[1] == "SHELL" and ad[4] == live_call.speaker_command(_R1_URL) and c.playback_kind == "push"
     with pytest.raises(ValueError):
         asyncio.run(c._set_playback("push", "http://evil/x"))
