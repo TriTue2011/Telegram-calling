@@ -26,7 +26,7 @@ def _load():
     class NoURLAvailableError(Exception):
         pass
 
-    holder = {"urls": {}, "saved": {}, "registry": {}, "entries": {}, "base": "http://ha:8123"}
+    holder = {"urls": {}, "saved": {}, "registry": {}, "entries": {}, "devices": {}, "base": "http://ha:8123"}
 
     class Store:
         def __init__(self, hass, version, key):
@@ -45,6 +45,7 @@ def _load():
     mod("homeassistant.exceptions", HomeAssistantError=HomeAssistantError)
     helpers = mod("homeassistant.helpers")
     reg_mod = mod("homeassistant.helpers.entity_registry")
+    dev_mod = mod("homeassistant.helpers.device_registry")
     mod("homeassistant.helpers.storage", Store=Store)
 
     def get_url(hass, **kw):
@@ -54,6 +55,8 @@ def _load():
     mod("homeassistant.helpers.network", NoURLAvailableError=NoURLAvailableError, get_url=get_url)
     sys.modules["homeassistant.components"].camera = cam
     helpers.entity_registry = reg_mod
+    helpers.device_registry = dev_mod
+    dev_mod.async_get = lambda hass: types.SimpleNamespace(async_get=lambda did: holder["devices"].get(did))
     reg_mod.async_get = lambda hass: types.SimpleNamespace(async_get=lambda eid: holder["registry"].get(eid))
 
     async def stream_source(hass, entity_id):
@@ -165,8 +168,8 @@ def _make(defaults, base="http://ha:8123"):
     return hass, api, dd, bridge_mod.CallBridge(hass, api, dd)
 
 
-def _ent(domain, entity_id, config_entry_id, **data):
-    H["registry"][entity_id] = types.SimpleNamespace(config_entry_id=config_entry_id, device_id=None)
+def _ent(domain, entity_id, config_entry_id, device_id=None, **data):
+    H["registry"][entity_id] = types.SimpleNamespace(config_entry_id=config_entry_id, device_id=device_id)
     H["entries"][config_entry_id] = types.SimpleNamespace(domain=domain, entry_id=config_entry_id, options={}, data=dict(data))
 
 
@@ -185,6 +188,27 @@ def test_speaker_sink_only_for_r1_and_dahua_intercom():
         br.defaults._merge({"ha_url": ""})
         H["base"] = ""
         assert await br.async_speaker_sink("media_player.r1_loa") == ""         # HA chưa có địa chỉ nội bộ
+    asyncio.run(run())
+
+
+def test_speaker_sink_google_cast_by_cast_id_from_device_registry():
+    """Loa Google Cast: gateway tự điều khiển loa theo MÃ Cast (định danh «cast» trong sổ thiết bị), không cần khoá/địa chỉ HA."""
+    async def run():
+        hass, api, dd, br = _make({})
+        H["devices"] = {"dev1": types.SimpleNamespace(identifiers={("cast", "a8a623b9-7677-b5af-e205-aa191cfbb9b6")}),
+                        "dev2": types.SimpleNamespace(identifiers={("cast", "khong-phai-hex")}),
+                        "dev3": types.SimpleNamespace(identifiers={("khac", "x")})}
+        _ent("cast", "media_player.phong_khach", "castentry", device_id="dev1")
+        _ent("cast", "media_player.ma_hong", "castentry", device_id="dev2")
+        _ent("cast", "media_player.khong_ma", "castentry", device_id="dev3")
+        _ent("cast", "media_player.khong_thiet_bi", "castentry")
+        assert await br.async_speaker_sink("media_player.phong_khach") == "cast://id/a8a623b97677b5afe205aa191cfbb9b6"
+        assert await br.async_speaker_sink("media_player.ma_hong") == ""
+        assert await br.async_speaker_sink("media_player.khong_ma") == ""
+        assert await br.async_speaker_sink("media_player.khong_thiet_bi") == ""
+        br.defaults._merge({"ha_url": ""})
+        H["base"] = ""
+        assert await br.async_speaker_sink("media_player.phong_khach") == "cast://id/a8a623b97677b5afe205aa191cfbb9b6"   # không cần địa chỉ HA
     asyncio.run(run())
 
 
