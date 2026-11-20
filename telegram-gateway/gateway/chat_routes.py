@@ -15,7 +15,7 @@ import uuid
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 
-from . import td_services
+from . import cast_sink, td_services
 from .chat import ChatService, Feed
 from .media_convert import to_ogg_opus, to_pcm48k
 from .live_call import CallRuntime, apply_defaults, sweep_stale_audio, valid_speaker_url
@@ -353,7 +353,7 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         if "speaker" in b:
             v = str(b["speaker"] or "").strip()
             if v and not valid_speaker_url(v) and "k=***" not in v:
-                raise bad_request("speaker phải rỗng hoặc là địa chỉ cửa bộ đàm /api/r1_speaker|dahua_talk/intercom|duplex/<id>?k=<khoá>.")
+                raise bad_request("speaker phải rỗng, là địa chỉ cửa bộ đàm /api/r1_speaker|dahua_talk/intercom|duplex/<id>?k=<khoá>, hoặc loa Google Cast cast://<IPv4 nội bộ> | cast://id/<mã Cast>.")
             if "k=***" not in v:
                 s["speaker"] = v
         if b.get("mic_format") in ("auto", "s16le16k"):
@@ -391,7 +391,7 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
             d = load_settings()           # nguồn mặc định (có thể ghi đè từng cuộc bằng mic/camera/speaker trong body)
             speaker = str(b["speaker"] if "speaker" in b else d["speaker"] or "").strip()      # «speaker» có mặt mà rỗng = chủ động KHÔNG nối loa nào (cảnh báo)
             if speaker and not valid_speaker_url(speaker):
-                raise bad_request("speaker phải là địa chỉ cửa bộ đàm /api/r1_speaker|dahua_talk/intercom|duplex/<id>?k=<khoá>.")
+                raise bad_request("speaker phải là địa chỉ cửa bộ đàm /api/r1_speaker|dahua_talk/intercom|duplex/<id>?k=<khoá> hoặc loa Google Cast cast://….")
             call = await run(rt.call_out, phone, clients[phone], user_id, bool(b.get("video", False)),
                              str(b.get("mic") or d["mic"]), str(b.get("mic_format") or d["mic_format"]),
                              str(b.get("camera") or d["camera"]), str(b.get("playback") or d["playback"]), speaker)
@@ -429,7 +429,7 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         if kind not in ("external", "file", "shell", "push"):
             raise bad_request("kind phải là external, file, shell hoặc push.")
         if kind == "push" and not valid_speaker_url(str(b.get("url") or c.speaker_url)):
-            raise bad_request("push cần url là địa chỉ cửa bộ đàm /api/r1_speaker|dahua_talk/intercom|duplex/<id>?k=<khoá>.")
+            raise bad_request("push cần url là địa chỉ cửa bộ đàm /api/r1_speaker|dahua_talk/intercom|duplex/<id>?k=<khoá> hoặc loa Google Cast cast://….")
         asyncio.run_coroutine_threadsafe(c._set_playback(kind, str(b.get("cmd") or b.get("url") or "")), rt.loop)
         await asyncio.sleep(0.5)
         return c.info()
@@ -472,6 +472,37 @@ def add_chat_routes(app: FastAPI, *, data_dir: str, auth, body_dict, telegram_to
         if c is None or c.state == "ended":
             raise not_found("Không có cuộc gọi đang diễn ra này.")
         return c
+
+    @app.get("/api/live/cast/{call_id}/{token}.mp3")
+    async def live_cast_stream(call_id: str, token: str, request: Request):
+        """Luồng MP3 tiếng bên kia cho LOA GOOGLE CAST của cuộc gọi này. NGOẠI LỆ CÓ CHỦ ĐÍCH với luật «mọi đường cần Bearer»: loa Cast không gửi
+        được header nên xác thực bằng token ngẫu nhiên riêng từng cuộc gọi trong URL (secrets.token_urlsafe(24), so sánh thời gian hằng), chỉ
+        sống khi cuộc gọi chưa kết thúc; sai token / cuộc đã xong / không phải cuộc dùng loa Cast → 404 (không lộ lý do). Khai như tệp dài
+        (Content-Length lớn) vì bộ nhận mặc định không phát luồng LIVE nguồn thời gian thực (đo thật 20/11)."""
+        import queue as _queue
+        rt = runtime["rt"]
+        c = rt.calls.get(call_id) if rt else None
+        sink = getattr(c, "cast", None) if c is not None else None
+        if c is None or c.state == "ended" or sink is None or not sink.stream.check(token):
+            raise not_found("Không có luồng này.")
+        q, prime = sink.stream.subscribe()
+
+        async def gen():
+            try:
+                if prime:
+                    yield prime
+                while c.state != "ended" and not sink.stream.closed and not await request.is_disconnected():
+                    try:
+                        b = await asyncio.to_thread(q.get, True, 1.0)
+                    except _queue.Empty:
+                        continue
+                    if not b:
+                        break
+                    yield b
+            finally:
+                sink.stream.unsubscribe(q)
+        return StreamingResponse(gen(), media_type="audio/mpeg",
+                                 headers={"Cache-Control": "no-store", "Content-Length": str(cast_sink.FAKE_LENGTH)})
 
     @app.get("/api/live/view/{call_id}")
     async def live_view(call_id: str, request: Request):

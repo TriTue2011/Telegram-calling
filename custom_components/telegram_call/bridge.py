@@ -15,6 +15,7 @@ from typing import Any
 from homeassistant.components import camera as ha_camera
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 
@@ -105,8 +106,17 @@ class CallBridge:
             return ""
         ent = er.async_get(self.hass).async_get(entity_id)
         cfg = self.hass.config_entries.async_get_entry(ent.config_entry_id) if ent and ent.config_entry_id else None
+        if cfg is not None and cfg.domain == "cast":
+            # Loa Google Cast: gateway tự điều khiển loa (không qua HA) theo MÃ Cast trong sổ thiết bị; gateway tìm IP bằng mDNS.
+            dev = dr.async_get(self.hass).async_get(ent.device_id) if ent.device_id else None
+            cast_id = next((v for d, v in (dev.identifiers if dev else ()) if d == "cast"), "")
+            cast_id = str(cast_id).replace("-", "").lower()
+            if len(cast_id) == 32 and all(c in "0123456789abcdef" for c in cast_id):
+                return "cast://id/" + cast_id
+            _LOGGER.warning("Loa Cast %s không có mã Cast trong sổ thiết bị", entity_id)
+            return ""
         if cfg is None or cfg.domain not in ("r1_speaker", "dahua_talk"):
-            _LOGGER.warning("Loa %s không hỗ trợ: chỉ loa R1 hoặc camera Imou/Dahua (cửa bộ đàm) nhận được tiếng bên kia", entity_id)
+            _LOGGER.warning("Loa %s không hỗ trợ: chỉ loa R1, camera Imou/Dahua (cửa bộ đàm) hoặc loa Google Cast nhận được tiếng bên kia", entity_id)
             return ""
         key, base = str(cfg.data.get("intercom_key") or ""), self._ha_base()
         if not key or not base:

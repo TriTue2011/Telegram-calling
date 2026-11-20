@@ -25,7 +25,7 @@ import threading
 import time
 import uuid
 
-from . import call_trace
+from . import call_trace, cast_sink
 from . import versions as versions_mod
 from .engine import map_ready
 
@@ -108,7 +108,8 @@ _SPEAKER_RE = re.compile(
 
 
 def valid_speaker_url(url: str) -> bool:
-    return bool(_SPEAKER_RE.match(url or ""))
+    """Cửa bộ đàm r1_speaker / dahua_talk, HOẶC loa Google Cast (``cast://<IPv4 nội bộ>`` / ``cast://id/<mã Cast>``, xem cast_sink)."""
+    return bool(_SPEAKER_RE.match(url or "")) or cast_sink.is_cast_spec(url)
 
 
 def speaker_command(url: str) -> str:
@@ -327,6 +328,7 @@ class LiveCall:
         self.playback_path = os.path.join(runtime.data_dir, "live", self.id + "_in.pcm")
         self.error = ""
         self.playback_bytes_final = None   # kích thước tệp tiếng bên kia lúc kết thúc (tệp đã xoá)
+        self.cast: cast_sink.CastSink | None = None   # loa Google Cast khi speaker là cast://… (luồng MP3 + phiên Cast của cuộc này)
         self._ready_done = False
         self.log("tạo cuộc gọi %s video=%s" % ("đi" if outgoing else "đến", video))
 
@@ -591,6 +593,16 @@ class LiveCall:
         os.makedirs(os.path.dirname(self.playback_path), exist_ok=True)
         if kind == "external":
             src, inp = nt.MediaSource.EXTERNAL, ""
+        elif kind == "push" and cast_sink.is_cast_spec(cmd or self.speaker_url):
+            # Loa Google Cast: PCM → ffmpeg MP3 → luồng riêng của cuộc này → loa tự kéo (trễ ≈ 3 s, đo thật 20/11).
+            url = cmd or self.speaker_url
+            if self.cast is None or self.speaker_url != url:
+                if self.cast is not None:
+                    self.cast.close()
+                self.cast = cast_sink.CastSink(url, self.id, int(os.environ.get("REST_PORT", "3333") or 3333), log=self.log)
+                threading.Thread(target=self.cast.start, name="cast-start", daemon=True).start()
+            self.speaker_url = url
+            src, inp = nt.MediaSource.SHELL, self.cast.stream.encoder_command()
         elif kind == "push":
             url = cmd or self.speaker_url
             self.speaker_url = url
@@ -643,6 +655,8 @@ class LiveCall:
             self.log("NTgCalls stop: %s" % exc)
         finally:
             self._drop_playback_file()
+            if self.cast is not None:             # loa Cast thôi phát (STOP phiên) và đóng luồng — URL luồng hết hiệu lực
+                await asyncio.get_running_loop().run_in_executor(None, self.cast.close)
 
     # -- do người dùng ---------------------------------------------------------------------------------
     def hangup(self) -> None:
