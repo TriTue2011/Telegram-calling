@@ -92,18 +92,22 @@ def test_call_and_video_request_events_keep_old_fields_and_add_account():
     assert all(e["account"] == "+84900000000" for e in events)
 
 
-def message_feed(phone, events):
+def message_feed(api, events):
     core = definitions("bridge_core.py", ["message_event", "send_failed_event"], redact=lambda text: text)
     module = definitions("messages.py", ["MessageFeed"], message_event=core.message_event, send_failed_event=core.send_failed_event,
                          EVENT_MESSAGE="telegram_call_message", EVENT_SEND_FAILED="telegram_call_send_failed", SIGNAL_MESSAGE="message_{}",
                          async_dispatcher_send=lambda *args: None)
     hass = SimpleNamespace(bus=SimpleNamespace(async_fire=lambda event, data: events.append((event, data))))
-    return module.MessageFeed(hass, SimpleNamespace(account=phone), "entry")
+    return module.MessageFeed(hass, api, "entry")
 
 
 def test_message_and_failure_events_add_account_with_legacy_feed_fallback():
     events = []
-    feed = message_feed("+84900000000", events)
+    session = Session()
+    session.accounts = [{"phone": "+84900000000"}]
+    api = api_module().TelegramGatewayApi(session, "http://192.0.2.10", "TOKEN-GIA", "+84900000000")
+    asyncio.run(api.accounts())
+    feed = message_feed(api, events)
     feed.handle({"type": "message", "message": {"id": 1, "chat_id": 42, "text": "xin chào"}})
     feed.handle({"type": "send_failed", "chat_id": 42, "old_id": 9, "error": "lỗi", "account": "+84900000000"})
     assert len(events) == 2 and all(e[1]["account"] == "+84900000000" for e in events)
@@ -158,7 +162,16 @@ def test_options_switch_clears_unloaded_default_and_preserves_other_options():
 
 def test_two_message_feeds_never_accept_each_others_messages_or_failures():
     a_events, b_events = [], []
-    a, b = message_feed("+84900000000", a_events), message_feed("+84900000001", b_events)
+    session = Session()
+    module = api_module()
+    api_a, api_b = [module.TelegramGatewayApi(session, "http://192.0.2.10", "TOKEN-GIA", phone)
+                   for phone in ("+84900000000", "+84900000001")]
+    for api in (api_a, api_b):
+        asyncio.run(api.accounts())
+    a, b = message_feed(api_a, a_events), message_feed(api_b, b_events)
+    for feed in (a, b):
+        feed.handle({"type": "message", "message": {"id": 1, "chat_id": 42, "text": "không rõ tài khoản"}})
+        feed.handle({"type": "send_failed", "chat_id": 42, "old_id": 1})
     for phone, text in (("+84900000000", "tin A"), ("+84900000001", "tin B")):
         for item in ({"type": "message", "account": phone, "message": {"id": 1, "chat_id": 42, "text": text}},
                      {"type": "send_failed", "account": phone, "old_id": 1}):
@@ -193,10 +206,13 @@ class Response:
 class Session:
     def __init__(self):
         self.requests = []
-        self.calls = [{"id": "same", "account": phone, "state": "ringing"} for phone in ("+84900000000", "+84900000001")]
+        self.accounts = [{"phone": phone} for phone in ("+84900000000", "+84900000001")]
+        self.calls = [{"id": "same", "account": row["phone"], "state": "ringing"} for row in self.accounts]
 
     def request(self, method, url, **kwargs):
         self.requests.append((method, url, kwargs))
+        if url.endswith("/api/accounts"):
+            return Response({"tai_khoan": self.accounts})
         return Response({"calls": self.calls})
 
     def get(self, url, **kwargs):
@@ -211,11 +227,13 @@ def api_module():
 
 def test_api_scopes_calls_feed_upload_download_and_view_for_two_accounts():
     session = Session()
+    session.calls.append({"id": "unknown", "state": "ringing"})
     module = api_module()
 
     async def run():
         for phone in ("+84900000000", "+84900000001"):
             api = module.TelegramGatewayApi(session, "http://192.0.2.10:3333", "TOKEN-GIA", phone)
+            await api.accounts()
             calls = await api.live_calls()
             assert len(calls) == 1 and calls[0]["account"] == phone
             await api.feed(9)
@@ -227,6 +245,22 @@ def test_api_scopes_calls_feed_upload_download_and_view_for_two_accounts():
             for _, _, kwargs in session.requests[-7:]:
                 assert kwargs["params"]["account"] == phone
             assert parse_qs(urlsplit(api.view_url("same")).query) == {"account": [phone]}
+    asyncio.run(run())
+
+
+def test_live_calls_allow_legacy_rows_only_while_gateway_has_one_account():
+    session = Session()
+    session.calls = [{"id": "old", "state": "ringing"}]
+    api = api_module().TelegramGatewayApi(session, "http://192.0.2.10", "TOKEN-GIA", "+84900000000")
+
+    async def run():
+        second = session.accounts.pop()
+        await api.accounts()
+        assert await api.live_calls() == session.calls
+        session.accounts.append(second)
+        await api.accounts()
+        assert await api.live_calls() == []
+
     asyncio.run(run())
 
 

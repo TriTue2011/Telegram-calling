@@ -28,7 +28,7 @@ class MessageFeed:
         self.received = 0
 
     def handle(self, item: dict) -> None:
-        if item.get("account") and item["account"] != self._api.account:
+        if not self._api.owns_item(item):
             return
         ev = message_event(item)
         if ev is not None:

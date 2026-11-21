@@ -31,6 +31,7 @@ class TelegramGatewayApi:
         self.url = url.rstrip("/")
         self._token = token
         self.account = account
+        self._sole_account: str | None = None
 
     async def _request(self, method: str, path: str, *, auth: bool = True, account: bool = True, **kw: Any) -> Any:
         headers = {"Authorization": f"Bearer {self._token}"} if auth else {}
@@ -67,11 +68,17 @@ class TelegramGatewayApi:
         return await self._request("GET", "/health", auth=False, account=False)
 
     async def accounts(self) -> list[dict]:
-        return (await self._request("GET", "/api/accounts", account=False)).get("tai_khoan", [])
+        rows = (await self._request("GET", "/api/accounts", account=False)).get("tai_khoan", [])
+        self._sole_account = rows[0].get("phone") if len(rows) == 1 else None
+        return rows
+
+    def owns_item(self, item: dict) -> bool:
+        """Chỉ nhận dòng kiểu cũ thiếu account nếu gateway chỉ có đúng tài khoản này."""
+        return bool(self.account) and item.get("account", self._sole_account) == self.account
 
     async def live_calls(self) -> list[dict]:
         calls = (await self._request("GET", "/api/live/calls")).get("calls", [])
-        return [c for c in calls if not c.get("account") or c["account"] == self.account]
+        return [c for c in calls if self.owns_item(c)]
 
     async def live_call(self, target: int | str, video: bool = False, mic: str | None = None,
                         mic_format: str | None = None, camera: str | None = None, speaker: str | None = None) -> dict:
