@@ -10,14 +10,16 @@ import os
 import sys
 import types
 
+from pytest import MonkeyPatch
+
 ROOT = os.path.join(os.path.dirname(__file__), "..", "custom_components", "telegram_call")
 
 
-def _load():
+def _load(modules):
     def mod(name, **attrs):
         m = types.ModuleType(name)
         m.__dict__.update(attrs)
-        sys.modules[name] = m
+        modules.setitem(sys.modules, name, m)
         return m
 
     class HomeAssistantError(Exception):
@@ -65,11 +67,11 @@ def _load():
 
     pkg = types.ModuleType("telegram_call")
     pkg.__path__ = [ROOT]
-    sys.modules["telegram_call"] = pkg
-    for name in ("const", "api", "bridge_core", "devices", "bridge"):
+    modules.setitem(sys.modules, "telegram_call", pkg)
+    for name in ("const", "bridge_core", "api", "rules", "devices", "bridge"):
         spec = importlib.util.spec_from_file_location("telegram_call." + name, os.path.join(ROOT, name + ".py"))
         m = importlib.util.module_from_spec(spec)
-        sys.modules["telegram_call." + name] = m
+        modules.setitem(sys.modules, spec.name, m)
         spec.loader.exec_module(m)
     for n in ("bridge", "bridge_core", "const", "api", "devices"):
         holder[n] = sys.modules["telegram_call." + n]
@@ -77,7 +79,9 @@ def _load():
     return holder
 
 
-H = _load()
+# Các test HA đầu-cuối cùng phiên pytest cần dùng các mô-đun thật.
+with MonkeyPatch.context() as modules:
+    H = _load(modules)
 core, bridge_mod, devices_mod, api_mod = H["bridge_core"], H["bridge"], H["devices"], H["api"]
 
 
