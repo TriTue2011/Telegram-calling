@@ -85,6 +85,62 @@ Mic lấy từ camera, loa R1 hoặc địa chỉ luồng bất kỳ. Cách gọ
 
 > Chưa có: nhận dạng giọng nói (Telegram chỉ cho tài khoản Premium) và gọi nhóm.
 
+## Nhiều tài khoản
+
+Gateway hỗ trợ nhiều tài khoản trong một tiến trình. Đăng nhập các tài khoản muốn dùng trên giao diện gateway,
+rồi vào **Cài đặt → Thiết bị & dịch vụ → Thêm tích hợp → Telegram Call**. Nhập cùng địa chỉ và token gateway,
+chọn tài khoản đang online. **Thêm một mục cấu hình cho từng tài khoản muốn dùng trong HA**; để thêm tài khoản thứ hai,
+lặp lại thao tác Thêm tích hợp và chọn số khác. Tài khoản offline hoặc đang chờ mã đăng nhập không xuất hiện trong danh sách.
+Gateway chưa có tài khoản online thì HA báo lỗi và yêu cầu đăng nhập trên gateway trước.
+
+Mỗi mục có thiết bị riêng mang tên **Telegram Call — <tên hiển thị>**; khi chưa có tên thì hiện số che giữa.
+Tên đổi trên Telegram được cập nhật trong HA ở lần hỏi hồ sơ tiếp theo (khoảng 60 giây).
+Các `entity_id` đã lưu trong registry và `unique_id` được giữ nguyên, nên automation dùng thực thể cũ tiếp tục tìm đúng thực thể.
+Danh bạ, thiết bị mặc định, quy tắc và cuộc gọi của mỗi mục thuộc riêng tài khoản đó; gửi bằng thực thể `notify` dùng tài khoản sở hữu thực thể.
+
+**Tài khoản mặc định:** mục cũ/mục đầu tiên nạp thành công được đánh dấu mặc định và lưu lại qua khởi động lại.
+Đổi tại **Telegram Call → Cấu hình → Tài khoản mặc định cho dịch vụ không chỉ định tài khoản**.
+Mọi dịch vụ `telegram_call.*` chọn theo thứ tự **`config_entry_id` → `account` → mặc định**.
+`account` nhận số điện thoại đầy đủ có mã nước hoặc tên hiển thị (không phân biệt hoa thường).
+Tên không tồn tại hoặc trùng nhiều tài khoản báo lỗi; hãy dùng số điện thoại hoặc `config_entry_id` khi tên trùng.
+Các automation/blueprint cũ không có hai trường này tiếp tục chạy trên mặc định khi thêm mục thứ hai.
+Nếu mục mặc định tạm thời chưa nạp, dịch vụ dùng mục đầu tiên đang nạp; nếu chưa nạp mục nào thì báo lỗi.
+
+Ví dụ gửi từ một tài khoản cụ thể (các số bên dưới là số giả):
+
+```yaml
+action: telegram_call.send_message
+data:
+  account: "+84900000001"                # hoặc tên hiển thị: "Cơ quan"
+  peer: "@ten_nguoi_nhan"
+  message: "Cửa đã mở"
+```
+
+Các sự kiện `telegram_call_call_state` (kể cả `video_request`), `telegram_call_message`,
+`telegram_call_send_failed`, `telegram_call_alert_done` đều thêm `account` là số điện thoại đầy đủ.
+Các khoá cũ vẫn giữ nguyên. Automation nghe sự kiện không lọc tài khoản sẽ nhận sự kiện của mọi mục đã nạp;
+để chỉ xử lý một tài khoản và trả lời bằng đúng tài khoản nhận tin, dùng:
+
+```yaml
+automation:
+  - alias: Telegram cơ quan - xác nhận tin nhắn
+    triggers:
+      - trigger: event
+        event_type: telegram_call_message
+        event_data:
+          account: "+84900000001"
+    actions:
+      - action: telegram_call.send_message
+        data:
+          account: "{{ trigger.event.data.account }}"
+          chat_id: "{{ trigger.event.data.chat_id }}"
+          reply_to: "{{ trigger.event.data.message_id }}"
+          message: "Đã nhận tin"
+```
+
+Tương tự, automation áp quy tắc cuộc gọi có thể truyền `account: "{{ trigger.event.data.account }}"`
+cùng `call_id` để xử lý đúng tài khoản của sự kiện.
+
 ## Cách dùng các dịch vụ
 
 Mở **Công cụ nhà phát triển → Hành động**, gõ `telegram_call.` để chọn dịch vụ. Người nhận là `chat_id` (số; âm = nhóm/kênh) **hoặc** `peer` (`@username`, `+số điện thoại`, ID số).

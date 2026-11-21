@@ -62,6 +62,16 @@ def test_gateway_version_khop_manifest():
     assert gv == _json(INT, "manifest.json")["version"], "VERSION của gateway phải bằng version tích hợp (một thẻ phát hành cho cả hai)"
 
 
+def test_readme_huong_dan_nhieu_tai_khoan_va_automation_chon_tai_khoan():
+    with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as fh:
+        text = fh.read()
+    assert "## Nhiều tài khoản" in text
+    assert "Thêm một mục cấu hình cho từng tài khoản" in text
+    assert "config_entry_id` → `account` → mặc định" in text
+    assert 'account: "{{ trigger.event.data.account }}"' in text
+    assert 'account: "+84900000001"' in text
+
+
 def test_lich_cap_nhat_trang_thai_phai_la_callback():
     """HA chạy hàm thường ở luồng nền; async_write_ha_state từ đó gây lỗi mỗi phút (đo 10/11/2026 ở zalo_call).
     Không được truyền lambda gọi async_write_ha_state cho async_track_*."""
