@@ -44,6 +44,7 @@ class FakeGateway:
         self.fail_next: tuple[int, dict] | None = None
         self.runner = None
         self.url = ""
+        self.accounts = [{"phone": "+84900000000"}]
 
     def last(self, path_part: str) -> dict:
         return [r for r in self.requests if path_part in r["path"]][-1]
@@ -65,7 +66,7 @@ class FakeGateway:
         if p == "/health":
             return web.json_response({"status": "ok"})
         if p == "/api/accounts":
-            return web.json_response({"tai_khoan": [{"phone": "+84900000000"}]})
+            return web.json_response({"tai_khoan": self.accounts})
         if p == "/api/live/calls":
             return web.json_response({"calls": []})
         if p == "/api/live/settings":

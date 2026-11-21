@@ -18,7 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from . import call_rules, catalog
 from .api import TelegramCallError
-from .accounts import default_entry
+from .accounts import select_entry
 from .rules import (CALL_TYPES, CONNECT, MAX_ANNOUNCE_REPEAT, MAX_NOTE_LEN, RULES_KEY, SCOPES, VIDEO_REQUEST, RuleError, get_rules, normalize as normalize_rule,
                     parse_tags, validate_scope)
 from .bridge_core import redact
@@ -28,7 +28,7 @@ MAX_FILE = 64 * 1024 * 1024                       # đúng trần của gateway
 KINDS = ("photo", "video", "audio", "voice", "document")
 FORMATS = ("plain", "markdown", "html")
 
-_ENTRY = {vol.Optional("config_entry_id"): cv.string}
+_ENTRY = {vol.Optional("config_entry_id"): cv.string, vol.Optional("account"): cv.string}
 _PARTS = vol.All(cv.ensure_list, [vol.In(["mic", "speaker", "camera"])])       # ô tích: mic / loa / camera (như connect_now, connect của quy tắc)
 MAKE_CALL = vol.All(cv.has_at_least_one_key("user_id", "peer"), vol.Schema({
     **_ENTRY,
@@ -194,13 +194,10 @@ DOWNLOAD = vol.Schema({**_ENTRY, vol.Required("file_id"): vol.Coerce(int), vol.R
 
 def _entry(hass: HomeAssistant, call: ServiceCall) -> ConfigEntry:
     entries = hass.config_entries.async_loaded_entries(DOMAIN)
-    want = call.data.get("config_entry_id")
-    if want:
-        entries = [e for e in entries if e.entry_id == want]
-    entry = entries[0] if want and entries else default_entry(entries)
-    if entry is None:
-        raise ServiceValidationError(f"Không có mục cấu hình {want}" if want else "Chưa có tài khoản Telegram Call nào được nạp")
-    return entry
+    try:
+        return select_entry(entries, call.data.get("config_entry_id", ""), call.data.get("account", ""))
+    except ValueError as err:
+        raise ServiceValidationError(str(err)) from err
 
 
 def _schema_keys(schema: Any) -> set[str]:
@@ -704,7 +701,7 @@ def async_register_services(hass: HomeAssistant) -> None:
 
     def _catalog_service(name: str, spec: catalog.S):
         async def handler(call: ServiceCall) -> ServiceResponse:
-            payload = {k: v for k, v in call.data.items() if k not in ("config_entry_id", "peer", "target", "message_thread_id", "parse_mode", "format")}
+            payload = {k: v for k, v in call.data.items() if k not in ("config_entry_id", "account", "peer", "target", "message_thread_id", "parse_mode", "format")}
 
             async def go(rt):
                 if spec.target == "chat":

@@ -7,6 +7,7 @@ Chạy lại bất cứ lúc nào (idempotent): phần sinh nằm sau dòng đá
 import importlib.util
 import json
 import os
+import re
 import sys
 
 import yaml
@@ -54,6 +55,9 @@ def main() -> None:
     cat = _catalog()
     path = os.path.join(INT, "services.yaml")
     text = open(path, encoding="utf-8").read().split(MARK)[0]
+    # Mọi dịch vụ viết tay dùng cùng bộ chọn tài khoản; giữ nguyên các anchor YAML.
+    text = re.sub(r"    account:\n      selector:\n        text: null\n", "", text)
+    text = text.replace("    config_entry_id:", "    account:\n      selector:\n        text: null\n    config_entry_id:")
     block = {}
     for name, spec in cat.SERVICES.items():
         fields = {}
@@ -72,6 +76,7 @@ def main() -> None:
                 d["default"] = f.default
             fields[f.key] = d
         fields["config_entry_id"] = {"selector": {"text": None}}
+        fields["account"] = {"selector": {"text": None}}
         block[name] = {"fields": fields}
 
     class D(yaml.SafeDumper):
@@ -86,6 +91,15 @@ def main() -> None:
         p = os.path.join(INT, rel)
         data = json.load(open(p, encoding="utf-8"))
         svc = data["services"]
+        svc["send_media_group"] = {
+            "name": "Gửi album" if lang == "vi" else "Send album",
+            "description": "Gửi album ảnh/video, hoặc gửi lần lượt khi các tệp không ghép được." if lang == "vi" else "Send a photo/video album, or send files individually when they cannot form an album.",
+            "fields": {k: v for k, v in svc["send_file"]["fields"].items() if k in ("recipient", "chat_id", "peer", "reply_to", "format", "config_entry_id")},
+        }
+        svc["send_media_group"]["fields"]["media"] = {
+            "name": "Tệp trong album" if lang == "vi" else "Album files",
+            "description": "Danh sách media_type, file và caption của từng tệp." if lang == "vi" else "List of media_type, file and caption for each file.",
+        }
         base = svc["mark_read"]["fields"]
         common = {"recipient": base["recipient"], "chat_id": base["chat_id"], "peer": base["peer"], "config_entry_id": base["config_entry_id"]}
         common["user_id"] = ({"name": "ID người dùng", "description": "Số ID Telegram của người. Có thể thay bằng ô «Chọn người từ danh bạ» hoặc nhập ở ô «Người nhận»."} if lang == "vi" else
@@ -96,6 +110,13 @@ def main() -> None:
                 fl[f.key] = {"name": f.vi_name if lang == "vi" else f.en_name, "description": f.vi_desc if lang == "vi" else f.en_desc}
             fl["config_entry_id"] = common["config_entry_id"]
             svc[name] = {"name": spec.vi_name if lang == "vi" else spec.en_name, "description": spec.vi_desc if lang == "vi" else spec.en_desc, "fields": fl}
+        for service in svc.values():
+            fields = service.get("fields", {})
+            if "config_entry_id" in fields:
+                fields["config_entry_id"] = ({"name": "Mục cấu hình", "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."} if lang == "vi" else
+                                            {"name": "Config entry", "description": "Highest priority. Leave empty to select by account or use the default account."})
+                fields["account"] = ({"name": "Tài khoản Telegram", "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."} if lang == "vi" else
+                                     {"name": "Telegram account", "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."})
         with open(p, "w", encoding="utf-8") as fh:
             json.dump(data, fh, ensure_ascii=False, indent=2)
             fh.write("\n")

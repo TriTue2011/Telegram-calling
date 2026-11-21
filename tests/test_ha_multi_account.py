@@ -5,6 +5,7 @@ pytest.importorskip("homeassistant")
 pytest.importorskip("pytest_homeassistant_custom_component")
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.exceptions import ServiceValidationError
 from test_ha_end_to_end import DOMAIN, TOKEN, FakeGateway, call
 
 PHONE_A, PHONE_B = "+84900000000", "+84900000001"
@@ -13,6 +14,8 @@ PHONE_A, PHONE_B = "+84900000000", "+84900000001"
 @pytest.fixture
 async def two_accounts(hass, socket_enabled, enable_custom_integrations):
     gw = FakeGateway()
+    gw.accounts = [{"phone": PHONE_A, "display_name": "Nhà", "status": "online"},
+                   {"phone": PHONE_B, "display_name": "Cơ quan", "status": "online"}]
     await gw.start()
     entries = []
     try:
@@ -51,3 +54,19 @@ async def test_options_switches_default_for_legacy_service(hass, two_accounts):
     await hass.async_block_till_done()
     await call(hass, "send_message", {"chat_id": 42, "message": "mặc định mới"})
     assert gw.last("/send")["query"]["account"] == PHONE_B
+
+
+async def test_services_select_by_phone_name_and_entry_id_priority(hass, two_accounts):
+    gw, (first, second) = two_accounts
+    for account in (PHONE_B, "Cơ quan"):
+        await call(hass, "send_message", {"account": account, "chat_id": 42, "message": "x"})
+        assert gw.last("/send")["query"]["account"] == PHONE_B
+    await call(hass, "send_message", {"config_entry_id": first.entry_id, "account": PHONE_B, "chat_id": 42, "message": "x"})
+    assert gw.last("/send")["query"]["account"] == PHONE_A
+    before = len(gw.requests)
+    with pytest.raises(ServiceValidationError, match="Không tìm thấy tài khoản"):
+        await call(hass, "send_message", {"account": "không có", "chat_id": 42, "message": "x"})
+    assert len(gw.requests) == before
+    await call(hass, "get_me", {"account": "Cơ quan"})
+    req = gw.last("/api/do/get_me")
+    assert req["query"]["account"] == PHONE_B and req["json"] == {}

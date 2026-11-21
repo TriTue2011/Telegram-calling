@@ -46,6 +46,16 @@ def test_services_yaml_hop_le():
         assert isinstance(svc, dict), name
 
 
+def test_moi_dich_vu_co_bo_chon_tai_khoan_va_ban_dich():
+    with open(os.path.join(INT, "services.yaml"), encoding="utf-8") as fh:
+        services = yaml.safe_load(fh)
+    for name, svc in services.items():
+        assert {"config_entry_id", "account"} <= svc["fields"].keys(), name
+        for rel in ("strings.json", "translations/vi.json", "translations/en.json"):
+            fields = _json(INT, *rel.split("/"))["services"][name]["fields"]
+            assert fields["account"]["name"] and fields["account"]["description"], (rel, name)
+
+
 def test_gateway_version_khop_manifest():
     with open(os.path.join(ROOT, "telegram-gateway", "VERSION"), encoding="utf-8") as fh:
         gv = fh.read().strip()

@@ -86,6 +86,9 @@ make_call:
     language:
       selector:
         text: null
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -96,6 +99,9 @@ answer_call:
       selector:
         text: null
       description: Bỏ trống = cuộc gọi đến đang đổ chuông (phải có đúng một).
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -126,6 +132,9 @@ answer_call:
 hangup_call:
   fields:
     call_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
     config_entry_id:
@@ -169,6 +178,9 @@ send_message:
           - markdown
           - html
           mode: dropdown
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 send_file:
@@ -204,6 +216,9 @@ send_file:
     format:
       default: plain
       selector: *id010
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 send_photo:
@@ -228,6 +243,9 @@ send_photo:
     format: &id014
       default: plain
       selector: *id010
+    account:
+      selector:
+        text: null
     config_entry_id: &id015
       selector: *id006
 send_video:
@@ -252,6 +270,9 @@ send_video:
     format:
       default: plain
       selector: *id010
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 send_audio:
@@ -276,6 +297,9 @@ send_audio:
     format:
       default: plain
       selector: *id010
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 send_media_group:
@@ -293,6 +317,9 @@ send_media_group:
         object: null
     reply_to: *id013
     format: *id014
+    account:
+      selector:
+        text: null
     config_entry_id: *id015
 send_voice:
   fields:
@@ -315,6 +342,9 @@ send_voice:
       selector: *id006
     reply_to:
       selector: *id009
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 edit_message:
@@ -337,6 +367,9 @@ edit_message:
     format:
       default: plain
       selector: *id010
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 delete_message:
@@ -357,6 +390,9 @@ delete_message:
       default: true
       selector:
         boolean: null
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 forward_message:
@@ -376,6 +412,9 @@ forward_message:
     message_ids:
       required: true
       selector: *id006
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 add_reaction:
@@ -419,6 +458,9 @@ add_reaction:
       default: false
       selector:
         boolean: null
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 mark_read:
@@ -434,6 +476,9 @@ mark_read:
       selector: *id006
     message_ids:
       selector: *id006
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 get_history:
@@ -456,6 +501,9 @@ get_history:
           mode: box
     before:
       selector: *id009
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 get_chats:
@@ -467,6 +515,9 @@ get_chats:
           min: 1
           max: 200
           mode: box
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 find_chat:
@@ -474,12 +525,18 @@ find_chat:
     query:
       required: true
       selector: *id006
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 get_contacts:
   fields:
     query:
       selector: *id006
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 translate_text:
@@ -506,6 +563,9 @@ translate_text:
           - id
           mode: dropdown
           custom_value: true
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 download_file:
@@ -517,11 +577,17 @@ download_file:
       required: true
       example: /config/www/anh.jpg
       selector: *id006
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector: *id006
 reject_call:
   fields:
     call_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
     config_entry_id:
@@ -533,6 +599,9 @@ end_call:
     call_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -540,6 +609,9 @@ end_call:
 take_over_call:
   fields:
     call_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
     config_entry_id:
@@ -569,6 +641,9 @@ say_in_call:
     wait:
       selector:
         boolean: null
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -645,6 +720,9 @@ alert_call:
           max: 100
           mode: slider
           unit_of_measurement: '%'
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -652,6 +730,9 @@ alert_call:
 start_call_mic:
   fields:
     call_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
     config_entry_id:
@@ -663,6 +744,9 @@ stop_call_mic:
     call_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -672,6 +756,9 @@ start_call_video:
     call_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -679,6 +766,9 @@ start_call_video:
 stop_call_video:
   fields:
     call_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
     config_entry_id:
@@ -804,6 +894,9 @@ set_rule:
           max: 100
           mode: slider
           unit_of_measurement: '%'
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -930,6 +1023,9 @@ apply_call_rule:
           max: 100
           mode: slider
           unit_of_measurement: '%'
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -965,12 +1061,18 @@ remove_rule:
     tag:
       selector:
         text: null
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
           integration: telegram_call
 list_rules:
   fields:
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -992,12 +1094,18 @@ set_contact_tags:
     note:
       selector:
         text: null
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
           integration: telegram_call
 get_default_devices:
   fields:
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -1005,6 +1113,9 @@ get_default_devices:
 list_contacts:
   fields:
     query:
+      selector:
+        text: null
+    account:
       selector:
         text: null
     config_entry_id:
@@ -1020,6 +1131,9 @@ accept_video:
       selector:
         entity:
           domain: camera
+    account:
+      selector:
+        text: null
     config_entry_id:
       selector:
         config_entry:
@@ -1049,6 +1163,9 @@ set_mute:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 pin_chat:
   fields:
     recipient:
@@ -1074,6 +1191,9 @@ pin_chat:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 archive_chat:
   fields:
     recipient:
@@ -1095,6 +1215,9 @@ archive_chat:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 mark_chat_unread:
   fields:
     recipient:
@@ -1114,6 +1237,9 @@ mark_chat_unread:
         boolean: null
       default: true
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
 set_auto_delete:
@@ -1138,6 +1264,9 @@ set_auto_delete:
           max: 31622400
       default: 0
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
 send_typing:
@@ -1166,6 +1295,9 @@ send_typing:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 delete_chat_history:
   fields:
     recipient:
@@ -1191,6 +1323,9 @@ delete_chat_history:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 rename_chat:
   fields:
     chat_id:
@@ -1207,6 +1342,9 @@ rename_chat:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 leave_chat:
   fields:
     chat_id:
@@ -1217,6 +1355,9 @@ leave_chat:
       selector:
         text: null
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
 get_chat_info:
@@ -1234,6 +1375,9 @@ get_chat_info:
       selector:
         text: null
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
 pin_message:
@@ -1262,6 +1406,9 @@ pin_message:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 unpin_message:
   fields:
     chat_id:
@@ -1278,6 +1425,9 @@ unpin_message:
           min: 1
       required: true
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
 send_poll:
@@ -1324,6 +1474,9 @@ send_poll:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 vote_poll:
   fields:
     chat_id:
@@ -1346,6 +1499,9 @@ vote_poll:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 stop_poll:
   fields:
     chat_id:
@@ -1364,6 +1520,9 @@ stop_poll:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 find_user:
   fields:
     phone:
@@ -1375,6 +1534,9 @@ find_user:
         text: null
       default: ''
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
 get_user_info:
@@ -1392,6 +1554,9 @@ get_user_info:
       selector:
         text: null
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
 add_contact:
@@ -1427,6 +1592,9 @@ add_contact:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 remove_contact:
   fields:
     recipient:
@@ -1442,6 +1610,9 @@ remove_contact:
       selector:
         text: null
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
 block_user:
@@ -1461,6 +1632,9 @@ block_user:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 unblock_user:
   fields:
     recipient:
@@ -1478,6 +1652,9 @@ unblock_user:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 create_group:
   fields:
     title:
@@ -1489,6 +1666,9 @@ create_group:
         text: null
       required: true
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
 add_chat_member:
@@ -1516,6 +1696,9 @@ add_chat_member:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 remove_chat_member:
   fields:
     chat_id:
@@ -1532,6 +1715,9 @@ remove_chat_member:
           min: 1
       required: true
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
 create_invite_link:
@@ -1568,6 +1754,9 @@ create_invite_link:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 join_chat:
   fields:
     invite_link:
@@ -1577,9 +1766,15 @@ join_chat:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 get_me:
   fields:
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null
 set_name:
@@ -1595,6 +1790,9 @@ set_name:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 set_bio:
   fields:
     bio:
@@ -1604,6 +1802,9 @@ set_bio:
     config_entry_id:
       selector:
         text: null
+    account:
+      selector:
+        text: null
 set_username:
   fields:
     username:
@@ -1611,5 +1812,8 @@ set_username:
         text: null
       default: ''
     config_entry_id:
+      selector:
+        text: null
+    account:
       selector:
         text: null

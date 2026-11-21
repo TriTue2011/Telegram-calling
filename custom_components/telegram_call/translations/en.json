@@ -167,8 +167,12 @@
           "description": "Ngôn ngữ giọng đọc."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -181,8 +185,8 @@
           "description": "Leave empty if only one incoming call."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
         },
         "connect_now": {
           "name": "Nối ngay khi nghe máy",
@@ -211,6 +215,10 @@
         "volume": {
           "name": "Âm lượng loa (%)",
           "description": "0 = giữ nguyên âm lượng của loa."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -223,8 +231,12 @@
           "description": "Leave empty if only one call."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -257,8 +269,12 @@
           "description": "plain (default), markdown (Telegram MarkdownV2) or html."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -299,8 +315,12 @@
           "description": "plain (default), markdown (Telegram MarkdownV2) or html."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -337,8 +357,12 @@
           "description": "plain (default), markdown (Telegram MarkdownV2) or html."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -375,8 +399,12 @@
           "description": "plain (default), markdown (Telegram MarkdownV2) or html."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -413,8 +441,12 @@
           "description": "plain (default), markdown (Telegram MarkdownV2) or html."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -455,8 +487,12 @@
           "description": "ID of the message to reply to."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -489,8 +525,12 @@
           "description": "plain (default), markdown (Telegram MarkdownV2) or html."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -519,8 +559,12 @@
           "description": "Turn off to delete only on your side."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -549,8 +593,12 @@
           "description": "One or more IDs separated by commas (max 100)."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -583,8 +631,12 @@
           "description": "Turn on to remove instead of add."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -609,8 +661,12 @@
           "description": "IDs of viewed messages, comma separated."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -639,8 +695,12 @@
           "description": "Only messages older than this ID."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -653,8 +713,12 @@
           "description": "1–200, default 30."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -667,8 +731,12 @@
           "description": "Part of the name."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -681,8 +749,12 @@
           "description": "Part of name or @username (empty = all)."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -699,8 +771,12 @@
           "description": "ISO 639-1 language code."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -717,8 +793,12 @@
           "description": "Full path, e.g. /config/www/photo.jpg."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -731,8 +811,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -745,8 +829,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -759,8 +847,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -793,8 +885,12 @@
           "description": "Chờ đọc xong mới trả về."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -863,8 +959,12 @@
           "description": "Âm lượng loa lúc đang gọi; 0 = giữ nguyên."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -877,8 +977,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -891,8 +995,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -905,8 +1013,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -919,8 +1031,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1021,12 +1137,16 @@
           "description": "Âm lượng loa lúc đang gọi; 0 = giữ nguyên."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
         },
         "video_request": {
           "name": "Video request",
           "description": "Caller turns the camera on mid-call: ask = only the video_request event (default); accept = agree, send a black picture; accept_camera = agree and send the chosen camera."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1123,12 +1243,16 @@
           "description": "Âm lượng loa lúc đang gọi; 0 = giữ nguyên."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
         },
         "video_request": {
           "name": "Video request",
           "description": "Caller turns the camera on mid-call: ask = only the video_request event (default); accept = agree, send a black picture; accept_camera = agree and send the chosen camera."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1153,8 +1277,12 @@
           "description": "Tên thẻ đã gắn bằng set_contact_tags (scope = tag)."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1163,8 +1291,12 @@
       "description": "Các quy tắc lưu sẵn, thẻ và ghi chú.",
       "fields": {
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1189,8 +1321,12 @@
           "description": "Ghi chú về người này."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1199,8 +1335,12 @@
       "description": "Mic/loa/camera và âm lượng mặc định của tích hợp (đã che khoá).",
       "fields": {
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1213,8 +1353,12 @@
           "description": "Lọc theo tên hoặc @username."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1231,8 +1375,12 @@
           "description": "Camera to send (empty = default camera, otherwise black)."
         },
         "config_entry_id": {
-          "name": "Telegram Call account",
-          "description": "Only needed with several accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1257,8 +1405,12 @@
           "description": "0 = unmute; -1 = use the Telegram default; positive = mute for that many seconds (max 1 year: 31622400). Example: 3600 = 1 hour."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1287,8 +1439,12 @@
           "description": "On if the chat is in the archive."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1313,8 +1469,12 @@
           "description": "On = archive, off = move back to the main list."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1339,8 +1499,12 @@
           "description": "On = mark unread, off = clear the mark."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1365,8 +1529,12 @@
           "description": "0 = off; usually 86400 (1 day), 604800 (1 week), 2678400 (1 month)."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1391,8 +1559,12 @@
           "description": "typing; recording_voice; or cancel."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1421,8 +1593,12 @@
           "description": "On = also remove the chat from the list."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1443,8 +1619,12 @@
           "description": "1-128 characters."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1461,8 +1641,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1483,8 +1667,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1513,8 +1701,12 @@
           "description": "On = pin only on your side (private chats)."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1535,8 +1727,12 @@
           "description": "Numeric message ID (from get_history or a send result)."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1581,8 +1777,12 @@
           "description": "Shown after answering (quizzes only)."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1607,8 +1807,12 @@
           "description": "1-based option numbers, comma separated. Empty = retract the vote."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1629,8 +1833,12 @@
           "description": "Numeric message ID (from get_history or a send result)."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1647,8 +1855,12 @@
           "description": "Public username, with or without @."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1669,8 +1881,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1707,8 +1923,12 @@
           "description": "On = let them see your number."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1729,8 +1949,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1751,8 +1975,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1773,8 +2001,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1791,8 +2023,12 @@
           "description": "Telegram user IDs, comma separated."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1817,8 +2053,12 @@
           "description": "Number of recent messages the new member sees (0-100); basic groups only."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1839,8 +2079,12 @@
           "description": "Numeric Telegram user ID of the member. Find it with find_user or get_contacts."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1873,8 +2117,12 @@
           "description": "On = joiners must be approved by an admin."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1887,8 +2135,12 @@
           "description": "Like https://t.me/+abc… or https://t.me/joinchat/…."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1897,8 +2149,12 @@
       "description": "Return name, @username and phone of the logged-in Telegram account.",
       "fields": {
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1915,8 +2171,12 @@
           "description": "Up to 64 characters."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1929,8 +2189,12 @@
           "description": "Up to 70 characters; empty = clear."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     },
@@ -1943,8 +2207,50 @@
           "description": "5-32 characters a-z, 0-9, _; empty = remove."
         },
         "config_entry_id": {
-          "name": "Account",
-          "description": "Only needed with several Telegram Call accounts."
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
+        }
+      }
+    },
+    "send_media_group": {
+      "name": "Send album",
+      "description": "Send a photo/video album, or send files individually when they cannot form an album.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "Chat ID",
+          "description": "Numeric ID; negative = group/channel. Use chat_id OR peer."
+        },
+        "peer": {
+          "name": "Recipient (@username / +phone)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "reply_to": {
+          "name": "Reply to message",
+          "description": "ID of the message to reply to."
+        },
+        "format": {
+          "name": "Text format",
+          "description": "plain (default), markdown (Telegram MarkdownV2) or html."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Highest priority. Leave empty to select by account or use the default account."
+        },
+        "media": {
+          "name": "Album files",
+          "description": "List of media_type, file and caption for each file."
+        },
+        "account": {
+          "name": "Telegram account",
+          "description": "Phone number with country code or Telegram display name. Empty uses the default; duplicate names require a phone or config_entry_id."
         }
       }
     }

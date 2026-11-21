@@ -167,8 +167,12 @@
           "description": "Ngôn ngữ giọng đọc."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -181,8 +185,8 @@
           "description": "Bỏ trống nếu chỉ có một cuộc gọi đến."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
         },
         "connect_now": {
           "name": "Nối ngay khi nghe máy",
@@ -211,6 +215,10 @@
         "volume": {
           "name": "Âm lượng loa (%)",
           "description": "0 = giữ nguyên âm lượng của loa."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -223,8 +231,12 @@
           "description": "Bỏ trống nếu chỉ có một cuộc gọi."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -257,8 +269,12 @@
           "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -299,8 +315,12 @@
           "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -337,8 +357,12 @@
           "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -375,8 +399,12 @@
           "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -413,8 +441,12 @@
           "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -455,8 +487,12 @@
           "description": "ID tin nhắn muốn trả lời (trích dẫn)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -489,8 +525,12 @@
           "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -519,8 +559,12 @@
           "description": "Tắt thì chỉ xoá phía bạn."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -549,8 +593,12 @@
           "description": "Một hoặc nhiều ID, cách nhau dấu phẩy (tối đa 100)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -583,8 +631,12 @@
           "description": "Bật để gỡ thay vì thả."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -609,8 +661,12 @@
           "description": "ID các tin đã xem, cách nhau dấu phẩy."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -639,8 +695,12 @@
           "description": "Chỉ lấy các tin cũ hơn ID này."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -653,8 +713,12 @@
           "description": "1–200, mặc định 30."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -667,8 +731,12 @@
           "description": "Một phần tên."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -681,8 +749,12 @@
           "description": "Một phần tên hoặc @username (bỏ trống = tất cả)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -699,8 +771,12 @@
           "description": "Mã ngôn ngữ ISO 639-1."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -717,8 +793,12 @@
           "description": "Đường dẫn đầy đủ, ví dụ /config/www/anh.jpg."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -731,8 +811,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -745,8 +829,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -759,8 +847,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -793,8 +885,12 @@
           "description": "Chờ đọc xong mới trả về."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -863,8 +959,12 @@
           "description": "Âm lượng loa lúc đang gọi; 0 = giữ nguyên."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -877,8 +977,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -891,8 +995,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -905,8 +1013,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -919,8 +1031,12 @@
           "description": "Bỏ trống = cuộc gọi duy nhất đang có."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1021,12 +1137,16 @@
           "description": "Âm lượng loa lúc đang gọi; 0 = giữ nguyên."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
         },
         "video_request": {
           "name": "Xin chuyển sang video",
           "description": "Người gọi bật camera giữa cuộc thoại: ask = chỉ báo sự kiện video_request (mặc định); accept = đồng ý, gửi hình đen; accept_camera = đồng ý và gửi camera đã chọn."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1123,12 +1243,16 @@
           "description": "Âm lượng loa lúc đang gọi; 0 = giữ nguyên."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
         },
         "video_request": {
           "name": "Xin chuyển sang video",
           "description": "Người gọi bật camera giữa cuộc thoại: ask = chỉ báo sự kiện video_request (mặc định); accept = đồng ý, gửi hình đen; accept_camera = đồng ý và gửi camera đã chọn."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1153,8 +1277,12 @@
           "description": "Tên thẻ đã gắn bằng set_contact_tags (scope = tag)."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1163,8 +1291,12 @@
       "description": "Các quy tắc lưu sẵn, thẻ và ghi chú.",
       "fields": {
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1189,8 +1321,12 @@
           "description": "Ghi chú về người này."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1199,8 +1335,12 @@
       "description": "Mic/loa/camera và âm lượng mặc định của tích hợp (đã che khoá).",
       "fields": {
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1213,8 +1353,12 @@
           "description": "Lọc theo tên hoặc @username."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1231,8 +1375,12 @@
           "description": "Camera gửi hình (trống = camera mặc định, không có thì hình đen)."
         },
         "config_entry_id": {
-          "name": "Tài khoản Telegram Call",
-          "description": "Chỉ cần khi có nhiều tài khoản."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1257,8 +1405,12 @@
           "description": "0 = bật lại thông báo; -1 = theo mặc định của Telegram; số dương = tắt chừng đó giây (tối đa 1 năm: 31622400). Ví dụ 3600 = 1 giờ."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1287,8 +1439,12 @@
           "description": "Bật nếu cuộc trò chuyện đang nằm trong mục lưu trữ."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1313,8 +1469,12 @@
           "description": "Bật = lưu trữ, tắt = đưa ra danh sách chính."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1339,8 +1499,12 @@
           "description": "Bật = đánh dấu chưa đọc, tắt = bỏ dấu."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1365,8 +1529,12 @@
           "description": "0 = tắt; thường dùng 86400 (1 ngày), 604800 (1 tuần), 2678400 (1 tháng)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1391,8 +1559,12 @@
           "description": "typing = đang gõ; recording_voice = đang ghi âm; cancel = tắt trạng thái."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1421,8 +1593,12 @@
           "description": "Bật = bỏ luôn cuộc trò chuyện khỏi danh sách."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1443,8 +1619,12 @@
           "description": "1-128 ký tự."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1461,8 +1641,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1483,8 +1667,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1513,8 +1701,12 @@
           "description": "Bật = chỉ ghim ở phía bạn (hội thoại riêng)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1535,8 +1727,12 @@
           "description": "Số ID của tin nhắn (lấy từ get_history hoặc kết quả gửi tin)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1581,8 +1777,12 @@
           "description": "Hiện sau khi trả lời (chỉ câu đố)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1607,8 +1807,12 @@
           "description": "Số thứ tự đáp án (từ 1), nhiều đáp án cách nhau bằng dấu phẩy. Để trống = rút phiếu."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1629,8 +1833,12 @@
           "description": "Số ID của tin nhắn (lấy từ get_history hoặc kết quả gửi tin)."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1647,8 +1855,12 @@
           "description": "Tên người dùng công khai, có hoặc không có @."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1669,8 +1881,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1707,8 +1923,12 @@
           "description": "Bật = để người đó thấy số của bạn."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1729,8 +1949,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1751,8 +1975,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1773,8 +2001,12 @@
           "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1791,8 +2023,12 @@
           "description": "ID Telegram của các thành viên, cách nhau bằng dấu phẩy."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1817,8 +2053,12 @@
           "description": "Số tin gần nhất người mới được thấy (0-100); chỉ cho nhóm cơ bản."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1839,8 +2079,12 @@
           "description": "Số ID Telegram của người cần thêm/mời ra. Tìm bằng dịch vụ find_user hoặc get_contacts."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1873,8 +2117,12 @@
           "description": "Bật = người vào phải được quản trị duyệt."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1887,8 +2135,12 @@
           "description": "Dạng https://t.me/+abc… hoặc https://t.me/joinchat/…."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1897,8 +2149,12 @@
       "description": "Trả về tên, @username và số điện thoại của tài khoản Telegram đang đăng nhập.",
       "fields": {
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1915,8 +2171,12 @@
           "description": "Tối đa 64 ký tự."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1929,8 +2189,12 @@
           "description": "Tối đa 70 ký tự; để trống = xoá."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     },
@@ -1943,8 +2207,50 @@
           "description": "5-32 ký tự a-z, 0-9, _; để trống = bỏ."
         },
         "config_entry_id": {
-          "name": "Tài khoản",
-          "description": "Chỉ cần khi có nhiều tài khoản Telegram Call."
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
+        }
+      }
+    },
+    "send_media_group": {
+      "name": "Gửi album",
+      "description": "Gửi album ảnh/video, hoặc gửi lần lượt khi các tệp không ghép được.",
+      "fields": {
+        "recipient": {
+          "name": "Chọn người từ danh bạ",
+          "description": "Chọn người nhận từ danh bạ (thực thể «Telegram Call <tên>») thay cho việc dán ID. Người KHÔNG có trong danh bạ: bỏ trống ô này và nhập @username, số điện thoại (có mã nước) hoặc ID số ở ô bên dưới."
+        },
+        "chat_id": {
+          "name": "ID cuộc trò chuyện",
+          "description": "Số ID; âm = nhóm/kênh. Dùng chat_id HOẶC peer."
+        },
+        "peer": {
+          "name": "Người nhận (@username / +số)",
+          "description": "Người KHÔNG có trong danh bạ: @username, số điện thoại (có mã nước; người đó phải cho phép tìm bằng số) hoặc ID số. Người trong danh bạ thì chọn ở ô «Chọn người từ danh bạ»."
+        },
+        "reply_to": {
+          "name": "Trả lời tin số",
+          "description": "ID tin nhắn muốn trả lời (trích dẫn)."
+        },
+        "format": {
+          "name": "Định dạng chữ",
+          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "config_entry_id": {
+          "name": "Mục cấu hình",
+          "description": "Ưu tiên cao nhất. Bỏ trống để chọn bằng account hoặc dùng tài khoản mặc định."
+        },
+        "media": {
+          "name": "Tệp trong album",
+          "description": "Danh sách media_type, file và caption của từng tệp."
+        },
+        "account": {
+          "name": "Tài khoản Telegram",
+          "description": "Số điện thoại có mã nước hoặc tên hiển thị trên Telegram. Bỏ trống dùng mặc định; tên trùng phải dùng số hoặc config_entry_id."
         }
       }
     }
