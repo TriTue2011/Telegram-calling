@@ -5,6 +5,7 @@ DOMAIN = "telegram_call"
 CONF_URL = "url"                  # địa chỉ gateway (telegram-gateway), ví dụ http://172.16.10.200:3333
 CONF_TOKEN = "token"              # GATEWAY_TOKEN của gateway (gửi dạng Authorization: Bearer)
 CONF_ACCOUNT = "account"          # số điện thoại tài khoản Telegram trên gateway
+CONF_DEFAULT = "default_account"  # mục dùng cho dịch vụ không chỉ định tài khoản
 
 CONF_MIC = "mic"                  # nhãn «Tên · entity_id» của nguồn mic (camera / vệ tinh Assist)
 CONF_MIC_URL = "mic_url"          # URL mic bất kỳ (rtsp/http…), thay cho CONF_MIC

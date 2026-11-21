@@ -18,6 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from . import call_rules, catalog
 from .api import TelegramCallError
+from .accounts import default_entry
 from .rules import (CALL_TYPES, CONNECT, MAX_ANNOUNCE_REPEAT, MAX_NOTE_LEN, RULES_KEY, SCOPES, VIDEO_REQUEST, RuleError, get_rules, normalize as normalize_rule,
                     parse_tags, validate_scope)
 from .bridge_core import redact
@@ -196,10 +197,10 @@ def _entry(hass: HomeAssistant, call: ServiceCall) -> ConfigEntry:
     want = call.data.get("config_entry_id")
     if want:
         entries = [e for e in entries if e.entry_id == want]
-    if len(entries) != 1:
-        raise ServiceValidationError("Chưa có (hoặc có nhiều) tài khoản Telegram Call: chỉ rõ config_entry_id" if not want
-                                     else f"Không có mục cấu hình {want}")
-    return entries[0]
+    entry = entries[0] if want and entries else default_entry(entries)
+    if entry is None:
+        raise ServiceValidationError(f"Không có mục cấu hình {want}" if want else "Chưa có tài khoản Telegram Call nào được nạp")
+    return entry
 
 
 def _schema_keys(schema: Any) -> set[str]:

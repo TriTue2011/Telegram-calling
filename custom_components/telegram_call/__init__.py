@@ -21,7 +21,7 @@ from . import call_rules
 from .bridge_core import derive_state, redact
 from .call_rules import CallVoice
 from .contacts import ContactBook
-from .const import CONF_ACCOUNT, CONF_TOKEN, CONF_URL, DOMAIN, EVENT_STATE, POLL_BUSY_S, POLL_IDLE_S
+from .const import CONF_ACCOUNT, CONF_DEFAULT, CONF_TOKEN, CONF_URL, DOMAIN, EVENT_STATE, POLL_BUSY_S, POLL_IDLE_S
 from .devices import DeviceDefaults
 from .messages import MessageFeed
 from .rules import get_rules
@@ -208,6 +208,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await account.async_refresh()                                  # lỗi tạm thời không chặn nạp tích hợp: cảm biến báo «không rõ» tới lần hỏi sau
     hass.async_create_task(coordinator.contacts.async_lookup(0))   # làm nóng danh bạ: cuộc gọi đến đầu tiên không phải chờ tải
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    if not any(e.options.get(CONF_DEFAULT) for e in hass.config_entries.async_entries(DOMAIN)):
+        hass.config_entries.async_update_entry(entry, options={**entry.options, CONF_DEFAULT: True})
     entry.async_on_unload(entry.add_update_listener(_async_reload_on_options))
     hass.async_create_task(bridge.async_push_defaults())
     entry.async_create_background_task(hass, messages.run(), f"{DOMAIN}_messages")       # huỷ tự động khi gỡ mục cấu hình

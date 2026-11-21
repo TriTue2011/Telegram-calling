@@ -1955,7 +1955,8 @@
         "title": "Recipients for messages and calls",
         "description": "Pick people from your Telegram contacts. Each one becomes a notify entity you can choose in blueprints and automations (no typing ids).",
         "data": {
-          "recipients": "Recipients"
+          "recipients": "Recipients",
+          "default_account": "Default account for services without an account selector"
         }
       }
     },

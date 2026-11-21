@@ -11,7 +11,8 @@ from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import TelegramCallAuthError, TelegramCallError, TelegramGatewayApi
-from .const import CONF_ACCOUNT, CONF_TOKEN, CONF_URL, DOMAIN
+from .accounts import default_entry
+from .const import CONF_ACCOUNT, CONF_DEFAULT, CONF_TOKEN, CONF_URL, DOMAIN
 
 _TOKEN = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
 
@@ -125,9 +126,18 @@ class TelegramCallOptionsFlow(OptionsFlow):
             return self.async_abort(reason="cannot_connect")
         options = [selector.SelectOptionDict(value=str(r["id"]), label=str(r.get("name") or r.get("username") or r["id"])) for r in rows if r.get("id")]
         valid = {o["value"] for o in options}
+        entries = self.hass.config_entries.async_loaded_entries(DOMAIN)
+        default = default_entry(entries)
         if user_input is not None:
-            return self.async_create_entry(data={**self.config_entry.options, "recipients": [v for v in user_input.get("recipients", []) if v in valid]})
+            chosen = user_input.get(CONF_DEFAULT, default.entry_id)
+            for entry in entries:
+                if entry.entry_id != self.config_entry.entry_id and bool(entry.options.get(CONF_DEFAULT)) != (entry.entry_id == chosen):
+                    self.hass.config_entries.async_update_entry(entry, options={**entry.options, CONF_DEFAULT: entry.entry_id == chosen})
+            return self.async_create_entry(data={**self.config_entry.options, CONF_DEFAULT: self.config_entry.entry_id == chosen,
+                                                "recipients": [v for v in user_input.get("recipients", []) if v in valid]})
         current = [v for v in (self.config_entry.options.get("recipients") or []) if v in valid]
         return self.async_show_form(step_id="init", data_schema=vol.Schema({
+            vol.Optional(CONF_DEFAULT, default=default.entry_id): selector.SelectSelector(selector.SelectSelectorConfig(
+                options=[selector.SelectOptionDict(value=e.entry_id, label=e.title) for e in entries])),
             vol.Optional("recipients", default=current): selector.SelectSelector(selector.SelectSelectorConfig(
                 options=options, multiple=True, mode=selector.SelectSelectorMode.DROPDOWN, sort=True))}))

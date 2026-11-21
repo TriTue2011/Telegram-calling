@@ -1955,7 +1955,8 @@
         "title": "Người nhận tin và cuộc gọi",
         "description": "Chọn người từ danh bạ Telegram làm người nhận. Mỗi người là một thực thể notify để chọn trong blueprint và automation (không phải gõ ID).",
         "data": {
-          "recipients": "Người nhận"
+          "recipients": "Người nhận",
+          "default_account": "Tài khoản mặc định cho dịch vụ không chỉ định tài khoản"
         }
       }
     },
