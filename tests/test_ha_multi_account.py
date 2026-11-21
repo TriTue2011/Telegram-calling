@@ -6,6 +6,7 @@ pytest.importorskip("pytest_homeassistant_custom_component")
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from test_ha_end_to_end import DOMAIN, TOKEN, FakeGateway, call
 
 PHONE_A, PHONE_B = "+84900000000", "+84900000001"
@@ -70,3 +71,25 @@ async def test_services_select_by_phone_name_and_entry_id_priority(hass, two_acc
     await call(hass, "get_me", {"account": "Cơ quan"})
     req = gw.last("/api/do/get_me")
     assert req["query"]["account"] == PHONE_B and req["json"] == {}
+
+
+async def test_profile_rename_updates_device_without_changing_existing_entity_ids(hass, two_accounts):
+    gw, (first, second) = two_accounts
+    devices, entities = dr.async_get(hass), er.async_get(hass)
+    device = devices.async_get_device(identifiers={(DOMAIN, first.entry_id)})
+    assert device.name == "Telegram Call — Nhà"
+    assert devices.async_get_device(identifiers={(DOMAIN, second.entry_id)}).name == "Telegram Call — Cơ quan"
+    eid = entities.async_get_entity_id("sensor", DOMAIN, f"{first.entry_id}_call_state")
+    entities.async_update_entity(eid, new_entity_id="sensor.telegram_call_call_state")
+    before = {e.unique_id: e.entity_id for e in er.async_entries_for_config_entry(entities, first.entry_id)}
+    gw.accounts[0]["display_name"] = "Tên mới"
+    await first.runtime_data.account.async_refresh()
+    await hass.async_block_till_done()
+    assert devices.async_get(device.id).name == "Telegram Call — Tên mới"
+    after = {e.unique_id: e.entity_id for e in er.async_entries_for_config_entry(entities, first.entry_id)}
+    assert before == after
+    await hass.config_entries.async_reload(first.entry_id)
+    await hass.async_block_till_done()
+    assert before == {e.unique_id: e.entity_id for e in er.async_entries_for_config_entry(entities, first.entry_id)}
+    await call(hass, "send_message", {"account": "Tên mới", "chat_id": 42, "message": "x"})
+    assert gw.last("/send")["query"]["account"] == PHONE_A

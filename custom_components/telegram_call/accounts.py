@@ -4,6 +4,12 @@ from __future__ import annotations
 from .const import CONF_ACCOUNT, CONF_DEFAULT
 
 
+def device_name(phone: str, display_name: str = "") -> str:
+    """Tên Telegram hoặc số che giữa; không đổi định danh thiết bị/thực thể."""
+    label = display_name.strip() or (phone[:3] + "…" + phone[-3:] if len(phone) > 6 else "…")
+    return f"Telegram Call — {label}"
+
+
 def default_entry(entries):
     """Ưu tiên mục đã lưu mặc định; khi mục ấy chưa nạp, dùng mục nạp đầu tiên."""
     return next((e for e in entries if e.options.get(CONF_DEFAULT)), entries[0] if entries else None)

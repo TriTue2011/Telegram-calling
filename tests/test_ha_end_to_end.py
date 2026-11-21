@@ -27,6 +27,7 @@ if os.path.abspath(_REPO_CC) not in [os.path.abspath(p) for p in custom_componen
 
 from aiohttp import web  # noqa: E402
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError  # noqa: E402
+from homeassistant.helpers import entity_registry as er  # noqa: E402
 from homeassistant.setup import async_setup_component  # noqa: E402
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_capture_events  # noqa: E402
 import voluptuous as vol  # noqa: E402
@@ -268,7 +269,7 @@ async def test_incoming_message_fires_event_updates_sensor_and_skips_old_and_own
     ev = events[0].data
     assert ev == {"chat_id": 42, "message_id": 21, "sender": "Đại ca", "kind": "photo", "text": "xem ảnh", "summary": "🖼 Ảnh",
                   "reply_to": 5, "date": 99, "file_id": 77, "file_name": "a.jpg", "mime": "image/jpeg"}
-    st = hass.states.get("sensor.telegram_call_last_message")
+    st = hass.states.get(er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{setup.entry_id}_last_message"))
     assert st is not None and st.state == "xem ảnh" and st.attributes["file_id"] == 77 and st.attributes["received"] == 1
 
 

@@ -13,9 +13,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import TelegramCallAuthError, TelegramCallError, TelegramGatewayApi
+from .accounts import device_name
 from .bridge import CallBridge
 from . import call_rules
 from .bridge_core import derive_state, redact
@@ -172,9 +174,14 @@ class AccountCoordinator(DataUpdateCoordinator[dict]):
         except TelegramCallError as err:
             raise UpdateFailed(str(err)) from err
         mine = next((a for a in accounts if a.get("phone") == self._phone), None) or (accounts[0] if len(accounts) == 1 and not self._phone else None)
-        if mine is None:
-            return {"status": "missing", "display_name": ""}
-        return {"status": str(mine.get("status") or "unknown"), "display_name": str(mine.get("display_name") or "")}
+        data = {"status": str(mine.get("status") or "unknown"), "display_name": str(mine.get("display_name") or ""), "phone": str(mine["phone"])} if mine else {
+            "status": "missing", "display_name": "", "phone": self._phone}
+        registry = dr.async_get(self.hass)
+        device = registry.async_get_device(identifiers={(DOMAIN, self.config_entry.entry_id)})
+        name = device_name(data["phone"], data["display_name"])
+        if device is not None and device.name != name:
+            registry.async_update_device(device.id, name=name)
+        return data
 
 
 async def _async_reload_on_options(hass: HomeAssistant, entry: ConfigEntry) -> None:

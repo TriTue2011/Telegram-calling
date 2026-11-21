@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import async_track_time_interval
 
 from .api import TelegramCallError
@@ -92,7 +93,10 @@ class TelegramRecipient(NotifyEntity):
         self._uid = str(user_id)
         self._attr_unique_id = "%s_to_%s" % (entry.entry_id, self._uid)
         self._attr_name = name
-        self._attr_device_info = device_info(entry)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return device_info(self._entry)
 
     @property
     def extra_state_attributes(self) -> dict[str, str]:
