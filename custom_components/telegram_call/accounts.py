@@ -24,14 +24,16 @@ def select_entry(entries, entry_id="", account=""):
         return match
     if account:
         want = account.strip().casefold()
-        matches = [e for e in entries if want and want in {
-            str(e.data.get(CONF_ACCOUNT) or "").casefold(),
-            str((e.runtime_data.account.data or {}).get("display_name") or "").strip().casefold(),
-        }]
+        phones = [e for e in entries if want and e.data.get(CONF_ACCOUNT) == want]
+        matches = phones or [
+            e for e in entries
+            if want and str((e.runtime_data.account.data or {}).get("display_name") or "").strip().casefold() == want
+        ]
         if not matches:
             raise ValueError(f"Không tìm thấy tài khoản Telegram Call «{account}» được nạp")
         if len(matches) > 1:
-            raise ValueError(f"Có nhiều tài khoản Telegram Call khớp «{account}»: hãy dùng số điện thoại hoặc config_entry_id")
+            selector = "config_entry_id" if phones else "số điện thoại hoặc config_entry_id"
+            raise ValueError(f"Có nhiều tài khoản Telegram Call khớp «{account}»: hãy dùng {selector}")
         return matches[0]
     match = default_entry(entries)
     if match is None:

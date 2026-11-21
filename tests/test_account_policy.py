@@ -63,6 +63,12 @@ def test_duplicate_display_names_require_an_unambiguous_selector():
     assert accounts.select_entry(entries, account="+84900000001") is entries[1]
 
 
+def test_account_phone_takes_precedence_over_another_accounts_display_name():
+    first = entry("a", phone="+84900000000", name="+84900000001")
+    second = entry("b", phone="+84900000001", name="Cơ quan")
+    assert accounts.select_entry([first, second], account="+84900000001") is second
+
+
 def test_device_name_follows_profile_and_masks_phone_fallback():
     assert accounts.device_name("+84900000000", "Nhà") == "Telegram Call — Nhà"
     assert accounts.device_name("+84900000000", "Tên mới") == "Telegram Call — Tên mới"

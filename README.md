@@ -102,6 +102,7 @@ Danh bạ, thiết bị mặc định, quy tắc và cuộc gọi của mỗi m�
 Đổi tại **Telegram Call → Cấu hình → Tài khoản mặc định cho dịch vụ không chỉ định tài khoản**.
 Mọi dịch vụ `telegram_call.*` chọn theo thứ tự **`config_entry_id` → `account` → mặc định**.
 `account` nhận số điện thoại đầy đủ có mã nước hoặc tên hiển thị (không phân biệt hoa thường).
+Số điện thoại khớp được ưu tiên nếu trùng với tên hiển thị của tài khoản khác.
 Tên không tồn tại hoặc trùng nhiều tài khoản báo lỗi; hãy dùng số điện thoại hoặc `config_entry_id` khi tên trùng.
 Các automation/blueprint cũ không có hai trường này tiếp tục chạy trên mặc định khi thêm mục thứ hai.
 Nếu mục mặc định tạm thời chưa nạp, dịch vụ dùng mục đầu tiên đang nạp; nếu chưa nạp mục nào thì báo lỗi.
