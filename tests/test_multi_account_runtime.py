@@ -1,6 +1,7 @@
 """Chạy logic runtime thật với các biên HA giả; không thay thế kiểm thử HA đầu-cuối."""
 import ast
 import asyncio
+import pytest
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -258,3 +259,65 @@ def test_notify_entity_sends_through_its_own_entry_even_when_default_is_differen
     entity.hass = SimpleNamespace(services=SimpleNamespace(async_call=service))
     asyncio.run(entity.async_send_message("tin B"))
     assert sent == [(("telegram_call", "send_message", {"config_entry_id": "entry-b", "peer": "42", "message": "tin B"}), {"blocking": True})]
+
+
+def test_service_entry_boundary_keeps_legacy_routing_and_reports_invalid_selectors():
+    from test_account_policy import entry
+
+    class ServiceValidationError(Exception):
+        pass
+
+    first, second = entry("a", True, "+84900000000", "Nhà"), entry("b", False, "+84900000001", "Cơ quan")
+    loaded = [first, second]
+    hass = SimpleNamespace(config_entries=SimpleNamespace(async_loaded_entries=lambda domain: loaded))
+    module = definitions("services.py", ["_entry"], DOMAIN="telegram_call", select_entry=accounts.select_entry,
+                         ServiceValidationError=ServiceValidationError)
+    assert module._entry(hass, SimpleNamespace(data={})) is first
+    assert module._entry(hass, SimpleNamespace(data={"account": "Cơ quan"})) is second
+    assert module._entry(hass, SimpleNamespace(data={"account": "Cơ quan", "config_entry_id": "a"})) is first
+    with pytest.raises(ServiceValidationError, match="Không tìm thấy tài khoản"):
+        module._entry(hass, SimpleNamespace(data={"account": "không có"}))
+    loaded.clear()
+    with pytest.raises(ServiceValidationError, match="Chưa có tài khoản"):
+        module._entry(hass, SimpleNamespace(data={}))
+
+
+@pytest.mark.parametrize("phones", [["+84900000000"], ["+84900000000", "+84900000001"], []])
+def test_legacy_entry_without_account_is_bound_before_any_account_requests(phones):
+    class ConfigEntryNotReady(Exception):
+        pass
+
+    class ReachedAccountSetup(Exception):
+        pass
+
+    class Api:
+        account = ""
+
+        async def health(self):
+            pass
+
+        async def accounts(self):
+            return [{"phone": phone} for phone in phones]
+
+    class Defaults:
+        def __init__(self, *args):
+            assert api.account == "+84900000000"
+
+        async def async_load(self):
+            raise ReachedAccountSetup
+
+    api = Api()
+    module = definitions("__init__.py", ["async_setup_entry"], TelegramGatewayApi=lambda *args: api,
+                         async_get_clientsession=lambda hass: None, CONF_URL="url", CONF_TOKEN="token", CONF_ACCOUNT="account",
+                         TelegramCallCoordinator=lambda *args: None, DeviceDefaults=Defaults, ConfigEntryNotReady=ConfigEntryNotReady)
+    updates = []
+    hass = SimpleNamespace(config_entries=SimpleNamespace(async_update_entry=lambda entry, **kwargs: updates.append(kwargs)))
+    entry = SimpleNamespace(entry_id="old", data={"url": "http://192.0.2.10", "token": "TOKEN-GIA"})
+    if len(phones) == 1:
+        with pytest.raises(ReachedAccountSetup):
+            asyncio.run(module.async_setup_entry(hass, entry))
+        assert updates == [{"data": {**entry.data, "account": "+84900000000"}}]
+    else:
+        with pytest.raises(ConfigEntryNotReady, match="chưa chọn tài khoản"):
+            asyncio.run(module.async_setup_entry(hass, entry))
+        assert updates == [] and api.account == ""
