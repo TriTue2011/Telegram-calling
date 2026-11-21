@@ -548,7 +548,7 @@ async def async_run_alert(hass: HomeAssistant, rt: Any, cid: str, user_id: Any, 
         if after == "hangup" or (after == "connect" and not connected):
             await rt.api.hangup(cid)
             after = "hangup"
-        hass.bus.async_fire("telegram_call_alert_done", {"call_id": cid, "user_id": user_id, "after": after, "connected": bool(connected),
+        hass.bus.async_fire("telegram_call_alert_done", {"account": rt.api.account, "call_id": cid, "user_id": user_id, "after": after, "connected": bool(connected),
                                                          "connected_parts": connected, "ended": after == "hangup"})
         await rt.coordinator.async_refresh()
     except asyncio.CancelledError:

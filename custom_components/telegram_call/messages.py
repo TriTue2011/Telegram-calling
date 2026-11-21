@@ -30,12 +30,14 @@ class MessageFeed:
     def handle(self, item: dict) -> None:
         ev = message_event(item)
         if ev is not None:
+            ev["account"] = item.get("account") or self._api.account
             self.last, self.received = ev, self.received + 1
             self._hass.bus.async_fire(EVENT_MESSAGE, ev)
             async_dispatcher_send(self._hass, SIGNAL_MESSAGE.format(self._entry_id))
             return
         fail = send_failed_event(item)
         if fail is not None:
+            fail["account"] = item.get("account") or self._api.account
             self._hass.bus.async_fire(EVENT_SEND_FAILED, fail)
 
     async def run(self) -> None:

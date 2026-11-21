@@ -169,6 +169,7 @@ async def test_event_carries_contact_status_name_and_tags(hass, setup, gw):
     assert await until(lambda: any(e["call_id"] == "f" for e in seen))
     e = [e for e in seen if e["call_id"] == "f"][0]
     assert (e["contact_status"], e["name"], e["tags"], e["call_type"]) == ("friend", "Đại ca", ["gia đình", "vip"], "voice"), e
+    assert e["account"] == "+84900000000"
     gw.calls = [dict(RINGING, id="s", user_id=99, video=True)]
     assert await until(lambda: any(e["call_id"] == "s" for e in seen))
     e = [e for e in seen if e["call_id"] == "s"][0]
@@ -264,6 +265,7 @@ async def test_alert_call_dials_with_everything_off_reads_then_hangs_up_and_anno
     assert await until(lambda: events, 12)
     assert reqs(gw, "/api/live/say") and reqs(gw, "/api/live/hangup")[-1] == {"id": "n1"}
     assert events[0]["after"] == "hangup" and events[0]["ended"] is True and events[0]["user_id"] == 7
+    assert events[0]["account"] == "+84900000000"
 
 
 # -- kiểm dữ liệu vào ------------------------------------------------------------------------------------------
@@ -360,6 +362,7 @@ async def test_peer_turning_the_camera_on_fires_video_request_once(hass, setup, 
     assert len([e for e in seen if e["state"] == "video_request"]) == 1               # bật liên tục chỉ báo MỘT lần
     e = [e for e in seen if e["state"] == "video_request"][0]
     assert e["call_id"] == "c1" and e["user_id"] == 5 and e["call_type"] == "voice"
+    assert e["account"] == "+84900000000"
     assert not reqs(gw, "/api/live/media"), "mặc định «ask»: chỉ báo sự kiện, không tự đồng ý"
 
 

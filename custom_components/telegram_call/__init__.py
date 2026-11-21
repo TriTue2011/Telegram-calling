@@ -127,7 +127,7 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
             status, name = await self.contacts.async_lookup(c.get("user_id")) if self.contacts is not None else ("unknown", "")
             tags = ((get_rules(self.defaults).get("contact_meta") or {}).get(str(c.get("user_id"))) or {}).get("tags", []) if self.defaults is not None else []
             events.append({
-                "state": state, "call_id": cid, "user_id": c.get("user_id"), "outgoing": bool(c.get("outgoing")),
+                "account": c.get("account") or self.api.account, "state": state, "call_id": cid, "user_id": c.get("user_id"), "outgoing": bool(c.get("outgoing")),
                 "video": bool(c.get("video")), "call_type": "video" if c.get("video") else "voice", "seconds": c.get("seconds"),
                 "contact_status": status, "name": name, "tags": list(tags), "error": redact(str(c.get("error") or ""))})
         for c in calls:                                   # bên kia vừa BẬT camera giữa cuộc thoại đang nói = xin chuyển sang video
@@ -136,7 +136,7 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
             self._peer_video[cid] = on
             if on and not was and c.get("state") == "active" and not c.get("video"):
                 status, name = await self.contacts.async_lookup(c.get("user_id")) if self.contacts is not None else ("unknown", "")
-                events.append({"state": "video_request", "call_id": cid, "user_id": c.get("user_id"), "outgoing": bool(c.get("outgoing")), "video": False,
+                events.append({"account": c.get("account") or self.api.account, "state": "video_request", "call_id": cid, "user_id": c.get("user_id"), "outgoing": bool(c.get("outgoing")), "video": False,
                                "call_type": "voice", "seconds": c.get("seconds"), "contact_status": status, "name": name, "tags": [], "error": ""})
         ids = {str(c.get("id")) for c in calls}
         for old in [k for k in self._peer_video if k not in ids]:

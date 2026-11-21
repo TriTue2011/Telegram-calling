@@ -268,7 +268,7 @@ async def test_incoming_message_fires_event_updates_sensor_and_skips_old_and_own
     assert len(events) == 1, [e.data for e in events]
     ev = events[0].data
     assert ev == {"chat_id": 42, "message_id": 21, "sender": "Đại ca", "kind": "photo", "text": "xem ảnh", "summary": "🖼 Ảnh",
-                  "reply_to": 5, "date": 99, "file_id": 77, "file_name": "a.jpg", "mime": "image/jpeg"}
+                  "reply_to": 5, "date": 99, "file_id": 77, "file_name": "a.jpg", "mime": "image/jpeg", "account": "+84900000000"}
     st = hass.states.get(er.async_get(hass).async_get_entity_id("sensor", DOMAIN, f"{setup.entry_id}_last_message"))
     assert st is not None and st.state == "xem ảnh" and st.attributes["file_id"] == 77 and st.attributes["received"] == 1
 
@@ -281,7 +281,7 @@ async def test_send_failed_item_fires_event(hass, setup, gw):
         if events:
             break
         await asyncio.sleep(0.1)
-    assert events and events[0].data == {"chat_id": 42, "old_message_id": 9, "error": "FILE_PART_INVALID"}
+    assert events and events[0].data == {"chat_id": 42, "old_message_id": 9, "error": "FILE_PART_INVALID", "account": "+84900000000"}
 
 
 async def test_send_services_take_the_same_data_as_telegram_bot_so_one_blueprint_template_serves_both(hass, setup, gw, tmp_path):

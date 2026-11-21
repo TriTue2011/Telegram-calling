@@ -70,3 +70,40 @@ def test_device_info_uses_current_profile_and_entity_unique_id_is_stable():
     data["display_name"] = "Tên mới"
     assert entity.device_info["name"] == "Telegram Call — Tên mới"
     assert entity._attr_unique_id == "entry-a_call_state"
+
+
+def call_coordinator(phone):
+    core = definitions("bridge_core.py", ["derive_state"])
+    module = definitions("__init__.py", ["TelegramCallCoordinator"], DataUpdateCoordinator=Coordinator, _LOGGER=None,
+                         DOMAIN="telegram_call", POLL_IDLE_S=1.5, timedelta=timedelta, derive_state=core.derive_state,
+                         redact=lambda text: text, TERMINAL=("ended", "not_answered", "missed", "error"))
+    return module.TelegramCallCoordinator(object(), SimpleNamespace(), SimpleNamespace(account=phone))
+
+
+def test_call_and_video_request_events_keep_old_fields_and_add_account():
+    coordinator = call_coordinator("+84900000000")
+    call = {"id": "c1", "user_id": 5, "outgoing": False, "video": False, "state": "ringing", "account": "+84900000000"}
+    event = asyncio.run(coordinator._on_calls([call]))[0]
+    assert event["account"] == "+84900000000" and event["state"] == "incoming" and event["call_id"] == "c1"
+    events = asyncio.run(coordinator._on_calls([{**call, "state": "active", "peer_video": True}]))
+    assert {e["state"] for e in events} == {"answered", "video_request"}
+    assert all(e["account"] == "+84900000000" for e in events)
+
+
+def message_feed(phone, events):
+    core = definitions("bridge_core.py", ["message_event", "send_failed_event"], redact=lambda text: text)
+    module = definitions("messages.py", ["MessageFeed"], message_event=core.message_event, send_failed_event=core.send_failed_event,
+                         EVENT_MESSAGE="telegram_call_message", EVENT_SEND_FAILED="telegram_call_send_failed", SIGNAL_MESSAGE="message_{}",
+                         async_dispatcher_send=lambda *args: None)
+    hass = SimpleNamespace(bus=SimpleNamespace(async_fire=lambda event, data: events.append((event, data))))
+    return module.MessageFeed(hass, SimpleNamespace(account=phone), "entry")
+
+
+def test_message_and_failure_events_add_account_with_legacy_feed_fallback():
+    events = []
+    feed = message_feed("+84900000000", events)
+    feed.handle({"type": "message", "message": {"id": 1, "chat_id": 42, "text": "xin chào"}})
+    feed.handle({"type": "send_failed", "chat_id": 42, "old_id": 9, "error": "lỗi", "account": "+84900000000"})
+    assert len(events) == 2 and all(e[1]["account"] == "+84900000000" for e in events)
+    assert events[0][1]["text"] == "xin chào" and events[1][1]["old_message_id"] == 9
+    assert feed.received == 1
