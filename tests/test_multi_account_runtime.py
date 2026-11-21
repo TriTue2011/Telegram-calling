@@ -4,6 +4,7 @@ import asyncio
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import quote, parse_qs, urlsplit
 
 from test_account_policy import accounts
 
@@ -152,3 +153,108 @@ def test_options_switch_clears_unloaded_default_and_preserves_other_options():
     result = asyncio.run(flow.async_step_init({"default_account": "online", "recipients": []}))
     assert result["data"] == {"default_account": True, "recipients": []}
     assert changes == [("offline", {"options": {"default_account": False, "recipients": ["9"]}})]
+
+
+def test_two_message_feeds_never_accept_each_others_messages_or_failures():
+    a_events, b_events = [], []
+    a, b = message_feed("+84900000000", a_events), message_feed("+84900000001", b_events)
+    for phone, text in (("+84900000000", "tin A"), ("+84900000001", "tin B")):
+        for item in ({"type": "message", "account": phone, "message": {"id": 1, "chat_id": 42, "text": text}},
+                     {"type": "send_failed", "account": phone, "old_id": 1}):
+            a.handle(item)
+            b.handle(item)
+    assert a.received == b.received == 1
+    assert a.last["text"] == "tin A" and b.last["text"] == "tin B"
+    assert len(a_events) == len(b_events) == 2
+    assert all(e[1]["account"] == "+84900000000" for e in a_events)
+    assert all(e[1]["account"] == "+84900000001" for e in b_events)
+
+
+class Response:
+    status = 200
+
+    def __init__(self, payload=None):
+        self.payload = payload or {}
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        pass
+
+    async def json(self, **kwargs):
+        return self.payload
+
+    async def read(self):
+        return b"TEP-GIA"
+
+
+class Session:
+    def __init__(self):
+        self.requests = []
+        self.calls = [{"id": "same", "account": phone, "state": "ringing"} for phone in ("+84900000000", "+84900000001")]
+
+    def request(self, method, url, **kwargs):
+        self.requests.append((method, url, kwargs))
+        return Response({"calls": self.calls})
+
+    def get(self, url, **kwargs):
+        return self.request("GET", url, **kwargs)
+
+
+def api_module():
+    return definitions("api.py", ["TelegramCallError", "TelegramCallAuthError", "TelegramGatewayApi"],
+                       TIMEOUT=None, asyncio=asyncio, quote=quote, redact=lambda text: text,
+                       aiohttp=SimpleNamespace(ClientTimeout=lambda **kwargs: None, ClientError=OSError, ContentTypeError=ValueError))
+
+
+def test_api_scopes_calls_feed_upload_download_and_view_for_two_accounts():
+    session = Session()
+    module = api_module()
+
+    async def run():
+        for phone in ("+84900000000", "+84900000001"):
+            api = module.TelegramGatewayApi(session, "http://192.0.2.10:3333", "TOKEN-GIA", phone)
+            calls = await api.live_calls()
+            assert len(calls) == 1 and calls[0]["account"] == phone
+            await api.feed(9)
+            await api.accept("same")
+            await api.set_live_settings({"mic": "silence"})
+            await api.send_file(42, "photo", "a.jpg", b"photo")
+            await api.send_voice_tts("42", "xin chào")
+            assert await api.download_file(1) == b"TEP-GIA"
+            for _, _, kwargs in session.requests[-7:]:
+                assert kwargs["params"]["account"] == phone
+            assert parse_qs(urlsplit(api.view_url("same")).query) == {"account": [phone]}
+    asyncio.run(run())
+
+
+def test_two_call_coordinators_with_identical_call_ids_keep_separate_state():
+    module = api_module()
+    session = Session()
+    a, b = call_coordinator("+84900000000"), call_coordinator("+84900000001")
+
+    async def run():
+        clients = [module.TelegramGatewayApi(session, "http://192.0.2.10", "TOKEN-GIA", c.api.account) for c in (a, b)]
+        rows = await asyncio.gather(*(api.live_calls() for api in clients))
+        events = await asyncio.gather(a._on_calls(rows[0]), b._on_calls(rows[1]))
+        assert events[0][0]["account"] == "+84900000000" and events[1][0]["account"] == "+84900000001"
+        session.calls[0]["state"] = "active"
+        rows = await asyncio.gather(*(api.live_calls() for api in clients))
+        assert (await a._on_calls(rows[0]))[0]["state"] == "answered"
+        assert await b._on_calls(rows[1]) == []
+        assert a._was_active == {"same"} and b._was_active == set()
+    asyncio.run(run())
+
+
+def test_notify_entity_sends_through_its_own_entry_even_when_default_is_different():
+    module = definitions("notify.py", ["TelegramRecipient"], NotifyEntity=object, DOMAIN="telegram_call")
+    sent = []
+
+    async def service(*args, **kwargs):
+        sent.append((args, kwargs))
+
+    entity = module.TelegramRecipient(SimpleNamespace(entry_id="entry-b"), "42", "Người nhận")
+    entity.hass = SimpleNamespace(services=SimpleNamespace(async_call=service))
+    asyncio.run(entity.async_send_message("tin B"))
+    assert sent == [(("telegram_call", "send_message", {"config_entry_id": "entry-b", "peer": "42", "message": "tin B"}), {"blocking": True})]

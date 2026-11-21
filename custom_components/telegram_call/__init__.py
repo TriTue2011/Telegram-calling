@@ -197,11 +197,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     api = TelegramGatewayApi(async_get_clientsession(hass), entry.data[CONF_URL], entry.data[CONF_TOKEN], entry.data.get(CONF_ACCOUNT, ""))
     try:
         await api.health()
-        await api.accounts()                           # kiểm token (health không cần token)
+        accounts = await api.accounts()                # kiểm token (health không cần token)
     except TelegramCallAuthError as err:
         raise ConfigEntryAuthFailed(str(err)) from err
     except TelegramCallError as err:
         raise ConfigEntryNotReady(str(err)) from err
+    if not api.account:
+        if len(accounts) != 1:
+            raise ConfigEntryNotReady("Mục Telegram Call chưa chọn tài khoản: hãy chọn tài khoản trên gateway trước khi nạp")
+        api.account = accounts[0]["phone"]
+        hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_ACCOUNT: api.account})
     coordinator = TelegramCallCoordinator(hass, entry, api)
     defaults = DeviceDefaults(hass, entry.entry_id)
     await defaults.async_load()

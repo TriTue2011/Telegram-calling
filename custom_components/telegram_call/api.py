@@ -70,7 +70,8 @@ class TelegramGatewayApi:
         return (await self._request("GET", "/api/accounts", account=False)).get("tai_khoan", [])
 
     async def live_calls(self) -> list[dict]:
-        return (await self._request("GET", "/api/live/calls")).get("calls", [])
+        calls = (await self._request("GET", "/api/live/calls")).get("calls", [])
+        return [c for c in calls if not c.get("account") or c["account"] == self.account]
 
     async def live_call(self, target: int | str, video: bool = False, mic: str | None = None,
                         mic_format: str | None = None, camera: str | None = None, speaker: str | None = None) -> dict:

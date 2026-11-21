@@ -104,4 +104,4 @@ class TelegramRecipient(NotifyEntity):
 
     async def async_send_message(self, message: str, title: str | None = None) -> None:
         text = "%s\n%s" % (title, message) if title else message
-        await self.hass.services.async_call(DOMAIN, "send_message", {"peer": self._uid, "message": text}, blocking=True)
+        await self.hass.services.async_call(DOMAIN, "send_message", {"config_entry_id": self._entry.entry_id, "peer": self._uid, "message": text}, blocking=True)
