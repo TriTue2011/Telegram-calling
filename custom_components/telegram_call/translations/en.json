@@ -11,6 +11,7 @@
       },
       "account": {
         "title": "Choose the Telegram account",
+        "description": "Add one config entry for each account you want to use in HA. Only accounts currently signed in on the gateway are listed.",
         "data": {
           "account": "Account"
         }
@@ -33,7 +34,8 @@
     "error": {
       "cannot_connect": "Cannot reach the gateway",
       "invalid_auth": "The gateway rejected the token",
-      "no_account": "The gateway has no logged-in Telegram account"
+      "no_account": "No Telegram account is online; sign in on the gateway first",
+      "account_unavailable": "The selected account is no longer online on the gateway; choose again"
     },
     "abort": {
       "already_configured": "This account is already added",
@@ -2268,6 +2270,7 @@
     },
     "abort": {
       "cannot_connect": "Cannot load contacts from the gateway",
+      "no_account": "No online Telegram account is loaded in HA",
       "not_loaded": "Integration is not loaded yet"
     }
   }

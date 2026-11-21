@@ -45,7 +45,7 @@ class FakeGateway:
         self.fail_next: tuple[int, dict] | None = None
         self.runner = None
         self.url = ""
-        self.accounts = [{"phone": "+84900000000"}]
+        self.accounts = [{"phone": "+84900000000", "status": "online"}]
 
     def last(self, path_part: str) -> dict:
         return [r for r in self.requests if path_part in r["path"]][-1]

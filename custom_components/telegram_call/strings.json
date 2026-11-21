@@ -11,6 +11,7 @@
       },
       "account": {
         "title": "Chọn tài khoản Telegram",
+        "description": "Thêm một mục cấu hình cho từng tài khoản muốn dùng trong HA. Chỉ liệt kê tài khoản đang đăng nhập trên gateway.",
         "data": {
           "account": "Tài khoản"
         }
@@ -33,7 +34,8 @@
     "error": {
       "cannot_connect": "Không nối được gateway",
       "invalid_auth": "Gateway từ chối token",
-      "no_account": "Gateway chưa có tài khoản Telegram nào đăng nhập"
+      "no_account": "Gateway chưa có tài khoản Telegram nào đang online; hãy đăng nhập tài khoản trên gateway trước",
+      "account_unavailable": "Tài khoản đã chọn không còn online trên gateway; hãy chọn lại"
     },
     "abort": {
       "already_configured": "Tài khoản này đã được thêm",
@@ -2268,6 +2270,7 @@
     },
     "abort": {
       "cannot_connect": "Không tải được danh bạ từ gateway",
+      "no_account": "Chưa có tài khoản Telegram nào đang online và được nạp trong HA",
       "not_loaded": "Tích hợp chưa nạp xong"
     }
   }

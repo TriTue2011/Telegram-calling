@@ -107,3 +107,48 @@ def test_message_and_failure_events_add_account_with_legacy_feed_fallback():
     assert len(events) == 2 and all(e[1]["account"] == "+84900000000" for e in events)
     assert events[0][1]["text"] == "xin chào" and events[1][1]["old_message_id"] == 9
     assert feed.received == 1
+
+
+def test_config_gateway_check_only_offers_signed_in_accounts():
+    rows = [{"phone": "+84900000000", "status": "online"}, {"phone": "+84900000001", "status": "offline"},
+            {"phone": "+84900000002", "status": "wait_code"}, {"phone": "+84900000003", "status": "mock"}]
+
+    class Api:
+        def __init__(self, *args):
+            pass
+
+        async def health(self):
+            return {}
+
+        async def accounts(self):
+            return rows
+
+    module = definitions("config_flow.py", ["_check"], TelegramGatewayApi=Api, async_get_clientsession=lambda hass: None)
+    error, result = asyncio.run(module._check(object(), "http://192.0.2.10", "TOKEN-GIA"))
+    assert error is None and result == [rows[0], rows[3]]
+    rows.clear()
+    assert asyncio.run(module._check(object(), "http://192.0.2.10", "TOKEN-GIA")) == (None, [])
+
+
+def test_options_switch_clears_unloaded_default_and_preserves_other_options():
+    class Flow:
+        def async_create_entry(self, **kwargs):
+            return kwargs
+
+    module = definitions("config_flow.py", ["TelegramCallOptionsFlow"], OptionsFlow=Flow,
+                         DOMAIN="telegram_call", CONF_DEFAULT="default_account", default_entry=accounts.default_entry)
+    offline = SimpleNamespace(entry_id="offline", options={"default_account": True, "recipients": ["9"]})
+
+    async def contacts():
+        return []
+
+    online = SimpleNamespace(entry_id="online", options={"recipients": []},
+                             runtime_data=SimpleNamespace(api=SimpleNamespace(contacts=contacts), account=SimpleNamespace(data={"status": "online"})))
+    changes = []
+    entries = SimpleNamespace(async_loaded_entries=lambda domain: [online], async_entries=lambda domain: [offline, online],
+                              async_update_entry=lambda entry, **kwargs: changes.append((entry.entry_id, kwargs)))
+    flow = module.TelegramCallOptionsFlow()
+    flow.hass, flow.config_entry = SimpleNamespace(config_entries=entries), online
+    result = asyncio.run(flow.async_step_init({"default_account": "online", "recipients": []}))
+    assert result["data"] == {"default_account": True, "recipients": []}
+    assert changes == [("offline", {"options": {"default_account": False, "recipients": ["9"]}})]

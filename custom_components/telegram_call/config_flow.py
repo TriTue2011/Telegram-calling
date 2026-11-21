@@ -32,7 +32,7 @@ async def _check(hass, url: str, token: str) -> tuple[str | None, list[dict]]:
         return "invalid_auth", []
     except TelegramCallError:
         return "cannot_connect", []
-    return None, accounts
+    return None, [a for a in accounts if a.get("phone") and a.get("status") in ("online", "mock")]
 
 
 class TelegramCallConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -62,14 +62,25 @@ class TelegramCallConfigFlow(ConfigFlow, domain=DOMAIN):
                     return await self._create(accounts[0]["phone"])
                 return await self.async_step_account()
         return self.async_show_form(step_id="user", errors=errors, data_schema=vol.Schema({
-            vol.Required(CONF_URL, default="http://172.16.10.200:3333"): str, vol.Required(CONF_TOKEN): _TOKEN}))
+            vol.Required(CONF_URL, default="http://192.0.2.10:3333"): str, vol.Required(CONF_TOKEN): _TOKEN}))
 
     async def async_step_account(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return await self._create(user_input[CONF_ACCOUNT])
+            err, accounts = await _check(self.hass, self._url, self._token)
+            if err:
+                errors["base"] = err
+            elif not accounts:
+                errors["base"] = "no_account"
+                self._accounts = []
+            else:
+                self._accounts = accounts
+                if any(a["phone"] == user_input[CONF_ACCOUNT] for a in accounts):
+                    return await self._create(user_input[CONF_ACCOUNT])
+                errors["base"] = "account_unavailable"
         opts = [selector.SelectOptionDict(value=a["phone"], label=f"{a.get('display_name') or a['phone']} ({a['phone']}, {a.get('status', '?')})")
                 for a in self._accounts]
-        return self.async_show_form(step_id="account", data_schema=vol.Schema({
+        return self.async_show_form(step_id="account", errors=errors, data_schema=vol.Schema({
             vol.Required(CONF_ACCOUNT): selector.SelectSelector(selector.SelectSelectorConfig(options=opts))}))
 
     async def _create(self, phone: str) -> ConfigFlowResult:
@@ -126,11 +137,16 @@ class TelegramCallOptionsFlow(OptionsFlow):
             return self.async_abort(reason="cannot_connect")
         options = [selector.SelectOptionDict(value=str(r["id"]), label=str(r.get("name") or r.get("username") or r["id"])) for r in rows if r.get("id")]
         valid = {o["value"] for o in options}
-        entries = self.hass.config_entries.async_loaded_entries(DOMAIN)
+        entries = [e for e in self.hass.config_entries.async_loaded_entries(DOMAIN)
+                   if (e.runtime_data.account.data or {}).get("status") in ("online", "mock")]
+        if not entries:
+            return self.async_abort(reason="no_account")
         default = default_entry(entries)
         if user_input is not None:
             chosen = user_input.get(CONF_DEFAULT, default.entry_id)
-            for entry in entries:
+            if chosen not in {e.entry_id for e in entries}:
+                return self.async_abort(reason="no_account")
+            for entry in self.hass.config_entries.async_entries(DOMAIN):
                 if entry.entry_id != self.config_entry.entry_id and bool(entry.options.get(CONF_DEFAULT)) != (entry.entry_id == chosen):
                     self.hass.config_entries.async_update_entry(entry, options={**entry.options, CONF_DEFAULT: entry.entry_id == chosen})
             return self.async_create_entry(data={**self.config_entry.options, CONF_DEFAULT: self.config_entry.entry_id == chosen,
