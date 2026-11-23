@@ -3,10 +3,11 @@
     "step": {
       "user": {
         "title": "Kết nối gateway Telegram",
-        "description": "Địa chỉ telegram-gateway và GATEWAY_TOKEN (xem file .env của gateway).",
+        "description": "Địa chỉ telegram-gateway và tên đăng nhập + mật khẩu WEB của gateway (cùng tài khoản dùng để vào trang /ui/). Không cần token.",
         "data": {
           "url": "Địa chỉ gateway",
-          "token": "Token gateway"
+          "username": "Tên đăng nhập",
+          "password": "Mật khẩu"
         }
       },
       "account": {
@@ -16,28 +17,30 @@
         }
       },
       "reauth_confirm": {
-        "title": "Nhập lại token gateway",
-        "description": "Gateway {url} từ chối token.",
+        "title": "Nhập lại tên đăng nhập và mật khẩu",
+        "description": "Gateway {url} từ chối đăng nhập (hoặc mục cấu hình cũ chỉ có token).",
         "data": {
-          "token": "Token gateway"
+          "username": "Tên đăng nhập",
+          "password": "Mật khẩu"
         }
       },
       "reconfigure": {
-        "title": "Đổi địa chỉ / token gateway",
+        "title": "Đổi địa chỉ / đăng nhập gateway",
         "data": {
           "url": "Địa chỉ gateway",
-          "token": "Token gateway"
+          "username": "Tên đăng nhập",
+          "password": "Mật khẩu"
         }
       }
     },
     "error": {
       "cannot_connect": "Không nối được gateway",
-      "invalid_auth": "Gateway từ chối token",
+      "invalid_auth": "Gateway từ chối tên đăng nhập hoặc mật khẩu",
       "no_account": "Gateway chưa có tài khoản Telegram nào đăng nhập"
     },
     "abort": {
       "already_configured": "Tài khoản này đã được thêm",
-      "reauth_successful": "Đã cập nhật token",
+      "reauth_successful": "Đã cập nhật đăng nhập",
       "reconfigure_successful": "Đã cập nhật"
     }
   },

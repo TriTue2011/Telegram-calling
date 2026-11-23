@@ -29,8 +29,8 @@ Cần **`api_id`** và **`api_hash`**:
 
 ## 2. Đặt thông số
 
-> **Token gateway là gì?** Mật khẩu chung giữa gateway và tích hợp HA, không liên quan Telegram. Add-on: bỏ trống `gateway_token` thì tự sinh, in ra tab **Nhật ký** và giữ lại.
-> Docker: bạn tự đặt trong `.env` (`openssl rand -hex 32`). Dán đúng chuỗi đó vào ô **Token gateway** khi *Thêm tích hợp*, và vào ô token của WebUI `/ui/`.
+> **Tích hợp HA đăng nhập bằng TÊN + MẬT KHẨU web của gateway, không dùng token.** Token gateway (`gateway_token` / `GATEWAY_TOKEN`) chỉ còn dùng MỘT LẦN: lần đầu mở `/ui/` để tạo tài khoản web (tên + mật khẩu). Add-on: bỏ trống `gateway_token` thì tự sinh, in ra tab **Nhật ký** và giữ lại.
+> Docker: tự đặt token trong `.env` (`openssl rand -hex 32`). Khi *Thêm tích hợp* trong HA, điền địa chỉ gateway + **tên đăng nhập** + **mật khẩu** của tài khoản web đó (cùng tài khoản vào `/ui/`).
 
 **Add-on** (HAOS / Supervised): cài **Telegram Calling** từ kho `has-addons` → tab **Cấu hình**:
 
@@ -74,7 +74,7 @@ TELEGRAM_API_ID=
 TELEGRAM_API_HASH=
 ```
 
-`docker compose up -d` → mở `http://<máy>:3333/ui/`, dán token → **Kết nối** → thêm tài khoản (số điện thoại → mã OTP → mật khẩu 2 lớp nếu có, hoặc quét QR).
+`docker compose up -d` → mở `http://<máy>:3333/ui/`, dán token một lần để tạo tài khoản web → đăng nhập → thêm tài khoản (số điện thoại → mã OTP → mật khẩu 2 lớp nếu có, hoặc quét QR).
 Hướng dẫn đầy đủ có ảnh: [has-addons / telegram_calling](https://github.com/TriTue2011/has-addons/blob/main/telegram_calling/README.md).
 
 ## Dùng
@@ -171,7 +171,7 @@ Khác Zalo Call: **chưa có trợ lý AI trò chuyện** trong cuộc gọi (ga
 
 **Điều khiển giữa cuộc gọi:** `take_over_call` (nút «Người nhà nói trực tiếp»: nối mic/loa/camera của quy tắc), `stop_call_mic` / `start_call_mic`, `stop_call_video` / `start_call_video` (bật hình cả khi cuộc đang là thoại), `accept_video`, `say_in_call` (đọc một câu vào cuộc gọi), `reject_call`, `end_call`, `alert_call` (gọi, đọc cảnh báo, rồi cúp / nối thiết bị nhà / giữ máy; báo bằng sự kiện `telegram_call_alert_done`). Trên thiết bị có các nút tương ứng, cảm biến *Đã đăng nhập Telegram* và *Trạng thái Telegram*.
 
-**Hình video bên kia ra màn hình / trình duyệt:** gateway nhận khung hình video của người gọi và phát MJPEG tại `GET /api/live/view/<call_id>` (header `Authorization: Bearer <token>`; ảnh chụp tại `/api/live/snapshot/<call_id>`; 409 khi chưa có hình). Tích hợp [Dosen Pro](https://github.com/TriTue2011/Dosen-pro) dùng luồng này để chiếu cuộc gọi Telegram lên màn camera, chỉ với các ID người gọi đã chọn. (Kiểm bằng test và ffmpeg thật; chưa kiểm bằng cuộc gọi video thật.)
+**Hình video bên kia ra màn hình / trình duyệt:** gateway nhận khung hình video của người gọi và phát MJPEG tại `GET /api/live/view/<call_id>` (cookie phiên `tggw_session` hoặc header `Authorization: Bearer <token>`; ảnh chụp tại `/api/live/snapshot/<call_id>`; 409 khi chưa có hình). Tích hợp [Dosen Pro](https://github.com/TriTue2011/Dosen-pro) dùng luồng này để chiếu cuộc gọi Telegram lên màn camera, chỉ với các ID người gọi đã chọn. (Kiểm bằng test và ffmpeg thật; chưa kiểm bằng cuộc gọi video thật.)
 
 **Người nhận:** Cấu hình (bánh răng) → chọn người từ danh bạ Telegram; mỗi người là một thực thể `notify` (thuộc tính `user_id`) để chọn trong blueprint, không phải gõ ID.
 

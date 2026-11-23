@@ -55,7 +55,7 @@ class MessageFeed:
                 raise
             except TelegramCallAuthError:
                 if last_err != "auth":
-                    _LOGGER.warning("Gateway Telegram từ chối token: bộ nghe tin nhắn tạm dừng")
+                    _LOGGER.warning("Gateway Telegram từ chối đăng nhập: bộ nghe tin nhắn tạm dừng")
                     last_err = "auth"
                 await asyncio.sleep(AUTH_RETRY_S)
             except (TelegramCallError, ValueError, TypeError) as err:

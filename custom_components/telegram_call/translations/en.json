@@ -2,11 +2,12 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect the Telegram gateway",
-        "description": "telegram-gateway address and GATEWAY_TOKEN (see the gateway .env).",
+        "title": "Connect Telegram gateway",
+        "description": "telegram-gateway address plus the gateway WEB username and password (the account used on the /ui/ page). No token needed.",
         "data": {
           "url": "Gateway address",
-          "token": "Gateway token"
+          "username": "Username",
+          "password": "Password"
         }
       },
       "account": {
@@ -16,28 +17,30 @@
         }
       },
       "reauth_confirm": {
-        "title": "Enter the gateway token again",
-        "description": "Gateway {url} rejected the token.",
+        "title": "Enter the username and password again",
+        "description": "Gateway {url} rejected the login (or the old entry only has a token).",
         "data": {
-          "token": "Gateway token"
+          "username": "Username",
+          "password": "Password"
         }
       },
       "reconfigure": {
-        "title": "Change gateway address / token",
+        "title": "Change gateway address / login",
         "data": {
           "url": "Gateway address",
-          "token": "Gateway token"
+          "username": "Username",
+          "password": "Password"
         }
       }
     },
     "error": {
       "cannot_connect": "Cannot reach the gateway",
-      "invalid_auth": "The gateway rejected the token",
+      "invalid_auth": "Gateway rejected the username or password",
       "no_account": "The gateway has no logged-in Telegram account"
     },
     "abort": {
       "already_configured": "This account is already added",
-      "reauth_successful": "Token updated",
+      "reauth_successful": "Login updated",
       "reconfigure_successful": "Updated"
     }
   },

@@ -32,7 +32,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, async_
 import voluptuous as vol  # noqa: E402
 
 DOMAIN = "telegram_call"
-TOKEN = "TOKEN-GIA"
+USER, PASSWORD, SESSION = "nguoi-gia", "mat-khau-gia", "SESS-GIA"
 
 
 class FakeGateway:
@@ -42,6 +42,7 @@ class FakeGateway:
         self.requests: list[dict] = []
         self.feed_items: list[dict] = [{"id": 1, "type": "message", "message": {"id": 1, "chat_id": 9, "text": "tin cũ", "outgoing": False}}]
         self.fail_next: tuple[int, dict] | None = None
+        self.accounts: list[dict] = [{"phone": "+84900000000"}]
         self.runner = None
         self.url = ""
 
@@ -53,8 +54,16 @@ class FakeGateway:
         body = None
         if raw and request.content_type == "application/json":
             body = await request.json()
+        if request.path == "/ui/api/auth/login":
+            if request.method == "POST" and body and body.get("ten") == USER and body.get("mat_khau") == PASSWORD:
+                resp = web.json_response({"ok": True, "nguoi_dung": USER})
+                resp.set_cookie("tggw_session", SESSION, httponly=True)
+                return resp
+            return web.json_response({"error": {"code": "INVALID_CREDENTIALS", "message": "Tên hoặc mật khẩu không đúng."}}, status=401)
         rec = {"method": request.method, "path": request.path, "query": dict(request.query), "json": body,
-               "raw": raw if body is None else b"", "auth": request.headers.get("Authorization")}
+               "raw": raw if body is None else b"", "auth": request.headers.get("Cookie"), "csrf": request.headers.get("X-Requested-With")}
+        if request.path != "/health" and request.headers.get("Cookie") != f"tggw_session={SESSION}":
+            return web.json_response({"error": {"code": "UNAUTHORIZED", "message": "Chưa đăng nhập."}}, status=401)
         if request.path != "/api/feed":
             self.requests.append(rec)
         if self.fail_next and request.path.startswith("/api/chats"):
@@ -65,7 +74,7 @@ class FakeGateway:
         if p == "/health":
             return web.json_response({"status": "ok"})
         if p == "/api/accounts":
-            return web.json_response({"tai_khoan": [{"phone": "+84900000000"}]})
+            return web.json_response({"tai_khoan": self.accounts})
         if p == "/api/live/calls":
             return web.json_response({"calls": []})
         if p == "/api/live/settings":
@@ -130,7 +139,7 @@ async def gw(socket_enabled):
 @pytest.fixture
 async def setup(hass, gw, enable_custom_integrations, tmp_path):
     hass.config.allowlist_external_dirs.add(str(tmp_path))
-    entry = MockConfigEntry(domain=DOMAIN, data={"url": gw.url, "token": TOKEN, "account": "+84900000000"}, title="Telegram Call")
+    entry = MockConfigEntry(domain=DOMAIN, data={"url": gw.url, "username": USER, "password": PASSWORD, "account": "+84900000000"}, title="Telegram Call")
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
@@ -154,7 +163,7 @@ async def test_send_message_by_username_formats_replies_and_returns_message(hass
     res = await call(hass, "send_message", {"peer": "@ben_bap", "message": "*đậm* chào", "format": "markdown", "reply_to": 77})
     assert gw.last("/api/resolve")["json"] == {"peer": "@ben_bap"}
     sent = gw.last("/send")
-    assert sent["path"] == "/api/chats/6518712943/send" and sent["auth"] == "Bearer " + TOKEN
+    assert sent["path"] == "/api/chats/6518712943/send" and sent["auth"] == f"tggw_session={SESSION}" and sent["csrf"] == "fetch"
     assert sent["json"] == {"text": "*đậm* chào", "reply_to": 77, "parse_mode": "markdown"}
     assert res["message_id"] == 500 and res["chat_id"] == 42 and "path" not in res
 
@@ -311,3 +320,27 @@ async def test_send_message_accepts_telegram_bot_target_as_chat_id(hass, setup, 
     await call(hass, "send_message", {"config_entry_id": "", "target": [-100777, -100888], "message": "chào", "parse_mode": "html"})
     assert gw.last("/send")["json"]["text"] == "chào"
     assert "-100777" in gw.last("/send")["path"], gw.last("/send")["path"]
+
+
+async def test_config_flow_logs_in_with_username_password_and_adds_every_account(hass, gw, enable_custom_integrations):
+    """Không dùng token: tên đăng nhập + mật khẩu web. Gateway có 2 tài khoản Telegram ⇒ HA có 2 mục (không bắt thêm từng cái)."""
+    gw.accounts = [{"phone": "+84900000001", "display_name": "Một"}, {"phone": "+84900000002", "display_name": "Hai"}]
+    res = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    bad = await hass.config_entries.flow.async_configure(res["flow_id"], {"url": gw.url, "username": USER, "password": "sai"})
+    assert bad["type"] == "form" and bad["errors"] == {"base": "invalid_auth"}
+    done = await hass.config_entries.flow.async_configure(res["flow_id"], {"url": gw.url, "username": USER, "password": PASSWORD})
+    assert done["type"] == "create_entry" and done["data"]["account"] == "+84900000001" and "token" not in done["data"]
+    await hass.async_block_till_done()
+    phones = sorted(e.data["account"] for e in hass.config_entries.async_entries(DOMAIN))
+    assert phones == ["+84900000001", "+84900000002"], phones
+    for e in hass.config_entries.async_entries(DOMAIN):
+        assert e.data["username"] == USER and e.data["password"] == PASSWORD and "token" not in e.data
+
+
+async def test_old_entry_with_only_token_asks_for_login(hass, gw, enable_custom_integrations):
+    """Mục cũ chỉ có token: không còn dùng token ⇒ HA mở luồng nhập lại (reauth), không chạy bằng token."""
+    entry = MockConfigEntry(domain=DOMAIN, data={"url": gw.url, "token": "TOKEN-CU", "account": "+84900000000"}, title="Telegram Call")
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    assert entry.state.name == "SETUP_ERROR"
+    assert any(f["context"].get("source") == "reauth" for f in hass.config_entries.flow.async_progress())

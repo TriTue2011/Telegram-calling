@@ -22,46 +22,97 @@ class TelegramCallError(Exception):
 
 
 class TelegramCallAuthError(TelegramCallError):
-    """Gateway từ chối token (401)."""
+    """Gateway từ chối tên đăng nhập / mật khẩu (hoặc phiên hết hạn mà đăng nhập lại cũng bị từ chối)."""
+
+
+SESSION_COOKIE = "tggw_session"
+CSRF_HEADERS = {"X-Requested-With": "fetch"}        # gateway coi tiêu đề này là ranh giới CSRF cho yêu cầu ghi bằng cookie
 
 
 class TelegramGatewayApi:
-    def __init__(self, session: aiohttp.ClientSession, url: str, token: str, account: str = "") -> None:
+    """Máy khách gateway. Đăng nhập bằng TÊN + MẬT KHẨU web của gateway (không dùng token): ``POST /ui/api/auth/login`` trả cookie
+    phiên ``tggw_session`` (90 ngày, gia hạn khi dùng); mọi yêu cầu sau đó gửi cookie đó. Hết hạn (401) thì đăng nhập lại ĐÚNG MỘT lần."""
+
+    def __init__(self, session: aiohttp.ClientSession, url: str, username: str, password: str, account: str = "") -> None:
         self._s = session
         self.url = url.rstrip("/")
-        self._token = token
+        self._username = username
+        self._password = password
+        self._cookie = ""
+        self._login_lock = asyncio.Lock()
         self.account = account
 
+    async def login(self) -> None:
+        """Đăng nhập lấy cookie phiên. Sai tên/mật khẩu, tài khoản bị khoá ⇒ TelegramCallAuthError; không nối được ⇒ TelegramCallError."""
+        async with self._login_lock:
+            try:
+                async with self._s.post(self.url + "/ui/api/auth/login", timeout=TIMEOUT,
+                                        json={"ten": self._username, "mat_khau": self._password, "ghi_nho": True}) as r:
+                    try:
+                        data = await r.json(content_type=None)
+                    except (aiohttp.ContentTypeError, ValueError):
+                        data = {}
+                    if r.status in (400, 401, 403, 423, 429):
+                        msg = ((data.get("error") or {}).get("message") if isinstance(data, dict) and isinstance(data.get("error"), dict) else "") or ""
+                        raise TelegramCallAuthError(redact(str(msg)) or "Gateway từ chối tên đăng nhập hoặc mật khẩu", r.status)
+                    if r.status >= 400:
+                        raise TelegramCallError(f"HTTP {r.status}", r.status)
+                    cookie = r.cookies.get(SESSION_COOKIE)
+                    value = cookie.value if cookie is not None else ""
+                    if not value:
+                        for header in r.headers.getall("Set-Cookie", []):
+                            first = header.split(";", 1)[0].strip()
+                            if first.startswith(SESSION_COOKIE + "="):
+                                value = first.split("=", 1)[1]
+                    if not value:
+                        raise TelegramCallError("Gateway không trả cookie phiên sau khi đăng nhập", r.status)
+                    self._cookie = value
+            except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+                raise TelegramCallError(f"Không gọi được tới gateway: {redact(str(err))}") from err
+
+    def _headers(self) -> dict[str, str]:
+        return {"Cookie": f"{SESSION_COOKIE}={self._cookie}", **CSRF_HEADERS}
+
     async def _request(self, method: str, path: str, *, auth: bool = True, account: bool = True, **kw: Any) -> Any:
-        headers = {"Authorization": f"Bearer {self._token}"} if auth else {}
         extra = kw.pop("params", None) or {}
         params = {**({"account": self.account} if (account and self.account) else {}), **extra} or None
         kw.setdefault("timeout", TIMEOUT)
-        try:
-            async with self._s.request(method, self.url + path, headers=headers, params=params, **kw) as r:
-                try:
-                    data = await r.json(content_type=None)
-                except (aiohttp.ContentTypeError, ValueError):
-                    data = {}
-                if r.status == 401:
-                    raise TelegramCallAuthError("Gateway từ chối token", 401)
-                if r.status >= 400:
-                    msg = ""
-                    if isinstance(data, dict):
-                        err = data.get("error")
-                        msg = (err.get("message") if isinstance(err, dict) else err) or data.get("detail") or ""
-                    raise TelegramCallError(redact(str(msg)) or f"HTTP {r.status}", r.status)
-                return data
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            raise TelegramCallError(f"Không gọi được tới gateway: {redact(str(err))}") from err
+        if auth and not self._cookie:
+            await self.login()
+        for attempt in (0, 1):
+            headers = self._headers() if auth else {}
+            try:
+                async with self._s.request(method, self.url + path, headers=headers, params=params, **kw) as r:
+                    try:
+                        data = await r.json(content_type=None)
+                    except (aiohttp.ContentTypeError, ValueError):
+                        data = {}
+                    if r.status == 401 and auth:
+                        if attempt == 0:
+                            await self.login()          # phiên hết hạn/bị thu hồi: đăng nhập lại một lần rồi gọi lại
+                            continue
+                        raise TelegramCallAuthError("Gateway từ chối phiên đăng nhập", 401)
+                    if r.status == 401:
+                        raise TelegramCallAuthError("Gateway từ chối yêu cầu", 401)
+                    if r.status >= 400:
+                        msg = ""
+                        if isinstance(data, dict):
+                            err = data.get("error")
+                            msg = (err.get("message") if isinstance(err, dict) else err) or data.get("detail") or ""
+                        raise TelegramCallError(redact(str(msg)) or f"HTTP {r.status}", r.status)
+                    return data
+            except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+                raise TelegramCallError(f"Không gọi được tới gateway: {redact(str(err))}") from err
+        raise TelegramCallAuthError("Gateway từ chối phiên đăng nhập", 401)   # không tới được; giữ cho trình kiểm kiểu
 
     def view_url(self, call_id: str) -> str:
         """Địa chỉ luồng MJPEG hình video của bên kia (cho màn hình Dosen / ffmpeg). Cần header ``auth_header()``; KHÔNG đưa lên bus/nhật ký."""
         return f"{self.url}/api/live/view/{call_id}" + (f"?account={quote(self.account, safe='')}" if self.account else "")
 
     def auth_header(self) -> str:
-        """Tiêu đề HTTP «Authorization: Bearer …» dạng chuỗi ffmpeg (-headers) — chứa token, KHÔNG ghi nhật ký."""
-        return f"Authorization: Bearer {self._token}\r\n"
+        """Tiêu đề HTTP «Cookie: tggw_session=…» dạng chuỗi ffmpeg (-headers) — chứa phiên đăng nhập, KHÔNG ghi nhật ký.
+        Rỗng nếu chưa đăng nhập (``login()`` chạy ở ``async_setup_entry``)."""
+        return f"Cookie: {SESSION_COOKIE}={self._cookie}\r\n" if self._cookie else ""
 
     async def health(self) -> dict:
         return await self._request("GET", "/health", auth=False, account=False)
@@ -212,17 +263,24 @@ class TelegramGatewayApi:
         return str((await self._request("POST", "/api/translate", json={"text": text, "to_language_code": to_language_code})).get("text", ""))
 
     async def download_file(self, file_id: int) -> bytes:
-        try:
-            async with self._s.get(self.url + f"/api/file/{int(file_id)}", headers={"Authorization": f"Bearer {self._token}"},
-                                   params={"account": self.account} if self.account else None,
-                                   timeout=aiohttp.ClientTimeout(total=120)) as r:
-                if r.status == 401:
-                    raise TelegramCallAuthError("Gateway từ chối token", 401)
-                if r.status >= 400:
-                    raise TelegramCallError(f"HTTP {r.status}", r.status)
-                return await r.read()
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            raise TelegramCallError(f"Không gọi được tới gateway: {redact(str(err))}") from err
+        if not self._cookie:
+            await self.login()
+        for attempt in (0, 1):
+            try:
+                async with self._s.get(self.url + f"/api/file/{int(file_id)}", headers=self._headers(),
+                                       params={"account": self.account} if self.account else None,
+                                       timeout=aiohttp.ClientTimeout(total=120)) as r:
+                    if r.status == 401:
+                        if attempt == 0:
+                            await self.login()
+                            continue
+                        raise TelegramCallAuthError("Gateway từ chối phiên đăng nhập", 401)
+                    if r.status >= 400:
+                        raise TelegramCallError(f"HTTP {r.status}", r.status)
+                    return await r.read()
+            except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+                raise TelegramCallError(f"Không gọi được tới gateway: {redact(str(err))}") from err
+        raise TelegramCallAuthError("Gateway từ chối phiên đăng nhập", 401)
 
     async def feed(self, since: int, wait: int = 20) -> dict:
         return await self._request("GET", "/api/feed", params={"since": int(since), "wait": int(wait)},

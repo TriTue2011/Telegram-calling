@@ -36,7 +36,7 @@ async def test_every_catalog_service_is_registered_and_reaches_the_gateway(hass,
         res = await call(hass, name, _minimal(spec))
         assert res["service"] == name, name
         sent = _do(gw, name)
-        assert len(sent) == 1 and sent[0]["auth"] == "Bearer TOKEN-GIA", name
+        assert len(sent) == 1 and sent[0]["auth"] == "tggw_session=SESS-GIA", name
         body = sent[0]["json"]
         assert "config_entry_id" not in body and "peer" not in body, (name, body)
         if spec.target == "chat":

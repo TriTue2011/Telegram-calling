@@ -21,7 +21,7 @@ from . import call_rules
 from .bridge_core import derive_state, redact
 from .call_rules import CallVoice
 from .contacts import ContactBook
-from .const import CONF_ACCOUNT, CONF_TOKEN, CONF_URL, DOMAIN, EVENT_STATE, POLL_BUSY_S, POLL_IDLE_S
+from .const import CONF_ACCOUNT, CONF_PASSWORD, CONF_URL, CONF_USERNAME, DOMAIN, EVENT_STATE, POLL_BUSY_S, POLL_IDLE_S
 from .devices import DeviceDefaults
 from .messages import MessageFeed
 from .rules import get_rules
@@ -187,10 +187,15 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    api = TelegramGatewayApi(async_get_clientsession(hass), entry.data[CONF_URL], entry.data[CONF_TOKEN], entry.data.get(CONF_ACCOUNT, ""))
+    if not entry.data.get(CONF_USERNAME) or not entry.data.get(CONF_PASSWORD):
+        # Mục cấu hình cũ chỉ có token: không còn dùng token, HA mở luồng nhập lại bằng tên đăng nhập + mật khẩu.
+        raise ConfigEntryAuthFailed("Cần tên đăng nhập và mật khẩu web của gateway (không còn dùng token)")
+    api = TelegramGatewayApi(async_get_clientsession(hass), entry.data[CONF_URL], entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD],
+                             entry.data.get(CONF_ACCOUNT, ""))
     try:
         await api.health()
-        await api.accounts()                           # kiểm token (health không cần token)
+        await api.login()
+        await api.accounts()                           # kiểm phiên đăng nhập (health không cần đăng nhập)
     except TelegramCallAuthError as err:
         raise ConfigEntryAuthFailed(str(err)) from err
     except TelegramCallError as err:

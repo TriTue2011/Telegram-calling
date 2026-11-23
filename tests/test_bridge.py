@@ -340,11 +340,21 @@ def test_call_override_speaker_gets_the_volume_and_shutdown_restores():
 
 # ── API gateway ────────────────────────────────────────────────────────────────────────────────────────
 
-class _Resp:
-    status = 200
+class _Cookie:
+    def __init__(self, value):
+        self.value = value
 
-    def __init__(self, body):
-        self._body = body
+
+class _Resp:
+    def __init__(self, body, status=200, cookie=None):
+        self._body, self.status = body, status
+        self.cookies = {"tggw_session": _Cookie(cookie)} if cookie else {}
+
+    class _H:
+        def getall(self, name, default=None):
+            return default or []
+
+    headers = _H()
 
     async def json(self, content_type=None):
         return self._body
@@ -357,26 +367,72 @@ class _Resp:
 
 
 class _Session:
-    def __init__(self):
+    """Gateway giả: POST /ui/api/auth/login trả cookie SESS<n> (n tăng mỗi lần đăng nhập); `expire` = số yêu cầu đầu bị 401."""
+
+    def __init__(self, login_status=200, expire=0):
         self.requests = []
+        self.logins = 0
+        self.login_status = login_status
+        self.expire = expire
+
+    def post(self, url, **kw):
+        self.requests.append(("POST", url, kw))
+        if self.login_status != 200:
+            return _Resp({"error": {"code": "UNAUTHORIZED", "message": "Sai tên đăng nhập hoặc mật khẩu."}}, self.login_status)
+        self.logins += 1
+        return _Resp({"ok": True}, 200, f"SESS{self.logins}")
 
     def request(self, method, url, **kw):
         self.requests.append((method, url, kw))
+        if self.expire > 0:
+            self.expire -= 1
+            return _Resp({}, 401)
         return _Resp({"id": "c1", "state": "dialing"})
 
 
 def test_api_live_call_and_settings_bodies():
     async def run():
         s = _Session()
-        api = api_mod.TelegramGatewayApi(s, "http://gw:3333/", "TOKEN", "+84")
+        api = api_mod.TelegramGatewayApi(s, "http://gw:3333/", "u", "p", "+84")
         await api.live_call(5, True, mic="rtsp://m", mic_format="auto", camera=None, speaker="http://ha/api/r1_speaker/intercom/E?k=1")
         m, url, kw = s.requests[-1]
         assert (m, url) == ("POST", "http://gw:3333/api/live/call")
         assert kw["json"] == {"user_id": 5, "video": True, "mic": "rtsp://m", "mic_format": "auto",
                               "speaker": "http://ha/api/r1_speaker/intercom/E?k=1"}          # trường rỗng không gửi
-        assert kw["headers"]["Authorization"] == "Bearer TOKEN" and kw["params"] == {"account": "+84"}
+        assert kw["headers"]["Cookie"] == "tggw_session=SESS1" and kw["headers"]["X-Requested-With"] == "fetch"
+        assert "Authorization" not in kw["headers"] and kw["params"] == {"account": "+84"}
+        assert s.requests[0][:2] == ("POST", "http://gw:3333/ui/api/auth/login")                       # đăng nhập trước, một lần
+        assert s.requests[0][2]["json"] == {"ten": "u", "mat_khau": "p", "ghi_nho": True}
         await api.set_live_settings({"camera": "test"})
         assert s.requests[-1][2]["json"] == {"camera": "test"}                              # chỉ trường có mặt
+    asyncio.run(run())
+
+
+def test_api_login_failure_and_session_expiry():
+    """Sai mật khẩu ⇒ TelegramCallAuthError (HA mở luồng nhập lại); phiên hết hạn (401) ⇒ đăng nhập lại ĐÚNG MỘT lần rồi gọi lại;
+    vẫn 401 sau đó ⇒ lỗi xác thực, không lặp vô hạn."""
+    async def run():
+        s = _Session(login_status=401)
+        api = api_mod.TelegramGatewayApi(s, "http://gw:3333", "u", "sai", "")
+        try:
+            await api.live_calls()
+            raise AssertionError("phải báo lỗi xác thực")
+        except api_mod.TelegramCallAuthError:
+            pass
+        s = _Session(expire=1)
+        api = api_mod.TelegramGatewayApi(s, "http://gw:3333", "u", "p", "")
+        await api.live_calls()
+        assert s.logins == 2, "đăng nhập đầu + đăng nhập lại sau 401"
+        assert s.requests[-1][2]["headers"]["Cookie"] == "tggw_session=SESS2"        # gọi lại bằng phiên MỚI
+        assert api.auth_header() == "Cookie: tggw_session=SESS2\r\n"                # ffmpeg dùng cookie, không dùng token
+        s = _Session(expire=5)
+        api = api_mod.TelegramGatewayApi(s, "http://gw:3333", "u", "p", "")
+        try:
+            await api.live_calls()
+            raise AssertionError("phải báo lỗi xác thực")
+        except api_mod.TelegramCallAuthError:
+            pass
+        assert s.logins == 2 and sum(1 for r in s.requests if r[0] != "POST") == 2, "không lặp vô hạn"
     asyncio.run(run())
 
 
@@ -384,7 +440,7 @@ def test_api_live_call_target_is_id_or_peer():
     """ID số (kể cả chuỗi toàn số) đi bằng user_id; @username / +số điện thoại đi bằng peer để gateway tra ra ID."""
     async def run():
         s = _Session()
-        api = api_mod.TelegramGatewayApi(s, "http://gw:3333/", "TOKEN", "+84")
+        api = api_mod.TelegramGatewayApi(s, "http://gw:3333/", "u", "p", "+84")
         for target, want in ((5, {"user_id": 5}), ("123456", {"user_id": 123456}),
                              ("@ben_bap", {"peer": "@ben_bap"}), (" +84912345678 ", {"peer": "+84912345678"})):
             await api.live_call(target, False)
