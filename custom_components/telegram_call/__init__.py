@@ -98,8 +98,9 @@ class TelegramCallCoordinator(DataUpdateCoordinator[dict]):
 
     def _fire(self, events: list[dict]) -> None:
         rt = getattr(self.config_entry, "runtime_data", None)
+        who = {"config_entry_id": self.config_entry.entry_id, "account": self.config_entry.data.get(CONF_ACCOUNT, "")}
         for event in events:
-            self.hass.bus.async_fire(EVENT_STATE, event)
+            self.hass.bus.async_fire(EVENT_STATE, {**event, **who})      # gateway nhiều tài khoản: automation biết cuộc gọi thuộc tài khoản nào
         for event in events:                                      # SAU khi sự kiện đã bắn: automation kịp gửi quy tắc (apply_call_rule) trong thời gian chờ chốt
             if rt is not None:
                 call_rules.on_call_state(self.hass, rt, event["state"], event["call_id"], TERMINAL, event)
@@ -187,11 +188,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    if not entry.data.get(CONF_USERNAME) or not entry.data.get(CONF_PASSWORD):
-        # Mục cấu hình cũ chỉ có token: không còn dùng token, HA mở luồng nhập lại bằng tên đăng nhập + mật khẩu.
-        raise ConfigEntryAuthFailed("Cần tên đăng nhập và mật khẩu web của gateway (không còn dùng token)")
-    api = TelegramGatewayApi(async_get_clientsession(hass), entry.data[CONF_URL], entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD],
-                             entry.data.get(CONF_ACCOUNT, ""))
+    legacy = entry.data.get("token", "") if not (entry.data.get(CONF_USERNAME) and entry.data.get(CONF_PASSWORD)) else ""
+    if not legacy and not (entry.data.get(CONF_USERNAME) and entry.data.get(CONF_PASSWORD)):
+        raise ConfigEntryAuthFailed("Cần tên đăng nhập và mật khẩu web của gateway")
+    api = TelegramGatewayApi(async_get_clientsession(hass), entry.data[CONF_URL], entry.data.get(CONF_USERNAME, ""), entry.data.get(CONF_PASSWORD, ""),
+                             entry.data.get(CONF_ACCOUNT, ""), legacy_token=legacy)
+    if api.legacy:
+        # Mục cũ chỉ có token: vẫn chạy (không mất tự nghe máy). Vào Cấu hình lại, nhập tên đăng nhập + mật khẩu web để bỏ token.
+        _LOGGER.warning("Telegram Call %s còn dùng token cũ — hãy Cấu hình lại bằng tên đăng nhập và mật khẩu web của gateway", entry.title)
     try:
         await api.health()
         await api.login()

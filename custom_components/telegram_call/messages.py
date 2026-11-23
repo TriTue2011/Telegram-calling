@@ -31,12 +31,12 @@ class MessageFeed:
         ev = message_event(item)
         if ev is not None:
             self.last, self.received = ev, self.received + 1
-            self._hass.bus.async_fire(EVENT_MESSAGE, ev)
+            self._hass.bus.async_fire(EVENT_MESSAGE, {**ev, "config_entry_id": self._entry_id})
             async_dispatcher_send(self._hass, SIGNAL_MESSAGE.format(self._entry_id))
             return
         fail = send_failed_event(item)
         if fail is not None:
-            self._hass.bus.async_fire(EVENT_SEND_FAILED, fail)
+            self._hass.bus.async_fire(EVENT_SEND_FAILED, {**fail, "config_entry_id": self._entry_id})
 
     async def run(self) -> None:
         cursor: int | None = None

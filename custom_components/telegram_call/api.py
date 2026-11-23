@@ -33,17 +33,24 @@ class TelegramGatewayApi:
     """Máy khách gateway. Đăng nhập bằng TÊN + MẬT KHẨU web của gateway (không dùng token): ``POST /ui/api/auth/login`` trả cookie
     phiên ``tggw_session`` (90 ngày, gia hạn khi dùng); mọi yêu cầu sau đó gửi cookie đó. Hết hạn (401) thì đăng nhập lại ĐÚNG MỘT lần."""
 
-    def __init__(self, session: aiohttp.ClientSession, url: str, username: str, password: str, account: str = "") -> None:
+    def __init__(self, session: aiohttp.ClientSession, url: str, username: str, password: str, account: str = "", *, legacy_token: str = "") -> None:
         self._s = session
         self.url = url.rstrip("/")
         self._username = username
         self._password = password
+        self._legacy_token = legacy_token       # CHỈ cho mục cũ chưa đăng nhập bằng tên + mật khẩu: vẫn chạy để không mất tự nghe máy; mục mới không có token
         self._cookie = ""
         self._login_lock = asyncio.Lock()
         self.account = account
 
+    @property
+    def legacy(self) -> bool:
+        return bool(self._legacy_token) and not (self._username and self._password)
+
     async def login(self) -> None:
         """Đăng nhập lấy cookie phiên. Sai tên/mật khẩu, tài khoản bị khoá ⇒ TelegramCallAuthError; không nối được ⇒ TelegramCallError."""
+        if self.legacy:
+            return                                  # mục cũ: dùng token (Bearer), không có phiên cookie
         async with self._login_lock:
             try:
                 async with self._s.post(self.url + "/ui/api/auth/login", timeout=TIMEOUT,
@@ -71,13 +78,15 @@ class TelegramGatewayApi:
                 raise TelegramCallError(f"Không gọi được tới gateway: {redact(str(err))}") from err
 
     def _headers(self) -> dict[str, str]:
+        if self.legacy:
+            return {"Authorization": f"Bearer {self._legacy_token}"}
         return {"Cookie": f"{SESSION_COOKIE}={self._cookie}", **CSRF_HEADERS}
 
     async def _request(self, method: str, path: str, *, auth: bool = True, account: bool = True, **kw: Any) -> Any:
         extra = kw.pop("params", None) or {}
         params = {**({"account": self.account} if (account and self.account) else {}), **extra} or None
         kw.setdefault("timeout", TIMEOUT)
-        if auth and not self._cookie:
+        if auth and not self._cookie and not self.legacy:
             await self.login()
         for attempt in (0, 1):
             headers = self._headers() if auth else {}
@@ -112,6 +121,8 @@ class TelegramGatewayApi:
     def auth_header(self) -> str:
         """Tiêu đề HTTP «Cookie: tggw_session=…» dạng chuỗi ffmpeg (-headers) — chứa phiên đăng nhập, KHÔNG ghi nhật ký.
         Rỗng nếu chưa đăng nhập (``login()`` chạy ở ``async_setup_entry``)."""
+        if self.legacy:
+            return f"Authorization: Bearer {self._legacy_token}\r\n"
         return f"Cookie: {SESSION_COOKIE}={self._cookie}\r\n" if self._cookie else ""
 
     async def health(self) -> dict:
@@ -263,7 +274,7 @@ class TelegramGatewayApi:
         return str((await self._request("POST", "/api/translate", json={"text": text, "to_language_code": to_language_code})).get("text", ""))
 
     async def download_file(self, file_id: int) -> bytes:
-        if not self._cookie:
+        if not self._cookie and not self.legacy:
             await self.login()
         for attempt in (0, 1):
             try:

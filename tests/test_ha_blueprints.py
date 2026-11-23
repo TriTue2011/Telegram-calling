@@ -106,6 +106,28 @@ async def test_incoming_rule_waits_the_set_seconds_and_does_not_answer_a_call_th
     assert not _accepts(gw)
 
 
+async def test_two_accounts_each_automation_answers_only_its_own_account(hass, setup, gw):
+    """Gateway có 2 tài khoản Telegram ⇒ 2 mục. Automation gán `tai_khoan` chỉ nhận cuộc gọi của tài khoản đó, và gọi dịch vụ với ĐÚNG mục
+    (không có config_entry_id thì dịch vụ báo «có nhiều tài khoản»). Sự kiện cuộc gọi mang config_entry_id + account."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from test_ha_end_to_end import PASSWORD, USER
+    second = MockConfigEntry(domain="telegram_call", data={"url": gw.url, "username": USER, "password": PASSWORD, "account": "+84900000002"}, title="Telegram Call 2")
+    second.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(second.entry_id)                    # HAI mục cùng gateway ⇒ dịch vụ không tự đoán được mục
+    await hass.async_block_till_done()
+    events = []
+    hass.bus.async_listen("telegram_call_call_state", lambda e: events.append(dict(e.data)))
+    await _load(hass, _rule(setup, "Tele Mot", pham_vi="thread", them_theo_id=["5"], tu_nghe_may=True, nghe_sau=0, noi_ngay=["speaker"], tai_khoan=setup.entry_id))
+    await _load(hass, _rule(setup, "Tele Khac", pham_vi="thread", them_theo_id=["5"], tu_nghe_may=True, nghe_sau=0, noi_ngay=["speaker"], tai_khoan="khong-phai-muc-nay"))
+    gw.calls = [dict(RINGING, id="777", user_id=5)]
+    assert await _wait(lambda: _accepts(gw), 8), "không nghe máy cho cuộc gọi của tài khoản đã gán"
+    await asyncio.sleep(1.5)
+    assert len(_accepts(gw)) == 1, "automation gán tài khoản khác không được tranh nghe"
+    ring = [e for e in events if e.get("state") == "incoming"]
+    assert {e["config_entry_id"] for e in ring} == {setup.entry_id, second.entry_id}, ring                 # mỗi tài khoản bắn sự kiện kèm mã của nó
+    assert {e["account"] for e in ring} == {"+84900000000", "+84900000002"}, ring
+
+
 async def test_incoming_rule_off_or_disabled_does_nothing(hass, setup, gw):
     await _load(hass, _rule(setup, "Tele C", pham_vi="contacts", nghe_sau=0, bat_quy_tac=False),
                 _rule(setup, "Tele D", pham_vi="contacts", nghe_sau=0))

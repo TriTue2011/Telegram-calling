@@ -436,6 +436,17 @@ def test_api_login_failure_and_session_expiry():
     asyncio.run(run())
 
 
+def test_api_legacy_token_entry_uses_bearer_and_never_logs_in():
+    async def run():
+        s = _Session()
+        api = api_mod.TelegramGatewayApi(s, "http://gw:3333", "", "", "+84", legacy_token="TOK")
+        await api.live_calls()
+        assert [r[0] for r in s.requests] == ["GET"] and s.logins == 0
+        assert s.requests[-1][2]["headers"] == {"Authorization": "Bearer TOK"}
+        assert api.auth_header() == "Authorization: Bearer TOK\r\n"
+    asyncio.run(run())
+
+
 def test_api_live_call_target_is_id_or_peer():
     """ID số (kể cả chuỗi toàn số) đi bằng user_id; @username / +số điện thoại đi bằng peer để gateway tra ra ID."""
     async def run():

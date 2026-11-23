@@ -62,7 +62,8 @@ class FakeGateway:
             return web.json_response({"error": {"code": "INVALID_CREDENTIALS", "message": "Tên hoặc mật khẩu không đúng."}}, status=401)
         rec = {"method": request.method, "path": request.path, "query": dict(request.query), "json": body,
                "raw": raw if body is None else b"", "auth": request.headers.get("Cookie"), "csrf": request.headers.get("X-Requested-With")}
-        if request.path != "/health" and request.headers.get("Cookie") != f"tggw_session={SESSION}":
+        legacy_ok = request.headers.get("Authorization") == "Bearer TOKEN-CU"                 # mục cũ chỉ có token (chế độ tương thích)
+        if request.path != "/health" and request.headers.get("Cookie") != f"tggw_session={SESSION}" and not legacy_ok:
             return web.json_response({"error": {"code": "UNAUTHORIZED", "message": "Chưa đăng nhập."}}, status=401)
         if request.path != "/api/feed":
             self.requests.append(rec)
@@ -275,7 +276,8 @@ async def test_incoming_message_fires_event_updates_sensor_and_skips_old_and_own
     assert len(events) == 1, [e.data for e in events]
     ev = events[0].data
     assert ev == {"chat_id": 42, "message_id": 21, "sender": "Đại ca", "kind": "photo", "text": "xem ảnh", "summary": "🖼 Ảnh",
-                  "reply_to": 5, "date": 99, "file_id": 77, "file_name": "a.jpg", "mime": "image/jpeg"}
+                  "reply_to": 5, "date": 99, "file_id": 77, "file_name": "a.jpg", "mime": "image/jpeg",
+                  "config_entry_id": setup.entry_id}
     st = hass.states.get("sensor.telegram_call_last_message")
     assert st is not None and st.state == "xem ảnh" and st.attributes["file_id"] == 77 and st.attributes["received"] == 1
 
@@ -288,7 +290,7 @@ async def test_send_failed_item_fires_event(hass, setup, gw):
         if events:
             break
         await asyncio.sleep(0.1)
-    assert events and events[0].data == {"chat_id": 42, "old_message_id": 9, "error": "FILE_PART_INVALID"}
+    assert events and events[0].data == {"chat_id": 42, "old_message_id": 9, "error": "FILE_PART_INVALID", "config_entry_id": setup.entry_id}
 
 
 async def test_send_services_take_the_same_data_as_telegram_bot_so_one_blueprint_template_serves_both(hass, setup, gw, tmp_path):
@@ -337,10 +339,17 @@ async def test_config_flow_logs_in_with_username_password_and_adds_every_account
         assert e.data["username"] == USER and e.data["password"] == PASSWORD and "token" not in e.data
 
 
-async def test_old_entry_with_only_token_asks_for_login(hass, gw, enable_custom_integrations):
-    """Mục cũ chỉ có token: không còn dùng token ⇒ HA mở luồng nhập lại (reauth), không chạy bằng token."""
+async def test_old_entry_with_only_token_keeps_working_and_never_logs_in(hass, gw, enable_custom_integrations):
+    """Mục cũ chỉ có token: vẫn chạy (tự nghe máy không bị gián đoạn khi cập nhật tích hợp) bằng Bearer, KHÔNG gọi đăng nhập;
+    chưa có cả token lẫn tên đăng nhập ⇒ HA mở luồng nhập lại."""
     entry = MockConfigEntry(domain=DOMAIN, data={"url": gw.url, "token": "TOKEN-CU", "account": "+84900000000"}, title="Telegram Call")
     entry.add_to_hass(hass)
-    assert not await hass.config_entries.async_setup(entry.entry_id)
-    assert entry.state.name == "SETUP_ERROR"
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state.name == "LOADED"
+    assert not [r for r in gw.requests if r["path"] == "/ui/api/auth/login"]
+    assert any(r["path"] == "/api/accounts" for r in gw.requests)
+    bare = MockConfigEntry(domain=DOMAIN, data={"url": gw.url, "account": "+84900000009"}, title="Telegram Call 9")
+    bare.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(bare.entry_id)
     assert any(f["context"].get("source") == "reauth" for f in hass.config_entries.flow.async_progress())
