@@ -34,6 +34,12 @@ class CallGateway(FakeGateway):
             return web.json_response({"calls": self.calls})
         if p == "/api/accounts":
             return web.json_response({"tai_khoan": [{"phone": "+84900000000", "display_name": "Chủ nhà", "status": self.status}]})
+        if p.startswith("/api/live/audio/out/"):                 # tap tiếng người gọi cho AI (async_run_ai)
+            resp = web.StreamResponse(status=200, headers={"Content-Type": "audio/wav"})
+            await resp.prepare(request)
+            await resp.write(b"RIFF" + b"\x00" * 40 + b"\x00" * 3200)
+            await resp.write_eof()
+            return resp
         if p in ("/api/live/accept", "/api/live/hangup", "/api/live/media", "/api/live/say", "/api/live/playback", "/api/live/call"):
             raw = await request.read()
             import json
@@ -41,6 +47,8 @@ class CallGateway(FakeGateway):
             self.requests.append({"method": "POST", "path": p, "json": body, "query": {}, "raw": b"", "auth": None})
             if p == "/api/live/say":
                 return web.json_response({"seconds": self.say_seconds})
+            if p == "/api/live/media" and body.get("action") == "audio_out":
+                return web.json_response({"audio_out": {"url": "/api/live/audio/out/%s?t=tok" % body.get("id"), "token": "tok"}})
             if p == "/api/live/call":
                 new = {"id": "n1", "user_id": body.get("user_id", 7), "outgoing": True, "video": bool(body.get("video")), "state": "dialing"}
                 self.calls.append(new)
@@ -611,3 +619,59 @@ async def test_a_call_that_vanishes_without_an_end_state_is_fully_cleaned_up(has
     assert "c1" not in v.incoming and "c1" not in v.rule_of and "c1" not in v.connected and "c1" not in v.announced, "bảng theo call_id phải sạch"
     assert not rt.bridge.has_devices("c1"), "thiết bị riêng của cuộc đã mất phải được trả về mặc định"
     assert not [e for e in events if e.data.get("state") == "ended"], "không bịa sự kiện «ended» cho automation"
+
+
+# -- AI nói chuyện khi nghe máy (nghe mic người gọi qua /api/live/audio/out/<call_id>?t=<token> → Assist pipeline → đọc trả lời) ---------
+
+class FakeAiPipelineModule:
+    def __init__(self, script):
+        self.script, self.turn = list(script), 0
+
+    async def run(self, hass, *, context, event_callback, stt_metadata, stt_stream, pipeline_id=None, conversation_id=None, end_stage=None,
+                  audio_settings=None, conversation_extra_system_prompt=None, **kw):
+        from homeassistant.components.assist_pipeline import pipeline as pl
+        assert "điện thoại" in (conversation_extra_system_prompt or "")
+        async for _chunk in stt_stream:
+            break
+        text, reply = self.script[self.turn] if self.turn < len(self.script) else ("", "")
+        self.turn += 1
+        if text:
+            event_callback(pl.PipelineEvent(pl.PipelineEventType.STT_END, {"stt_output": {"text": text}}))
+            event_callback(pl.PipelineEvent(pl.PipelineEventType.INTENT_END, {"intent_output": {
+                "conversation_id": "conv-1", "response": {"speech": {"plain": {"speech": reply}}}}}))
+
+
+async def _ai_env(monkeypatch, script):
+    from homeassistant.components import assist_pipeline
+    from homeassistant.components.assist_pipeline import pipeline as pl
+    from types import SimpleNamespace
+    fake = FakeAiPipelineModule(script)
+    monkeypatch.setattr(assist_pipeline, "async_pipeline_from_audio_stream", fake.run)
+    monkeypatch.setattr(pl, "async_get_pipeline", lambda hass_, pid=None: SimpleNamespace(
+        stt_language="vi", tts_engine="tts.x", tts_language="vi", tts_voice=None, conversation_engine="conversation.agent"))
+    return fake
+
+
+async def test_ai_rule_speaks_greeting_then_answers_each_turn_and_hangs_up_on_ket_thuc(hass, setup, gw, monkeypatch):
+    rt = _rt(setup)
+    await _ai_env(monkeypatch, [("bật đèn phòng khách", "Đã bật đèn phòng khách"), ("tạm biệt nhé", "Tạm biệt ạ [[KET_THUC]]")])
+    await call(hass, "set_rule", {"scope": "thread", "thread_id": "5", "answer": True, "answer_delay": 0,
+                                   "greeting": "Xin chào", "ai": True, "pipeline": "pl"})
+    await _ring(gw, rt)
+    assert await until(lambda: reqs(gw, "/api/live/accept"))
+    gw.calls = [dict(ACTIVE)]
+    assert await until(lambda: reqs(gw, "/api/live/hangup"), 12), "AI báo [[KET_THUC]] phải tự cúp máy"
+    said = [r["text"] for r in reqs(gw, "/api/live/say")]
+    assert said == ["Xin chào", "Đã bật đèn phòng khách", "Tạm biệt ạ"], said
+    assert reqs(gw, "/api/live/media")[0]["action"] == "audio_out", "phải mở luồng tiếng người gọi qua gateway"
+
+
+async def test_ai_rule_without_greeting_text_still_schedules_and_runs(hass, setup, gw, monkeypatch):
+    rt = _rt(setup)
+    await _ai_env(monkeypatch, [("", "")])                     # im lặng ngay từ lượt đầu
+    await call(hass, "set_rule", {"scope": "thread", "thread_id": "5", "answer": True, "answer_delay": 0, "ai": True, "pipeline": "pl"})
+    await _ring(gw, rt)
+    assert await until(lambda: reqs(gw, "/api/live/accept"))
+    gw.calls = [dict(ACTIVE)]
+    assert await until(lambda: reqs(gw, "/api/live/media"), 10), "ai=True không cần greeting vẫn phải chạy (gate cũ chỉ xét greeting)"
+    assert not reqs(gw, "/api/live/say"), "không có greeting thì không đọc gì trước khi vào vòng AI"
