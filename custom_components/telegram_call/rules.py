@@ -39,11 +39,12 @@ RULES_KEY = "rules"
 DEFAULT_RULE: dict[str, Any] = {
     "name": "", "answer": False, "answer_delay": 3, "call_types": ["voice", "video"],
     "pipeline": "", "greeting": "", "hangup_after": False,
+    "ai": False, "trusted": False, "ai_reply_text": False,                 # AI nói chuyện khi nghe máy (như zalo_call), ăn theo pipeline/greeting đã có
     "announce": False, "announce_to": "", "announce_text": "", "announce_repeat": 0, "announce_volume": 0,
     "connect_now": [], "connect": [], "video_request": "ask", "speaker": "", "mic": "", "mic_url": "", "camera": "", "volume": 0,
 }
 _STR = ("name", "pipeline", "greeting", "speaker", "mic", "mic_url", "camera", "announce_to", "announce_text")
-_BOOL = ("answer", "announce", "hangup_after")
+_BOOL = ("answer", "announce", "hangup_after", "ai", "trusted", "ai_reply_text")
 
 
 def parse_connect(value: Any) -> list[str]:
