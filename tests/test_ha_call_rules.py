@@ -675,3 +675,65 @@ async def test_ai_rule_without_greeting_text_still_schedules_and_runs(hass, setu
     gw.calls = [dict(ACTIVE)]
     assert await until(lambda: reqs(gw, "/api/live/media"), 10), "ai=True không cần greeting vẫn phải chạy (gate cũ chỉ xét greeting)"
     assert not reqs(gw, "/api/live/say"), "không có greeting thì không đọc gì trước khi vào vòng AI"
+
+
+# -- AI tự trả lời tin nhắn CHỮ (quy tắc "ai_reply_text", LƯU SẴN qua set_rule — khác apply_call_rule chỉ sống trong 1 cuộc gọi) -----------
+
+from homeassistant.core import ServiceCall  # noqa: E402
+from homeassistant.core import SupportsResponse  # noqa: E402
+
+
+@pytest.fixture
+def fake_conversation_agent(hass):
+    calls = []
+
+    async def process(call: ServiceCall):
+        calls.append(dict(call.data))
+        return {"response": {"speech": {"plain": {"speech": "Chủ nhà đang bận, để tôi ghi lại nhé"}}}}
+    hass.services.async_register("conversation", "process", process, supports_response=SupportsResponse.ONLY)
+    return calls
+
+
+async def test_ai_reply_text_rule_replies_to_an_incoming_text_message(hass, setup, gw, fake_conversation_agent):
+    rt = _rt(setup)
+    await call(hass, "set_rule", {"scope": "thread", "thread_id": "5", "ai_reply_text": True, "trusted": True})
+    hass.bus.async_fire(const.EVENT_MESSAGE, {"chat_id": 5, "message_id": 1, "sender": "Khách", "kind": "text",
+                                               "text": "Nhà có ai không?", "summary": "", "reply_to": 0, "date": 0,
+                                               "file_id": None, "file_name": "", "mime": "", "account": "+84900000000"})
+    assert await until(lambda: fake_conversation_agent), "phải gọi conversation.process"
+    assert fake_conversation_agent[0]["text"] == "Nhà có ai không?"
+    assert await until(lambda: reqs(gw, "/api/chats/5/send")), "phải gửi trả lời"
+    assert reqs(gw, "/api/chats/5/send")[-1]["text"] == "Chủ nhà đang bận, để tôi ghi lại nhé"
+
+
+async def test_same_message_id_arriving_twice_only_gets_one_ai_reply(hass, setup, gw, fake_conversation_agent):
+    """Đo thật trên ha200 25/11: EVENT_MESSAGE bắn hai lần cho cùng một tin, AI trả lời 2 lần cho một câu hỏi."""
+    _rt(setup)
+    await call(hass, "set_rule", {"scope": "thread", "thread_id": "5", "ai_reply_text": True, "trusted": True})
+    payload = {"chat_id": 5, "message_id": 7, "sender": "Khách", "kind": "text", "text": "Xin chào", "summary": "",
+               "reply_to": 0, "date": 0, "file_id": None, "file_name": "", "mime": "", "account": "+84900000000"}
+    hass.bus.async_fire(const.EVENT_MESSAGE, dict(payload))
+    hass.bus.async_fire(const.EVENT_MESSAGE, dict(payload))
+    assert await until(lambda: fake_conversation_agent), "phải gọi conversation.process"
+    await asyncio.sleep(0.3)   # cho sự kiện thứ hai (nếu có chạy) kịp hoàn tất trước khi đếm
+    assert len(fake_conversation_agent) == 1, f"chỉ được gọi AI một lần cho một message_id, thấy {len(fake_conversation_agent)}"
+    assert len(reqs(gw, "/api/chats/5/send")) == 1, "chỉ được gửi một tin trả lời"
+
+
+async def test_no_rule_or_rule_without_ai_reply_text_does_not_call_the_agent(hass, setup, gw, fake_conversation_agent):
+    _rt(setup)
+    hass.bus.async_fire(const.EVENT_MESSAGE, {"chat_id": 9, "message_id": 2, "sender": "Lạ", "kind": "text", "text": "chào",
+                                               "summary": "", "reply_to": 0, "date": 0, "file_id": None, "file_name": "",
+                                               "mime": "", "account": "+84900000000"})
+    await asyncio.sleep(0.3)
+    assert not fake_conversation_agent, "không có quy tắc thì không được tự ý gọi AI"
+
+
+async def test_group_chat_id_is_never_auto_replied_even_with_a_blanket_contacts_rule(hass, setup, gw, fake_conversation_agent):
+    rt = _rt(setup)
+    await call(hass, "set_rule", {"scope": "contacts", "ai_reply_text": True})       # quy tắc áp cho MỌI người quen — cố tình rộng để thử chặn nhóm
+    hass.bus.async_fire(const.EVENT_MESSAGE, {"chat_id": -100500, "message_id": 3, "sender": "Nhóm", "kind": "text", "text": "chào cả nhà",
+                                               "summary": "", "reply_to": 0, "date": 0, "file_id": None, "file_name": "",
+                                               "mime": "", "account": "+84900000000"})
+    await asyncio.sleep(0.3)
+    assert not fake_conversation_agent, "nhóm (chat_id âm) không được AI tự trả lời ở bản đầu này, kể cả có quy tắc rộng"

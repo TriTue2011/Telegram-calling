@@ -198,6 +198,72 @@ async def async_run_ai(hass: HomeAssistant, rt: Any, call_id: str, rule: dict[st
         return {"finished": finished, "heard": heard}
     finally:
         listener.stop()
+
+
+# -- AI tự trả lời tin nhắn CHỮ (quy tắc `ai_reply_text`, cùng ý tưởng ai.py của zalo_call — bản đầu: chỉ 1-1, chỉ chữ) -------------------
+
+_AI_TEXT_MIN_INTERVAL = 2.0          # giây giữa hai lượt trả lời cùng một người — tránh trả lời chồng khi người gửi gõ nhiều tin liền
+_AI_TEXT_MAX_REPLY = 2000
+_ai_text_locks: dict[str, asyncio.Lock] = {}
+_ai_text_last: dict[str, float] = {}
+_ai_text_seen: dict[str, int] = {}   # chat_id -> message_id ĐÃ trả lời gần nhất: tránh trả lời 2 lần cùng một tin (đo thật trên ha200
+                                     # 25/11, EVENT_MESSAGE bắn hai lần cho cùng một tin — chưa rõ gốc ở tầng gateway hay bộ nghe dài
+                                     # hạn; chặn ở ĐÂY vì đây là nơi hậu quả thấy rõ nhất, gửi 2 tin trả lời cho một câu hỏi).
+
+
+def pipeline_agent(hass: HomeAssistant, pipeline_id: str | None) -> str:
+    """Trợ lý hội thoại (entity) của một Assist pipeline; "" nếu không lấy được."""
+    try:
+        from homeassistant.components.assist_pipeline import pipeline as pipeline_mod
+        return str(pipeline_mod.async_get_pipeline(hass, pipeline_id).conversation_engine or "")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+async def async_reply_to_message(hass: HomeAssistant, rt: Any, event: dict[str, Any]) -> None:
+    """Tin nhắn CHỮ đến (EVENT_MESSAGE): quy tắc của người gửi có `ai_reply_text` thì AI trả lời bằng chữ.
+    Bản đầu: chỉ hội thoại 1-1 (không nhóm), chỉ tin chữ (không STT tin thoại như zalo_call), không trích dẫn/định dạng tự động."""
+    chat_id = str(event.get("chat_id") or "")
+    text = str(event.get("text") or "").strip()
+    if not chat_id or not text or event.get("kind", "text") != "text" or chat_id.startswith("-"):   # nhóm Telegram luôn có chat_id âm
+        return
+    try:
+        message_id = int(event.get("message_id") or 0)
+    except (TypeError, ValueError):
+        message_id = 0
+    try:
+        status, _name = await rt.contacts.async_lookup(int(chat_id)) if rt.contacts is not None else ("unknown", "")
+    except (TypeError, ValueError):
+        return
+    rule = resolve_rule(get_rules(rt.defaults), chat_id, status)
+    if rule is None or not rule.get("ai_reply_text"):
+        return
+    lock = _ai_text_locks.setdefault(chat_id, asyncio.Lock())
+    async with lock:
+        if message_id and message_id <= _ai_text_seen.get(chat_id, 0):
+            return   # tin này đã trả lời rồi (sự kiện tới 2 lần) — không gửi lần nữa
+        if message_id:
+            _ai_text_seen[chat_id] = message_id
+        wait = _AI_TEXT_MIN_INTERVAL - (time.monotonic() - _ai_text_last.get(chat_id, 0.0))
+        if wait > 0:
+            await asyncio.sleep(wait)
+        data: dict[str, Any] = {"text": text, "conversation_id": "telegram_call_" + chat_id, "language": hass.config.language}
+        agent = pipeline_agent(hass, rule.get("pipeline") or None)
+        if agent:
+            data["agent_id"] = agent
+        if not rule.get("trusted"):
+            data["text"] += "\n\n(" + AI_PUBLIC_HINT + ")"
+        try:
+            resp = await hass.services.async_call("conversation", "process", data, blocking=True, return_response=True)
+            reply = _speech(resp)
+            if reply:
+                await rt.api.send_text(int(chat_id), reply[:_AI_TEXT_MAX_REPLY])
+        except TelegramCallError as err:
+            _LOGGER.warning("AI không gửi được trả lời chữ cho %s: %s", chat_id, err)
+        except Exception:  # noqa: BLE001 - agent lỗi không được làm sập vòng nghe tin nhắn
+            _LOGGER.exception("AI trả lời tin chữ lỗi cho %s", chat_id)
+        finally:
+            _ai_text_last[chat_id] = time.monotonic()
 SAY_MAX_S = 120.0
 ALERT_APPEAR_S = 6.0           # chờ cuộc gọi đi xuất hiện trong danh sách của gateway
 ALERT_WAIT_ANSWER_S = 60.0     # cuộc gọi cảnh báo không ai nghe sau chừng này giây thì cúp
@@ -261,10 +327,10 @@ class CallVoice:
 
 def pipeline_tts(hass: HomeAssistant, pipeline_id: str | None) -> tuple[str | None, str | None, dict | None]:
     """(thực thể TTS, ngôn ngữ, tuỳ chọn giọng) của một Assist pipeline (None = pipeline ưu tiên). Không lấy được thì (None, None, None)."""
-    from homeassistant.components.assist_pipeline import pipeline as pipeline_mod
     try:
+        from homeassistant.components.assist_pipeline import pipeline as pipeline_mod
         pl = pipeline_mod.async_get_pipeline(hass, pipeline_id)
-    except Exception:  # noqa: BLE001 - không có pipeline: dùng TTS mặc định của HA
+    except Exception:  # noqa: BLE001 - không có pipeline (hay import lỗi): dùng TTS mặc định của HA
         return None, None, None
     return pl.tts_engine, pl.tts_language, ({"voice": pl.tts_voice} if pl.tts_voice else None)
 
