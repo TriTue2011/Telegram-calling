@@ -14,7 +14,7 @@
   * ``video_request``: người gọi BẬT camera giữa cuộc thoại (xin chuyển sang video): ``ask`` (mặc định: chỉ báo sự kiện ``video_request``, không tự đồng ý), ``accept``
     (đồng ý, không gửi hình trong nhà: hình đen), ``accept_camera`` (đồng ý và gửi camera đã chọn trong quy tắc / mặc định).
   * ``echo_guard``: chế độ chống vọng của quy tắc (``auto`` | ``on`` | ``duplex`` | ``off``); ``auto`` = theo mặc định của thiết bị.
-  * KHÔNG có trợ lý AI trò chuyện: gateway Telegram chưa có đường nhận tiếng bên kia cho HA.
+  * ``ai``/``trusted``/``ai_reply_text``: trợ lý AI nói chuyện khi nghe máy (xem call_rules.async_run_ai).
 """
 from __future__ import annotations
 
@@ -42,11 +42,13 @@ RULES_KEY = "rules"
 DEFAULT_RULE: dict[str, Any] = {
     "name": "", "answer": False, "answer_delay": 3, "call_types": ["voice", "video"],
     "pipeline": "", "greeting": "", "hangup_after": False,
+    "ai": False, "trusted": False,          # AI nói chuyện khi nghe máy (như zalo_call), ăn theo pipeline/greeting đã có
+    "ai_reply_text": False,                 # AI tự trả lời tin nhắn CHỮ đến (ngoài cuộc gọi), dùng chung pipeline ở trên
     "announce": False, "announce_to": "", "announce_text": "", "announce_repeat": 0, "announce_volume": 0,
     "connect_now": [], "connect": [], "video_request": "ask", "echo_guard": "auto", "speaker": "", "mic": "", "mic_url": "", "camera": "", "volume": 0,
 }
 _STR = ("name", "pipeline", "greeting", "speaker", "mic", "mic_url", "camera", "announce_to", "announce_text")
-_BOOL = ("answer", "announce", "hangup_after")
+_BOOL = ("answer", "announce", "hangup_after", "ai", "trusted", "ai_reply_text")
 
 
 def parse_connect(value: Any) -> list[str]:
