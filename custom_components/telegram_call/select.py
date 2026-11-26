@@ -12,7 +12,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
 
 from .bridge_core import entity_of_label, label
-from .const import CONF_CAMERA, CONF_MIC, CONF_MIC_URL, CONF_SPEAKER, MIC_URL_LABEL, NONE_LABEL
+from .const import CONF_CAMERA, CONF_ECHO_GUARD, CONF_MIC, CONF_MIC_URL, CONF_SPEAKER, MIC_URL_LABEL, NONE_LABEL
+from .echo_policy import ECHO_MODES
 from .entity import TelegramCallEntity
 
 REFRESH = timedelta(minutes=1)
@@ -22,7 +23,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddEnt
     rt = entry.runtime_data
     add([DeviceSelect(hass, entry, rt, CONF_MIC, "Mic mặc định", "mdi:microphone", ("camera", "assist_satellite"), (MIC_URL_LABEL,)),
          DeviceSelect(hass, entry, rt, CONF_CAMERA, "Camera mặc định", "mdi:cctv", ("camera",)),
-         DeviceSelect(hass, entry, rt, CONF_SPEAKER, "Loa mặc định", "mdi:speaker", ("media_player",))])
+         DeviceSelect(hass, entry, rt, CONF_SPEAKER, "Loa mặc định", "mdi:speaker", ("media_player",)),
+         EchoGuardSelect(entry, rt)])
 
 
 class DeviceSelect(TelegramCallEntity, SelectEntity):
@@ -72,3 +74,29 @@ class DeviceSelect(TelegramCallEntity, SelectEntity):
             self.async_write_ha_state()
 
         self.async_on_remove(async_track_time_interval(self.hass, _lam_moi, REFRESH))
+
+
+class EchoGuardSelect(TelegramCallEntity, SelectEntity):
+    """Chế độ chống vọng mặc định trên thiết bị (auto / on / duplex / off)."""
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_name = "Chống vọng mặc định"
+    _attr_icon = "mdi:microphone-settings"
+    _attr_options = list(ECHO_MODES)
+
+    def __init__(self, entry: ConfigEntry, rt) -> None:
+        super().__init__(entry, CONF_ECHO_GUARD)
+        self._rt = rt
+
+    @property
+    def current_option(self) -> str:
+        val = str(self._rt.defaults.get(CONF_ECHO_GUARD) or "auto")
+        return val if val in ECHO_MODES else "auto"
+
+    async def async_select_option(self, option: str) -> None:
+        if option not in ECHO_MODES:
+            return
+        await self._rt.defaults.async_set(**{CONF_ECHO_GUARD: option})
+        await self._rt.bridge.async_push_defaults()
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(self._rt.defaults.add_listener(self.async_write_ha_state))

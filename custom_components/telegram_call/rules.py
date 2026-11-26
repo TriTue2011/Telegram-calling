@@ -13,11 +13,14 @@
   * ``greeting``: lời nhắn đọc VÀO cuộc gọi ngay khi nghe máy (giọng TTS của gateway); ``hangup_after: true`` = đọc xong thì cúp máy.
   * ``video_request``: người gọi BẬT camera giữa cuộc thoại (xin chuyển sang video): ``ask`` (mặc định: chỉ báo sự kiện ``video_request``, không tự đồng ý), ``accept``
     (đồng ý, không gửi hình trong nhà: hình đen), ``accept_camera`` (đồng ý và gửi camera đã chọn trong quy tắc / mặc định).
-  * KHÔNG có trợ lý AI trò chuyện, chống vọng: gateway Telegram chưa có đường nhận tiếng bên kia cho HA.
+  * ``echo_guard``: chế độ chống vọng của quy tắc (``auto`` | ``on`` | ``duplex`` | ``off``); ``auto`` = theo mặc định của thiết bị.
+  * KHÔNG có trợ lý AI trò chuyện: gateway Telegram chưa có đường nhận tiếng bên kia cho HA.
 """
 from __future__ import annotations
 
 from typing import Any
+
+from .echo_policy import ECHO_MODES
 
 
 class RuleError(ValueError):
@@ -40,7 +43,7 @@ DEFAULT_RULE: dict[str, Any] = {
     "name": "", "answer": False, "answer_delay": 3, "call_types": ["voice", "video"],
     "pipeline": "", "greeting": "", "hangup_after": False,
     "announce": False, "announce_to": "", "announce_text": "", "announce_repeat": 0, "announce_volume": 0,
-    "connect_now": [], "connect": [], "video_request": "ask", "speaker": "", "mic": "", "mic_url": "", "camera": "", "volume": 0,
+    "connect_now": [], "connect": [], "video_request": "ask", "echo_guard": "auto", "speaker": "", "mic": "", "mic_url": "", "camera": "", "volume": 0,
 }
 _STR = ("name", "pipeline", "greeting", "speaker", "mic", "mic_url", "camera", "announce_to", "announce_text")
 _BOOL = ("answer", "announce", "hangup_after")
@@ -117,6 +120,10 @@ def normalize(data: dict[str, Any], old: dict[str, Any] | None = None) -> dict[s
         if data["video_request"] not in VIDEO_REQUEST:
             raise RuleError("video_request chỉ gồm: %s" % ", ".join(VIDEO_REQUEST))
         rule["video_request"] = data["video_request"]
+    if data.get("echo_guard") is not None:
+        if data["echo_guard"] not in ECHO_MODES:
+            raise RuleError("echo_guard chỉ gồm: %s" % ", ".join(ECHO_MODES))
+        rule["echo_guard"] = data["echo_guard"]
     if data.get("call_types") is not None:
         types = [data["call_types"]] if isinstance(data["call_types"], str) else list(data["call_types"])
         if [t for t in types if t not in CALL_TYPES]:

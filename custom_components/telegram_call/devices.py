@@ -7,11 +7,13 @@ from typing import Any, Callable
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import (CONF_CALL_VOLUME, CONF_CAMERA, CONF_HA_URL, CONF_MIC, CONF_MIC_URL, CONF_SPEAKER, DOMAIN, MAX_CALL_VOLUME,
+from .const import (CONF_CALL_VOLUME, CONF_CAMERA, CONF_ECHO_GUARD, CONF_HA_URL, CONF_MIC, CONF_MIC_URL, CONF_SPEAKER, DOMAIN, MAX_CALL_VOLUME,
                     STORAGE_VERSION)
+from .echo_policy import ECHO_MODES
 from .rules import RULES_KEY
 
-DEFAULTS: dict[str, Any] = {CONF_MIC: "", CONF_MIC_URL: "", CONF_CAMERA: "", CONF_HA_URL: "", CONF_SPEAKER: "", CONF_CALL_VOLUME: 0, RULES_KEY: {}}
+DEFAULTS: dict[str, Any] = {CONF_MIC: "", CONF_MIC_URL: "", CONF_CAMERA: "", CONF_HA_URL: "", CONF_SPEAKER: "",
+                            CONF_ECHO_GUARD: "auto", CONF_CALL_VOLUME: 0, RULES_KEY: {}}
 _TEXT_KEYS = (CONF_MIC, CONF_MIC_URL, CONF_CAMERA, CONF_HA_URL, CONF_SPEAKER)
 
 
@@ -30,6 +32,8 @@ class DeviceDefaults:
         for key in _TEXT_KEYS:
             if key in patch:
                 self.data[key] = str(patch[key] or "").strip()
+        if CONF_ECHO_GUARD in patch and patch[CONF_ECHO_GUARD] in ECHO_MODES:
+            self.data[CONF_ECHO_GUARD] = str(patch[CONF_ECHO_GUARD])
         if CONF_CALL_VOLUME in patch:
             try:
                 self.data[CONF_CALL_VOLUME] = max(0, min(MAX_CALL_VOLUME, int(patch[CONF_CALL_VOLUME])))

@@ -66,12 +66,12 @@ def _load():
     pkg = types.ModuleType("telegram_call")
     pkg.__path__ = [ROOT]
     sys.modules["telegram_call"] = pkg
-    for name in ("const", "api", "bridge_core", "devices", "bridge"):
+    for name in ("const", "echo_policy", "api", "bridge_core", "rules", "devices", "bridge"):
         spec = importlib.util.spec_from_file_location("telegram_call." + name, os.path.join(ROOT, name + ".py"))
         m = importlib.util.module_from_spec(spec)
         sys.modules["telegram_call." + name] = m
         spec.loader.exec_module(m)
-    for n in ("bridge", "bridge_core", "const", "api", "devices"):
+    for n in ("bridge", "bridge_core", "const", "echo_policy", "api", "rules", "devices"):
         holder[n] = sys.modules["telegram_call." + n]
     holder["HAError"] = HomeAssistantError
     return holder
@@ -218,10 +218,148 @@ def test_call_fields_carry_mic_camera_and_speaker_with_override():
         _ent("r1_speaker", "media_player.r1_loa", "r1entry", intercom_key="KHOA")
         f = await br.async_call_fields(None)
         assert f == {"mic": "rtsp://u:p@cam.local/stream", "mic_format": "auto", "camera": "rtsp://cam2.local/s",
-                     "speaker": "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA"}, f
+                     "speaker": "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA", "echo_guard": "false"}, f
         f = await br.async_call_fields({"camera": "camera.cam1", "speaker": ""})       # ghi đè: camera khác, tắt loa
-        assert f["camera"] == "rtsp://u:p@cam.local/stream" and "speaker" not in f
+        assert f["camera"] == "rtsp://u:p@cam.local/stream" and "speaker" not in f and "echo_guard" not in f
     asyncio.run(run())
+
+
+def test_echo_helpers_device_of_url_speaker_kind_and_echo_guard_on():
+    assert core.device_of_url("http://ha:8123/api/r1_speaker/mic/E1?k=K") == ("r1_speaker", "E1")
+    assert core.device_of_url("http://ha:8123/api/r1_speaker/intercom/E1?k=K") == ("r1_speaker", "E1")
+    assert core.device_of_url("http://ha:8123/api/r1_speaker/duplex/E1?k=K") == ("r1_speaker", "E1")
+    assert core.device_of_url("http://ha:8123/api/dahua_talk/intercom/D1?k=K") == ("dahua_talk", "D1")
+    assert core.device_of_url("rtsp://cam.local/stream") is None
+    assert core.device_of_url("cast://id/a8a623b97677b5afe205aa191cfbb9b6") is None
+    assert core.device_of_url("") is None
+
+    assert core.speaker_kind("duplex", "r1_speaker") == "duplex"
+    assert core.speaker_kind("auto", "r1_speaker") == "intercom"
+    assert core.speaker_kind("on", "r1_speaker") == "intercom"
+    assert core.speaker_kind("off", "r1_speaker") == "intercom"
+    assert core.speaker_kind("duplex", "dahua_talk") == "intercom"
+
+    r1_ic = "http://ha:8123/api/r1_speaker/intercom/E1?k=K"
+    r1_dx = "http://ha:8123/api/r1_speaker/duplex/E1?k=K"
+    dh_ic = "http://ha:8123/api/dahua_talk/intercom/D1?k=K"
+    assert core.echo_guard_on("auto", True, r1_ic) is True
+    assert core.echo_guard_on("auto", False, r1_ic) is False
+    assert core.echo_guard_on("on", False, r1_ic) is True
+    assert core.echo_guard_on("off", True, r1_ic) is False
+    assert core.echo_guard_on("duplex", True, r1_dx) is False
+    assert core.echo_guard_on("duplex", True, dh_ic) is True       # Dahua không có duplex -> rơi về intercom + same_device
+    assert core.echo_guard_on("on", True, "") is False
+
+
+def test_same_device_matches_by_url_config_entry_or_device_id():
+    hass, api, dd, br = _make({})
+    _ent("r1_speaker", "media_player.r1_loa", "r1e", device_id="dev_r1", intercom_key="K1")
+    _ent("r1_speaker", "assist_satellite.r1_mic", "r1e", device_id="dev_r1", intercom_key="K1")
+    _ent("r1_speaker", "media_player.r1_khac", "r1e2", device_id="dev_r1_2", intercom_key="K2")
+    _ent("dahua_talk", "media_player.cam_loa", "dhe", device_id="dev_dh", intercom_key="KD")
+    _ent("dahua_talk", "assist_satellite.cam_mic", "dhe", device_id="dev_dh")
+    H["registry"]["media_player.dev_loa"] = types.SimpleNamespace(config_entry_id="ce_a", device_id="shared_dev")
+    H["registry"]["assist_satellite.dev_mic"] = types.SimpleNamespace(config_entry_id="ce_b", device_id="shared_dev")
+    H["registry"]["camera.cam1"] = types.SimpleNamespace(config_entry_id="cam_ce", device_id="dev_cam")
+
+    # Trùng thiết bị qua URL (cùng r1_speaker entry_id)
+    assert br._same_device("", "", "http://ha/api/r1_speaker/mic/r1e?k=K1", "http://ha/api/r1_speaker/intercom/r1e?k=K1") is True
+    assert br._same_device("", "", "http://ha/api/r1_speaker/mic/r1e?k=K1", "http://ha/api/r1_speaker/duplex/r1e?k=K1") is True
+    # Khác thiết bị qua URL (2 loa R1 khác nhau)
+    assert br._same_device("media_player.r1_khac", "assist_satellite.r1_mic",
+                           "http://ha/api/r1_speaker/mic/r1e?k=K1", "http://ha/api/r1_speaker/intercom/r1e2?k=K2") is False
+    # Trùng qua config_entry_id (Dahua mic RTSP không mang entry_id trong URL)
+    assert br._same_device("media_player.cam_loa", "assist_satellite.cam_mic",
+                           "rtsp://cam.local/s", "http://ha/api/dahua_talk/intercom/dhe?k=KD") is True
+    # Trùng qua device_id dù khác config_entry_id
+    assert br._same_device("media_player.dev_loa", "assist_satellite.dev_mic", "rtsp://x", "http://ha/api/dahua_talk/intercom/dhe?k=KD") is True
+    # Khác hoàn toàn hoặc thiếu entity_id
+    assert br._same_device("media_player.r1_loa", "camera.cam1", "rtsp://cam1/s", "http://ha/api/r1_speaker/intercom/r1e?k=K1") is False
+    assert br._same_device("", "camera.cam1", "rtsp://cam1/s", "") is False
+
+
+def test_speaker_sink_applies_echo_policy_for_r1_and_dahua():
+    async def run():
+        hass, api, dd, br = _make({"echo_guard": "auto"})
+        _ent("r1_speaker", "media_player.r1_loa", "r1entry", intercom_key="KHOA")
+        _ent("dahua_talk", "media_player.cam_loa", "dhentry", intercom_key="K2")
+
+        assert await br.async_speaker_sink("media_player.r1_loa", "auto") == "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA"
+        assert await br.async_speaker_sink("media_player.r1_loa", "on") == "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA"
+        assert await br.async_speaker_sink("media_player.r1_loa", "off") == "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA"
+        assert await br.async_speaker_sink("media_player.r1_loa", "duplex") == "http://ha:8123/api/r1_speaker/duplex/r1entry?k=KHOA"
+        # Dahua không hỗ trợ song công: luôn là intercom
+        assert await br.async_speaker_sink("media_player.cam_loa", "duplex") == "http://ha:8123/api/dahua_talk/intercom/dhentry?k=K2"
+
+        # Mặc định thiết bị là duplex: rule auto/None theo thiết bị -> duplex; rule on/off thắng -> intercom
+        dd._merge({"echo_guard": "duplex"})
+        assert await br.async_speaker_sink("media_player.r1_loa") == "http://ha:8123/api/r1_speaker/duplex/r1entry?k=KHOA"
+        assert await br.async_speaker_sink("media_player.r1_loa", "auto") == "http://ha:8123/api/r1_speaker/duplex/r1entry?k=KHOA"
+        assert await br.async_speaker_sink("media_player.r1_loa", "on") == "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA"
+        assert await br.async_speaker_sink("media_player.r1_loa", "off") == "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA"
+    asyncio.run(run())
+
+
+def test_call_fields_and_override_respect_echo_policy_and_same_device():
+    async def run():
+        hass, api, dd, br = _make({"mic": "assist_satellite.r1_mic", "speaker": "media_player.r1_loa"})
+        _ent("r1_speaker", "media_player.r1_loa", "r1entry", device_id="d1", intercom_key="KHOA")
+        _ent("r1_speaker", "assist_satellite.r1_mic", "r1entry", device_id="d1", intercom_key="KHOA")
+
+        # Mặc định auto + mic & loa cùng R1 -> intercom + echo_guard=true
+        f = await br.async_call_fields(None)
+        assert f["speaker"] == "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA" and f["echo_guard"] == "true", f
+
+        # Quy tắc duplex thắng mặc định auto -> cửa duplex + echo_guard=false
+        f = await br.async_call_fields(None, echo_mode="duplex")
+        assert f["speaker"] == "http://ha:8123/api/r1_speaker/duplex/r1entry?k=KHOA" and f["echo_guard"] == "false", f
+
+        # Quy tắc off trên cùng thiết bị -> intercom + echo_guard=false
+        f = await br.async_call_fields({"echo_guard": "off"})
+        assert f["speaker"] == "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA" and f["echo_guard"] == "false", f
+
+        # Khác thiết bị (mic là camera) + auto -> echo_guard=false; ép on -> echo_guard=true
+        f = await br.async_call_fields({"mic": "camera.cam1"})
+        assert f["echo_guard"] == "false", f
+        f = await br.async_call_fields({"mic": "camera.cam1"}, echo_mode="on")
+        assert f["echo_guard"] == "true", f
+
+        # Mặc định thiết bị duplex + quy tắc auto -> duplex; quy tắc on -> thắng về intercom + echo_guard=true
+        dd._merge({"echo_guard": "duplex"})
+        f = await br.async_call_fields(None, echo_mode="auto")
+        assert f["speaker"] == "http://ha:8123/api/r1_speaker/duplex/r1entry?k=KHOA" and f["echo_guard"] == "false", f
+        f = await br.async_call_fields(None, echo_mode="on")
+        assert f["speaker"] == "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA" and f["echo_guard"] == "true", f
+
+        # Đẩy mặc định khi device_default=duplex -> gateway nhận cửa /duplex/
+        await br.async_push_defaults()
+        assert api.pushed[-1]["speaker"] == "http://ha:8123/api/r1_speaker/duplex/r1entry?k=KHOA"
+
+        # async_apply_override với echo_mode=on ghi đè sang /intercom/, rồi stop() trả về /duplex/ mặc định
+        await br.async_apply_override("c1", {"echo_guard": "on"})
+        assert api.pushed[-1]["speaker"] == "http://ha:8123/api/r1_speaker/intercom/r1entry?k=KHOA"
+        await br.stop("c1")
+        assert api.pushed[-1]["speaker"] == "http://ha:8123/api/r1_speaker/duplex/r1entry?k=KHOA"
+    asyncio.run(run())
+
+
+def test_defaults_and_rules_validate_echo_guard():
+    dd = devices_mod.DeviceDefaults(types.SimpleNamespace(), "e1")
+    assert dd.get("echo_guard") == "auto"
+    for mode in ("on", "duplex", "off", "auto"):
+        dd._merge({"echo_guard": mode})
+        assert dd.get("echo_guard") == mode
+    dd._merge({"echo_guard": "sai"})
+    assert dd.get("echo_guard") == "auto"
+
+    rules_mod = H["rules"]
+    assert rules_mod.normalize({})["echo_guard"] == "auto"
+    assert rules_mod.normalize({"echo_guard": "duplex"})["echo_guard"] == "duplex"
+    try:
+        rules_mod.normalize({"echo_guard": "khong_hop_le"})
+        raise AssertionError("phải từ chối echo_guard không hợp lệ")
+    except rules_mod.RuleError:
+        pass
 
 
 def test_push_defaults_send_speaker_and_silence_black_when_nothing_selected():

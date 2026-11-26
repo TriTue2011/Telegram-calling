@@ -161,6 +161,8 @@ def rule_override(rule: dict[str, Any], parts: list[str]) -> dict[str, Any]:
         out.update(chosen)
         if part == "speaker" and rule.get("volume"):
             out["volume"] = rule["volume"]
+    if rule.get("echo_guard"):
+        out["echo_guard"] = rule["echo_guard"]
     return out
 
 
@@ -301,7 +303,8 @@ async def _answer_by_rule(hass: HomeAssistant, rt: Any, call_id: str, rule: dict
         await rt.coordinator.async_refresh()
         if not _still_ringing(rt, call_id):
             return
-        await rt.bridge.async_apply_override(call_id, rule_override(rule, list(rule.get("connect_now") or [])), held=True)
+        await rt.bridge.async_apply_override(call_id, rule_override(rule, list(rule.get("connect_now") or [])),
+                                             held=True, echo_mode=rule.get("echo_guard"))
         if rule.get("greeting"):
             voice.greeting_for[call_id] = rule
         try:
@@ -481,7 +484,8 @@ async def async_take_over(hass: HomeAssistant, rt: Any, call_id: Any = None, exp
     voice.greeting_for.pop(cid, None)
     rule = voice.rule_of.get(cid)
     override = explicit or (rule_override(rule, rule_parts(rule)) if rule else None)
-    res = await rt.bridge.async_resolve(rt.bridge.devices_for(override))
+    echo_mode = (override or {}).get("echo_guard") or (rule or {}).get("echo_guard")
+    res = await rt.bridge.async_resolve(rt.bridge.devices_for(override), echo_mode)
     live = next((c for c in rt.coordinator.live_calls() if str(c.get("id")) == cid), {})
     connected: list[str] = []
     if res["mic_url"]:

@@ -11,6 +11,7 @@ CONF_MIC = "mic"                  # nhãn «Tên · entity_id» của nguồn mi
 CONF_MIC_URL = "mic_url"          # URL mic bất kỳ (rtsp/http…), thay cho CONF_MIC
 CONF_CAMERA = "camera"            # camera cho cuộc gọi video
 CONF_SPEAKER = "speaker"          # nhãn «Tên · entity_id» của loa phát tiếng bên kia (loa R1 / camera Imou-Dahua qua cửa bộ đàm)
+CONF_ECHO_GUARD = "echo_guard"    # chế độ chống vọng mặc định của thiết bị: auto | on | duplex | off
 CONF_CALL_VOLUME = "call_volume"  # % âm lượng loa lúc đang gọi (0 = giữ nguyên âm lượng của loa)
 MAX_CALL_VOLUME = 100
 CONF_HA_URL = "ha_url"            # địa chỉ HA mà gateway (container) gọi tới được; trống = URL nội bộ của HA

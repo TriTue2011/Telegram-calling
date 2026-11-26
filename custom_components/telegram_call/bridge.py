@@ -19,10 +19,11 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 
+from . import echo_policy
 from .api import TelegramCallError, TelegramGatewayApi
-from .bridge_core import (DEVICE_KEYS, PushPolicy, dahua_mic_url, entity_of_label, host_of, intercom_url, localize_url, mic_format_for_url,
-                          pick_devices, r1_mic_url, redact, valid_url)
-from .const import CONF_CALL_VOLUME, CONF_HA_URL, MAX_CALL_VOLUME
+from .bridge_core import (DEVICE_KEYS, PushPolicy, dahua_mic_url, device_of_url, echo_guard_on, entity_of_label, host_of, intercom_url,
+                          localize_url, mic_format_for_url, pick_devices, r1_mic_url, redact, speaker_kind, valid_url)
+from .const import CONF_CALL_VOLUME, CONF_ECHO_GUARD, CONF_HA_URL, MAX_CALL_VOLUME
 from .devices import DeviceDefaults
 
 _LOGGER = logging.getLogger(__name__)
@@ -100,8 +101,9 @@ class CallBridge:
         _LOGGER.warning("Không lấy được mic từ %s (chỉ hỗ trợ camera, assist_satellite hoặc URL)", entity_id)
         return "", "auto"
 
-    async def async_speaker_sink(self, entity_id: str) -> str:
-        """Địa chỉ cửa bộ đàm của loa, hoặc ``""`` nếu loa không hỗ trợ (chỉ ``r1_speaker`` / ``dahua_talk`` có cửa này)."""
+    async def async_speaker_sink(self, entity_id: str, mode: str | None = None) -> str:
+        """Địa chỉ cửa bộ đàm của loa, hoặc ``""`` nếu loa không hỗ trợ (chỉ ``r1_speaker`` / ``dahua_talk`` có cửa này, hoặc Google Cast).
+        Mặc định là ``intercom`` (nửa song công); chế độ ``duplex`` + loa R1 -> phiên song công ``duplex`` của R1."""
         if not entity_id:
             return ""
         ent = er.async_get(self.hass).async_get(entity_id)
@@ -122,18 +124,40 @@ class CallBridge:
         if not key or not base:
             _LOGGER.warning("Loa %s chưa có khoá bộ đàm hoặc HA chưa có địa chỉ nội bộ", entity_id)
             return ""
-        return intercom_url(base, cfg.domain, cfg.entry_id, key)
+        eff = echo_policy.effective(mode, self.defaults.get(CONF_ECHO_GUARD))
+        return intercom_url(base, cfg.domain, cfg.entry_id, key, speaker_kind(eff, cfg.domain))
 
-    async def async_resolve(self, devices: dict[str, str]) -> dict[str, str]:
+    def _same_device(self, speaker_id: str, mic_id: str, mic_url: str, sink_url: str) -> bool:
+        """Mic và loa có cùng MỘT thiết bị không (để bật chống vọng khi ở chế độ tự động)."""
+        a, b = device_of_url(sink_url), device_of_url(mic_url)
+        if a and b:
+            return a == b
+        if speaker_id and mic_id:
+            reg = er.async_get(self.hass)
+            s, m = reg.async_get(speaker_id), reg.async_get(mic_id)
+            if s and m and s.config_entry_id and s.config_entry_id == m.config_entry_id:
+                return True
+            return bool(s and m and s.device_id and s.device_id == m.device_id)
+        return False
+
+    async def async_resolve(self, devices: dict[str, str], echo_mode: str | None = None) -> dict[str, str]:
+        mode = echo_policy.effective(echo_mode, self.defaults.get(CONF_ECHO_GUARD))
         mic_url, mic_fmt = await self.async_mic_source(devices)
         cam_id = entity_of_label(devices.get("camera", ""))
         cam_url = await self.async_camera_url(cam_id) if cam_id else ""
-        speaker_url = await self.async_speaker_sink(entity_of_label(devices.get("speaker", "")))
-        return {"mic_url": mic_url, "mic_format": mic_fmt, "camera_url": cam_url, "speaker_url": speaker_url}
+        spk_id = entity_of_label(devices.get("speaker", ""))
+        speaker_url = await self.async_speaker_sink(spk_id, mode)
+        mic_id = entity_of_label(devices.get("mic", ""))
+        echo = echo_guard_on(mode, self._same_device(spk_id, mic_id, mic_url, speaker_url), speaker_url) if speaker_url else False
+        return {"mic_url": mic_url, "mic_format": mic_fmt, "camera_url": cam_url, "speaker_url": speaker_url,
+                "echo_guard": "true" if echo else "false"}
 
-    async def async_call_fields(self, override: dict[str, Any] | None) -> dict[str, str]:
-        """Trường thiết bị đính kèm ``/api/live/call``: ``mic`` / ``mic_format`` / ``camera`` / ``speaker`` (bỏ trống = gateway dùng mặc định đã đẩy)."""
-        res = await self.async_resolve(self.devices_for(override))
+    async def async_call_fields(self, override: dict[str, Any] | None, echo_mode: str | None = None) -> dict[str, str]:
+        """Trường thiết bị đính kèm ``/api/live/call``: ``mic`` / ``mic_format`` / ``camera`` / ``speaker`` / ``echo_guard`` (bỏ trống = gateway dùng mặc định đã đẩy)."""
+        rule_mode = echo_mode if echo_mode is not None else (override or {}).get(CONF_ECHO_GUARD)
+        # Chống vọng của QUY TẮC (echo_mode) thắng; auto/trống thì theo mặc định thiết bị (xem echo_policy.py).
+        mode = echo_policy.effective(rule_mode, self.defaults.get(CONF_ECHO_GUARD))
+        res = await self.async_resolve(self.devices_for(override), mode)
         out: dict[str, str] = {}
         if res["mic_url"]:
             out["mic"], out["mic_format"] = res["mic_url"], res["mic_format"]
@@ -141,6 +165,7 @@ class CallBridge:
             out["camera"] = res["camera_url"]
         if res["speaker_url"]:
             out["speaker"] = res["speaker_url"]
+            out["echo_guard"] = res["echo_guard"]
         return out
 
     async def async_push_defaults(self) -> None:
@@ -156,7 +181,7 @@ class CallBridge:
 
     async def _async_push(self) -> None:
         devices = self.devices_for()
-        res = await self.async_resolve(devices)
+        res = await self.async_resolve(devices, self.defaults.get(CONF_ECHO_GUARD))
         mic_id = entity_of_label(devices.get("mic", ""))
         cam_id = entity_of_label(devices.get("camera", ""))
         payload = {"mic": res["mic_url"] or "silence", "mic_format": res["mic_format"], "camera": res["camera_url"] or "black",
@@ -192,15 +217,17 @@ class CallBridge:
             self.policy.pushed(False)
 
     # -- âm lượng loa theo cuộc gọi -------------------------------------------------------------------------
-    async def async_apply_override(self, call_id: Any, override: dict[str, Any], held: bool = False) -> None:
-        """Nghe máy một cuộc gọi ĐẾN bằng thiết bị riêng (loa/mic/camera/âm lượng do automation hoặc quy tắc chọn): đặt chúng làm thiết bị hiện hành của gateway TRƯỚC khi nghe máy
+    async def async_apply_override(self, call_id: Any, override: dict[str, Any], held: bool = False,
+                                   echo_mode: str | None = None) -> None:
+        """Nghe máy một cuộc gọi ĐẾN bằng thiết bị riêng (loa/mic/camera/âm lượng/chống vọng do automation hoặc quy tắc chọn): đặt chúng làm thiết bị hiện hành của gateway TRƯỚC khi nghe máy
         (cuộc gọi đến luôn dùng thiết bị hiện hành), nhớ để trả về mặc định khi cuộc gọi kết thúc (``stop``).
         ``held`` (nghe máy theo quy tắc): luôn đặt lại thiết bị của gateway kể cả khi không có thiết bị nào. Mic/camera KHÔNG chọn thì gửi im lặng / hình đen."""
         self.remember(call_id, override)
-        if not held and not any(override.get(k) for k in DEVICE_KEYS):
+        rule_mode = echo_mode if echo_mode is not None else override.get(CONF_ECHO_GUARD)
+        if not held and not any(override.get(k) for k in DEVICE_KEYS) and rule_mode not in ("on", "duplex", "off"):
             return                                              # chỉ có âm lượng: không đụng thiết bị của gateway
         devices = self.devices_for(override)
-        res = await self.async_resolve(devices)
+        res = await self.async_resolve(devices, echo_policy.effective(rule_mode, self.defaults.get(CONF_ECHO_GUARD)))
         payload: dict[str, Any] = {"mic": res["mic_url"] or "silence", "mic_format": res["mic_format"], "camera": res["camera_url"] or "black",
                                    "speaker": res["speaker_url"]}
         await self.api.set_live_settings(payload)

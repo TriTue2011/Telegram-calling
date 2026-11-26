@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 from typing import Any, Mapping
-from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
 
 ALLOWED_SCHEMES = ("rtsp", "rtsps", "http", "https", "rtmp", "rtmps")
 DEVICE_KEYS = ("mic", "mic_url", "camera", "speaker")
@@ -96,6 +96,34 @@ def r1_mic_url(base: str, entry_id: str, key: str) -> str:
 def intercom_url(base: str, domain: str, entry_id: str, key: str, kind: str = "intercom") -> str:
     """Cửa bộ đàm của loa (``r1_speaker`` / ``dahua_talk``): gateway POST tiếng bên kia vào đây. Khớp ``valid_speaker_url`` của gateway."""
     return f"{base.rstrip('/')}/api/{domain}/{kind}/{quote(entry_id, safe='')}?k={quote(key, safe='')}"
+
+
+_DEVICE_URL = re.compile(r"^/api/(r1_speaker|dahua_talk)/(?:mic|intercom|duplex)/([^/]+)$")
+
+
+def device_of_url(url: str) -> tuple[str, str] | None:
+    """(tích_hợp, entry_id) của URL mic/loa nội bộ HA, hoặc None nếu không phải (vd RTSP camera, Cast)."""
+    m = _DEVICE_URL.match(urlsplit(url or "").path)
+    return (m.group(1), unquote(m.group(2))) if m else None
+
+
+def speaker_kind(mode: str, domain: str) -> str:
+    """Cửa nhận tiếng của loa: ``duplex`` (song công, R1 tự khử vọng) khi chọn ``duplex`` trên loa R1; còn lại ``intercom``."""
+    return "duplex" if mode == "duplex" and domain == "r1_speaker" else "intercom"
+
+
+def echo_guard_on(mode: str, same_device: bool, speaker_url: str = "") -> bool:
+    """Bật chống vọng (tạm tắt mic khi loa phát) hay không:
+    - Không có loa hoặc loa đang mở cửa ``duplex`` (song công, R1 tự khử vọng) -> False.
+    - ``on`` -> True; ``off`` -> False.
+    - ``auto`` (hoặc ``duplex`` rơi về ``intercom`` trên loa không hỗ trợ song công) -> True khi mic và loa cùng MỘT thiết bị."""
+    if not speaker_url or "/duplex/" in speaker_url:
+        return False
+    if mode == "on":
+        return True
+    if mode == "off":
+        return False
+    return bool(same_device)
 
 
 def dahua_mic_url(options: Mapping[str, Any], data: Mapping[str, Any]) -> str:
