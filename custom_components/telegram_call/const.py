@@ -15,6 +15,9 @@ CONF_ECHO_GUARD = "echo_guard"    # chế độ chống vọng mặc định c�
 CONF_CALL_VOLUME = "call_volume"  # % âm lượng loa lúc đang gọi (0 = giữ nguyên âm lượng của loa)
 MAX_CALL_VOLUME = 100
 CONF_HA_URL = "ha_url"            # địa chỉ HA mà gateway (container) gọi tới được; trống = URL nội bộ của HA
+CONF_TEXT_FORMAT = "text_format"
+CONF_TEXT_AUTO_EMPHASIS = "text_auto_emphasis"
+TEXT_FORMATS = ("plain", "markdown")
 
 EVENT_STATE = "telegram_call_call_state"
 EVENT_MESSAGE = "telegram_call_message"                  # tin NHẬN được (không bắn lại tin mình gửi)

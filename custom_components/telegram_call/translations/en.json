@@ -257,7 +257,11 @@
         },
         "format": {
           "name": "Text format",
-          "description": "plain (default), markdown (Telegram MarkdownV2) or html."
+          "description": "default (default: follows the account's «Text: format» setting, defaults to markdown), plain, markdown (Telegram MarkdownV2) or html."
+        },
+        "auto_emphasis": {
+          "name": "Auto emphasis",
+          "description": "Automatically emphasize key parts of the message (leave empty = follow the account's «Text: auto emphasis» switch)."
         },
         "config_entry_id": {
           "name": "Account",
@@ -299,7 +303,11 @@
         },
         "format": {
           "name": "Text format",
-          "description": "plain (default), markdown (Telegram MarkdownV2) or html."
+          "description": "default (default: follows the account's «Text: format» setting, defaults to markdown), plain, markdown (Telegram MarkdownV2) or html."
+        },
+        "auto_emphasis": {
+          "name": "Auto emphasis",
+          "description": "Automatically emphasize key parts of the message (leave empty = follow the account's «Text: auto emphasis» switch)."
         },
         "config_entry_id": {
           "name": "Account",
@@ -337,7 +345,11 @@
         },
         "format": {
           "name": "Text format",
-          "description": "plain (default), markdown (Telegram MarkdownV2) or html."
+          "description": "default (default: follows the account's «Text: format» setting, defaults to markdown), plain, markdown (Telegram MarkdownV2) or html."
+        },
+        "auto_emphasis": {
+          "name": "Auto emphasis",
+          "description": "Automatically emphasize key parts of the message (leave empty = follow the account's «Text: auto emphasis» switch)."
         },
         "config_entry_id": {
           "name": "Account",
@@ -375,7 +387,11 @@
         },
         "format": {
           "name": "Text format",
-          "description": "plain (default), markdown (Telegram MarkdownV2) or html."
+          "description": "default (default: follows the account's «Text: format» setting, defaults to markdown), plain, markdown (Telegram MarkdownV2) or html."
+        },
+        "auto_emphasis": {
+          "name": "Auto emphasis",
+          "description": "Automatically emphasize key parts of the message (leave empty = follow the account's «Text: auto emphasis» switch)."
         },
         "config_entry_id": {
           "name": "Account",
@@ -413,7 +429,11 @@
         },
         "format": {
           "name": "Text format",
-          "description": "plain (default), markdown (Telegram MarkdownV2) or html."
+          "description": "default (default: follows the account's «Text: format» setting, defaults to markdown), plain, markdown (Telegram MarkdownV2) or html."
+        },
+        "auto_emphasis": {
+          "name": "Auto emphasis",
+          "description": "Automatically emphasize key parts of the message (leave empty = follow the account's «Text: auto emphasis» switch)."
         },
         "config_entry_id": {
           "name": "Account",
@@ -489,7 +509,11 @@
         },
         "format": {
           "name": "Text format",
-          "description": "plain (default), markdown (Telegram MarkdownV2) or html."
+          "description": "default (default: follows the account's «Text: format» setting, defaults to markdown), plain, markdown (Telegram MarkdownV2) or html."
+        },
+        "auto_emphasis": {
+          "name": "Auto emphasis",
+          "description": "Automatically emphasize key parts of the message (leave empty = follow the account's «Text: auto emphasis» switch)."
         },
         "config_entry_id": {
           "name": "Account",

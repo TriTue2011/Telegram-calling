@@ -161,14 +161,22 @@ send_message:
           max: 9007199254740991
           mode: box
     format:
-      default: plain
+      default: default
       selector: &id010
         select:
           options:
-          - plain
-          - markdown
-          - html
+          - label: Theo cài đặt
+            value: default
+          - label: Văn bản thường (plain)
+            value: plain
+          - label: Markdown
+            value: markdown
+          - label: HTML
+            value: html
           mode: dropdown
+    auto_emphasis: &id_auto_emphasis
+      selector:
+        boolean: null
     config_entry_id:
       selector: *id006
 send_file:
@@ -202,8 +210,9 @@ send_file:
     reply_to:
       selector: *id009
     format:
-      default: plain
+      default: default
       selector: *id010
+    auto_emphasis: *id_auto_emphasis
     config_entry_id:
       selector: *id006
 send_photo:
@@ -226,8 +235,9 @@ send_photo:
     reply_to: &id013
       selector: *id009
     format: &id014
-      default: plain
+      default: default
       selector: *id010
+    auto_emphasis: *id_auto_emphasis
     config_entry_id: &id015
       selector: *id006
 send_video:
@@ -250,8 +260,9 @@ send_video:
     reply_to:
       selector: *id009
     format:
-      default: plain
+      default: default
       selector: *id010
+    auto_emphasis: *id_auto_emphasis
     config_entry_id:
       selector: *id006
 send_audio:
@@ -274,8 +285,9 @@ send_audio:
     reply_to:
       selector: *id009
     format:
-      default: plain
+      default: default
       selector: *id010
+    auto_emphasis: *id_auto_emphasis
     config_entry_id:
       selector: *id006
 send_media_group:
@@ -293,6 +305,7 @@ send_media_group:
         object: null
     reply_to: *id013
     format: *id014
+    auto_emphasis: *id_auto_emphasis
     config_entry_id: *id015
 send_voice:
   fields:
@@ -335,8 +348,9 @@ edit_message:
       required: true
       selector: *id008
     format:
-      default: plain
+      default: default
       selector: *id010
+    auto_emphasis: *id_auto_emphasis
     config_entry_id:
       selector: *id006
 delete_message:

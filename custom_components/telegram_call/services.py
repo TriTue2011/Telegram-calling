@@ -22,11 +22,11 @@ from .echo_policy import ECHO_MODES
 from .rules import (CALL_TYPES, CONNECT, MAX_ANNOUNCE_REPEAT, MAX_NOTE_LEN, RULES_KEY, SCOPES, VIDEO_REQUEST, RuleError, get_rules, normalize as normalize_rule,
                     parse_tags, validate_scope)
 from .bridge_core import redact
-from .const import CONF_ECHO_GUARD, DOMAIN
+from .const import CONF_ECHO_GUARD, CONF_TEXT_AUTO_EMPHASIS, CONF_TEXT_FORMAT, DOMAIN
 
 MAX_FILE = 64 * 1024 * 1024                       # đúng trần của gateway
 KINDS = ("photo", "video", "audio", "voice", "document")
-FORMATS = ("plain", "markdown", "html")
+FORMATS = ("default", "plain", "markdown", "html")
 
 _ENTRY = {vol.Optional("config_entry_id"): cv.string}
 _PARTS = vol.All(cv.ensure_list, [vol.In(["mic", "speaker", "camera"])])       # ô tích: mic / loa / camera (như connect_now, connect của quy tắc)
@@ -134,23 +134,43 @@ def _catalog_schema(spec: catalog.S) -> Any:
 # Tương thích với dịch vụ gửi tin của ``telegram_bot`` của HA: cùng một mẫu dữ liệu dùng được cho cả hai (blueprint gửi qua bot và qua Telegram Call).
 # ``message_thread_id`` (chủ đề trong nhóm) chưa hỗ trợ nên bỏ qua; ``parse_mode`` đổi thành ``format``.
 _TARGET = {vol.Optional("chat_id"): vol.Coerce(int), vol.Optional("peer"): cv.string,
-           vol.Optional("message_thread_id"): vol.Any(None, "", vol.Coerce(int)), vol.Optional("parse_mode"): cv.string,
+           vol.Optional("message_thread_id"): vol.Any(None, "", vol.Coerce(int)), vol.Optional("parse_mode"): vol.Any(None, cv.string),
            vol.Optional("target"): vol.Any(vol.Coerce(int), [vol.Coerce(int)])}       # ``telegram_bot.send_message`` dùng ``target`` (số hoặc danh sách) thay cho chat_id
 _ALBUM_GROUP = {"photo": "media", "video": "media", "document": "document", "audio": "audio"}       # Telegram không cho trộn các nhóm trong một album
 _PARSE_MODES = {"plain_text": "plain", "plain": "plain", "markdown": "markdown", "markdownv2": "markdown", "html": "html"}
 
 
 def _compat(data: dict) -> dict:
-    """Mẫu dữ liệu kiểu ``telegram_bot`` → của tích hợp: ``parse_mode`` → ``format`` (chuỗi lạ thì ``plain``); ``target`` (số hoặc danh sách; chỉ lấy
-    người/nhóm ĐẦU TIÊN) → ``chat_id`` khi chưa có chat_id/peer. Chạy TRƯỚC khi kiểm lược đồ."""
+    """Mẫu dữ liệu kiểu ``telegram_bot`` → của tích hợp: giữ nguyên ``parse_mode`` để ưu tiên hơn mặc định; ``target`` (số hoặc danh sách;
+    chỉ lấy người/nhóm ĐẦU TIÊN) → ``chat_id`` khi chưa có chat_id/peer. Chạy TRƯỚC khi kiểm lược đồ."""
     data = dict(data)
-    if data.get("parse_mode"):
-        data["format"] = _PARSE_MODES.get(str(data["parse_mode"]).lower(), "plain")
     tgt = data.pop("target", None)
     if tgt not in (None, "", []) and "chat_id" not in data and "peer" not in data:
         data["chat_id"] = tgt[0] if isinstance(tgt, (list, tuple)) else tgt
     return data
-_FMT = {vol.Optional("format", default="plain"): vol.In(FORMATS)}
+
+
+def _resolve_format(rt: Any, data: dict[str, Any]) -> dict[str, Any]:
+    """Giải quyết tuỳ chọn định dạng thành tham số truyền cho ``TelegramGatewayApi``."""
+    pm_raw = str(data.get("parse_mode") or "").strip()
+    if pm_raw:
+        return {"parse_mode": _PARSE_MODES.get(pm_raw.lower(), "plain")}
+    fmt_raw = str(data.get("format") or "").strip().lower()
+    if fmt_raw == "html":
+        return {"parse_mode": "html"}
+    if not fmt_raw or fmt_raw == "default":
+        fmt = str(rt.defaults.get(CONF_TEXT_FORMAT) or "markdown")
+    else:
+        fmt = fmt_raw
+    ae = data.get("auto_emphasis")
+    auto_emphasis = bool(rt.defaults.get(CONF_TEXT_AUTO_EMPHASIS)) if ae is None else bool(ae)
+    out: dict[str, Any] = {"fmt": fmt, "auto_emphasis": auto_emphasis}
+    if str(data.get("ai_markup") or "").strip():
+        out["ai_markup"] = str(data["ai_markup"]).strip()
+    return out
+
+
+_FMT = {vol.Optional("format"): vol.In(FORMATS), vol.Optional("auto_emphasis"): cv.boolean, vol.Optional("ai_markup"): cv.string}
 _REPLY = {vol.Optional("reply_to"): vol.All(vol.Coerce(int), vol.Range(min=1))}
 
 
@@ -174,7 +194,7 @@ SEND = vol.All(cv.has_at_least_one_key("message", "text"), _target({
     vol.Optional("message"): cv.string, vol.Optional("text"): cv.string, **_REPLY, **_FMT}))
 MEDIA_GROUP = _target({vol.Required("media"): vol.All(cv.ensure_list, [vol.Schema({
     vol.Optional("media_type", default="photo"): vol.In(KINDS), vol.Required("file"): cv.string, vol.Optional("caption", default=""): cv.string,
-    vol.Optional("parse_mode"): cv.string}, extra=vol.ALLOW_EXTRA)]), **_REPLY, **_FMT})
+    vol.Optional("parse_mode"): vol.Any(None, cv.string)}, extra=vol.ALLOW_EXTRA)]), **_REPLY, **_FMT})
 SEND_FILE = _target({vol.Required("file"): cv.string, vol.Optional("caption", default=""): cv.string, **_REPLY, **_FMT,
                      vol.Optional("kind", default="document"): vol.In(KINDS)})
 SEND_VOICE = vol.All(cv.has_at_least_one_key("file", "message"), _target({
@@ -588,14 +608,18 @@ def async_register_services(hass: HomeAssistant) -> None:
             text = call.data.get("message") or call.data.get("text")
             if not str(text).strip():
                 raise ServiceValidationError("Nội dung tin nhắn rỗng")
-            return _msg(await rt.api.send_text(await chat_of(rt, call.data), str(text), call.data.get("reply_to", 0), call.data["format"]))
+            return _msg(await rt.api.send_text(await chat_of(rt, call.data), str(text), call.data.get("reply_to", 0),
+                                               **_resolve_format(rt, call.data)))
         return await run(call, go)
 
     async def _send_media(call: ServiceCall, kind: str) -> ServiceResponse:
         async def go(rt):
             name, data = await _read_source(hass, call.data["file"])
+            kw = _resolve_format(rt, call.data) if (
+                call.data["caption"] or any(call.data.get(k) not in (None, "") for k in ("parse_mode", "format", "auto_emphasis", "ai_markup"))
+            ) else {}
             return _msg(await rt.api.send_file(await chat_of(rt, call.data), kind, name, data, call.data["caption"],
-                                               call.data.get("reply_to", 0), call.data["format"]))
+                                               call.data.get("reply_to", 0), **kw))
         return await run(call, go)
 
     async def send_media_group(call: ServiceCall) -> ServiceResponse:
@@ -603,18 +627,21 @@ def async_register_services(hass: HomeAssistant) -> None:
         mỗi tệp có caption riêng; còn lại (tệp lạ nhóm, tin thoại, định dạng khác nhau, 1 hoặc hơn 10 tệp) thì gửi lần lượt từng tệp, đúng thứ tự (tệp lỗi thì dừng và báo lỗi)."""
         async def go(rt):
             chat = await chat_of(rt, call.data)
+            base_kw = _resolve_format(rt, call.data)
             items = []
             for item in call.data["media"]:
                 name, data = await _read_source(hass, item["file"])
-                fmt = _PARSE_MODES.get(str(item.get("parse_mode") or "").lower(), call.data["format"])
-                items.append((item["media_type"], name, data, item["caption"], fmt))
+                pm = str(item.get("parse_mode") or "").strip()
+                kw = {"parse_mode": _PARSE_MODES.get(pm.lower(), "plain")} if pm else dict(base_kw)
+                items.append((item["media_type"], name, data, item["caption"], kw))
             reply = call.data.get("reply_to", 0)
-            groups = {_ALBUM_GROUP.get(k) for k, _n, _d, _c, _f in items}
-            if 2 <= len(items) <= 10 and None not in groups and len(groups) == 1 and len({f for *_x, f in items}) == 1:
-                res = await rt.api.send_album(chat, [(k, n, d, c) for k, n, d, c, _f in items], reply, items[0][4])
+            groups = {_ALBUM_GROUP.get(k) for k, _n, _d, _c, _kw in items}
+            fmt_sigs = {tuple(sorted(kw.items())) for *_x, kw in items}
+            if 2 <= len(items) <= 10 and None not in groups and len(groups) == 1 and len(fmt_sigs) == 1:
+                res = await rt.api.send_album(chat, [(k, n, d, c) for k, n, d, c, _kw in items], reply, **items[0][4])
                 sent = [_msg(m) for m in res.get("messages") or []]
                 return {"messages": sent, "count": len(sent), "album": True}
-            sent = [_msg(await rt.api.send_file(chat, k, n, d, c, reply, f)) for k, n, d, c, f in items]
+            sent = [_msg(await rt.api.send_file(chat, k, n, d, c, reply, **kw)) for k, n, d, c, kw in items]
             return {"messages": sent, "count": len(sent), "album": False}
         return await run(call, go)
 
@@ -640,7 +667,8 @@ def async_register_services(hass: HomeAssistant) -> None:
 
     async def edit_message(call: ServiceCall) -> ServiceResponse:
         async def go(rt):
-            return _msg(await rt.api.edit_message(await chat_of(rt, call.data), call.data["message_id"], call.data["message"], call.data["format"]))
+            return _msg(await rt.api.edit_message(await chat_of(rt, call.data), call.data["message_id"], call.data["message"],
+                                                  **_resolve_format(rt, call.data)))
         return await run(call, go)
 
     async def delete_message(call: ServiceCall) -> None:
@@ -710,7 +738,9 @@ def async_register_services(hass: HomeAssistant) -> None:
 
     def _catalog_service(name: str, spec: catalog.S):
         async def handler(call: ServiceCall) -> ServiceResponse:
-            payload = {k: v for k, v in call.data.items() if k not in ("config_entry_id", "peer", "target", "message_thread_id", "parse_mode", "format")}
+            payload = {k: v for k, v in call.data.items() if k not in (
+                "config_entry_id", "peer", "target", "message_thread_id", "parse_mode", "format", "auto_emphasis", "ai_markup"
+            )}
 
             async def go(rt):
                 if spec.target == "chat":

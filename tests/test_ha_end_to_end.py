@@ -27,6 +27,7 @@ if os.path.abspath(_REPO_CC) not in [os.path.abspath(p) for p in custom_componen
 
 from aiohttp import web  # noqa: E402
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError  # noqa: E402
+from homeassistant.helpers import entity_registry as er  # noqa: E402
 from homeassistant.setup import async_setup_component  # noqa: E402
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_capture_events  # noqa: E402
 import voluptuous as vol  # noqa: E402
@@ -165,13 +166,13 @@ async def test_send_message_by_username_formats_replies_and_returns_message(hass
     assert gw.last("/api/resolve")["json"] == {"peer": "@ben_bap"}
     sent = gw.last("/send")
     assert sent["path"] == "/api/chats/6518712943/send" and sent["auth"] == f"tggw_session={SESSION}" and sent["csrf"] == "fetch"
-    assert sent["json"] == {"text": "*đậm* chào", "reply_to": 77, "parse_mode": "markdown"}
+    assert sent["json"] == {"text": "*đậm* chào", "reply_to": 77, "format": "markdown", "auto_emphasis": True}
     assert res["message_id"] == 500 and res["chat_id"] == 42 and "path" not in res
 
 
 async def test_send_message_legacy_text_with_chat_id_needs_no_resolve(hass, setup, gw):
     await call(hass, "send_message", {"chat_id": 42, "text": "cũ"})
-    assert gw.last("/send")["path"] == "/api/chats/42/send" and gw.last("/send")["json"] == {"text": "cũ"}
+    assert gw.last("/send")["path"] == "/api/chats/42/send" and gw.last("/send")["json"] == {"text": "cũ", "format": "markdown", "auto_emphasis": True}
     assert not [r for r in gw.requests if r["path"] == "/api/resolve"]
 
 
@@ -187,7 +188,8 @@ async def test_send_photo_reads_allowed_path_and_posts_raw_bytes_with_caption(ha
     f.write_bytes(b"\x89PNG-DU-LIEU")
     await call(hass, "send_photo", {"chat_id": 42, "file": str(f), "caption": "chú thích", "reply_to": 5})
     r = gw.last("/send_file")
-    assert r["query"] == {"account": "+84900000000", "kind": "photo", "name": "anh.png", "caption": "chú thích", "reply_to": "5"}
+    assert r["query"] == {"account": "+84900000000", "kind": "photo", "name": "anh.png", "caption": "chú thích", "reply_to": "5",
+                          "format": "markdown", "auto_emphasis": "true"}
     assert r["raw"] == b"\x89PNG-DU-LIEU"
 
 
@@ -353,3 +355,40 @@ async def test_old_entry_with_only_token_keeps_working_and_never_logs_in(hass, g
     bare.add_to_hass(hass)
     assert not await hass.config_entries.async_setup(bare.entry_id)
     assert any(f["context"].get("source") == "reauth" for f in hass.config_entries.flow.async_progress())
+
+
+async def test_default_text_format_and_auto_emphasis_entities_control_outgoing_payload(hass, setup, gw):
+    await call(hass, "send_message", {"chat_id": 42, "message": "mặc định"})
+    body = gw.last("/send")["json"]
+    assert body == {"text": "mặc định", "format": "markdown", "auto_emphasis": True} and "parse_mode" not in body
+
+    reg = er.async_get(hass)
+    fmt_entity = reg.async_get_entity_id("select", DOMAIN, f"{setup.entry_id}_text_format")
+    ae_entity = reg.async_get_entity_id("switch", DOMAIN, f"{setup.entry_id}_text_auto_emphasis")
+    assert fmt_entity and ae_entity
+    assert hass.states.get(fmt_entity).state == "markdown" and hass.states.get(ae_entity).state == "on"
+
+    await hass.services.async_call("select", "select_option", {"entity_id": fmt_entity, "option": "plain"}, blocking=True)
+    await hass.services.async_call("switch", "turn_off", {"entity_id": ae_entity}, blocking=True)
+    assert hass.states.get(fmt_entity).state == "plain" and hass.states.get(ae_entity).state == "off"
+
+    await call(hass, "send_message", {"chat_id": 42, "message": "sau khi đổi"})
+    body2 = gw.last("/send")["json"]
+    assert body2 == {"text": "sau khi đổi", "format": "plain", "auto_emphasis": False} and "parse_mode" not in body2
+
+
+async def test_explicit_parse_mode_omits_format_and_auto_emphasis(hass, setup, gw):
+    await call(hass, "send_message", {"chat_id": 42, "message": "md", "parse_mode": "markdown"})
+    assert gw.last("/send")["json"] == {"text": "md", "parse_mode": "markdown"}
+
+    await call(hass, "send_message", {"chat_id": 42, "message": "<b>html</b>", "parse_mode": "html"})
+    assert gw.last("/send")["json"] == {"text": "<b>html</b>", "parse_mode": "html"}
+
+    await call(hass, "send_message", {"chat_id": 42, "message": "thuần", "parse_mode": "plain_text"})
+    assert gw.last("/send")["json"] == {"text": "thuần"}
+
+
+async def test_explicit_format_plain_sets_format_plain(hass, setup, gw):
+    await call(hass, "send_message", {"chat_id": 42, "message": "chữ thường", "format": "plain"})
+    body = gw.last("/send")["json"]
+    assert body == {"text": "chữ thường", "format": "plain", "auto_emphasis": True} and "parse_mode" not in body

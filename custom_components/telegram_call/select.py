@@ -10,9 +10,11 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from .bridge_core import entity_of_label, label
-from .const import CONF_CAMERA, CONF_ECHO_GUARD, CONF_MIC, CONF_MIC_URL, CONF_SPEAKER, MIC_URL_LABEL, NONE_LABEL
+from .const import (CONF_CAMERA, CONF_ECHO_GUARD, CONF_MIC, CONF_MIC_URL, CONF_SPEAKER, CONF_TEXT_FORMAT, MIC_URL_LABEL,
+                    NONE_LABEL, TEXT_FORMATS)
 from .echo_policy import ECHO_MODES
 from .entity import TelegramCallEntity
 
@@ -24,7 +26,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddEnt
     add([DeviceSelect(hass, entry, rt, CONF_MIC, "Mic mặc định", "mdi:microphone", ("camera", "assist_satellite"), (MIC_URL_LABEL,)),
          DeviceSelect(hass, entry, rt, CONF_CAMERA, "Camera mặc định", "mdi:cctv", ("camera",)),
          DeviceSelect(hass, entry, rt, CONF_SPEAKER, "Loa mặc định", "mdi:speaker", ("media_player",)),
-         EchoGuardSelect(entry, rt)])
+         EchoGuardSelect(entry, rt),
+         TextFormatSelect(entry, rt)])
 
 
 class DeviceSelect(TelegramCallEntity, SelectEntity):
@@ -99,4 +102,35 @@ class EchoGuardSelect(TelegramCallEntity, SelectEntity):
         await self._rt.bridge.async_push_defaults()
 
     async def async_added_to_hass(self) -> None:
+        self.async_on_remove(self._rt.defaults.add_listener(self.async_write_ha_state))
+
+
+class TextFormatSelect(TelegramCallEntity, RestoreEntity, SelectEntity):
+    """Định dạng chữ mặc định khi gửi tin nhắn (plain / markdown)."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_name = "Chữ: định dạng"
+    _attr_icon = "mdi:format-text"
+    _attr_options = list(TEXT_FORMATS)
+
+    def __init__(self, entry: ConfigEntry, rt) -> None:
+        super().__init__(entry, CONF_TEXT_FORMAT)
+        self._rt = rt
+
+    @property
+    def current_option(self) -> str:
+        val = str(self._rt.defaults.get(CONF_TEXT_FORMAT) or "markdown")
+        return val if val in TEXT_FORMATS else "markdown"
+
+    async def async_select_option(self, option: str) -> None:
+        if option not in TEXT_FORMATS:
+            return
+        await self._rt.defaults.async_set(**{CONF_TEXT_FORMAT: option})
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if CONF_TEXT_FORMAT not in self._rt.defaults.stored_keys:
+            last = await self.async_get_last_state()
+            if last is not None and last.state in TEXT_FORMATS:
+                await self._rt.defaults.async_set(**{CONF_TEXT_FORMAT: last.state})
         self.async_on_remove(self._rt.defaults.add_listener(self.async_write_ha_state))

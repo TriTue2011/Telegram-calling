@@ -28,7 +28,7 @@ from .rules import get_rules
 from .services import async_register_services
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = ["sensor", "binary_sensor", "select", "text", "number", "button", "notify"]
+PLATFORMS = ["sensor", "binary_sensor", "select", "switch", "text", "number", "button", "notify"]
 ACCOUNT_POLL_S = 60
 TERMINAL = ("ended", "not_answered", "missed", "error")
 

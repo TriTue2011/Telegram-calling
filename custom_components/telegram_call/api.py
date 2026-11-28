@@ -29,6 +29,22 @@ SESSION_COOKIE = "tggw_session"
 CSRF_HEADERS = {"X-Requested-With": "fetch"}        # gateway coi tiêu đề này là ranh giới CSRF cho yêu cầu ghi bằng cookie
 
 
+def _apply_format(target: dict[str, Any], parse_mode: str = "", fmt: str | None = None,
+                  auto_emphasis: bool | None = None, ai_markup: str | None = None, *, as_query: bool = False) -> None:
+    """Áp dụng tuỳ chọn định dạng vào body JSON hoặc query params: ``parse_mode`` tường minh thắng mọi tuỳ chọn khác."""
+    pm = str(parse_mode or "").strip()
+    if pm:
+        if pm.lower() not in ("plain", "plain_text"):
+            target["parse_mode"] = pm
+        return
+    if fmt:
+        target["format"] = str(fmt).strip()
+    if auto_emphasis is not None:
+        target["auto_emphasis"] = ("true" if auto_emphasis else "false") if as_query else bool(auto_emphasis)
+    if ai_markup:
+        target["ai_markup"] = str(ai_markup)
+
+
 class TelegramGatewayApi:
     """Máy khách gateway. Đăng nhập bằng TÊN + MẬT KHẨU web của gateway (không dùng token): ``POST /ui/api/auth/login`` trả cookie
     phiên ``tggw_session`` (90 ngày, gia hạn khi dùng); mọi yêu cầu sau đó gửi cookie đó. Hết hạn (401) thì đăng nhập lại ĐÚNG MỘT lần."""
@@ -189,37 +205,40 @@ class TelegramGatewayApi:
         """@username, +số điện thoại, ID số (người dùng) hoặc số âm (nhóm/kênh) -> chat_id."""
         return int((await self._request("POST", "/api/resolve", json={"peer": str(peer).strip()}))["chat_id"])
 
-    async def send_text(self, chat_id: int, text: str, reply_to: int = 0, parse_mode: str = "") -> dict:
+    async def send_text(self, chat_id: int, text: str, reply_to: int = 0, parse_mode: str = "", fmt: str | None = None,
+                        auto_emphasis: bool | None = None, ai_markup: str | None = None) -> dict:
         body: dict[str, Any] = {"text": text}
         if reply_to:
             body["reply_to"] = int(reply_to)
-        if parse_mode and parse_mode != "plain":
-            body["parse_mode"] = parse_mode
+        _apply_format(body, parse_mode, fmt, auto_emphasis, ai_markup)
         return await self._request("POST", f"/api/chats/{int(chat_id)}/send", json=body)
 
-    async def send_message(self, chat_id: int, text: str) -> dict:
-        return await self.send_text(chat_id, text)
+    async def send_message(self, chat_id: int, text: str, reply_to: int = 0, parse_mode: str = "", fmt: str | None = None,
+                           auto_emphasis: bool | None = None, ai_markup: str | None = None) -> dict:
+        return await self.send_text(chat_id, text, reply_to=reply_to, parse_mode=parse_mode, fmt=fmt,
+                                    auto_emphasis=auto_emphasis, ai_markup=ai_markup)
 
     async def send_file(self, chat_id: int, kind: str, name: str, data: bytes, caption: str = "", reply_to: int = 0,
-                        parse_mode: str = "") -> dict:
+                        parse_mode: str = "", fmt: str | None = None, auto_emphasis: bool | None = None,
+                        ai_markup: str | None = None) -> dict:
         params: dict[str, Any] = {"kind": kind, "name": name}
         if caption:
             params["caption"] = caption
         if reply_to:
             params["reply_to"] = int(reply_to)
-        if parse_mode and parse_mode != "plain":
-            params["parse_mode"] = parse_mode
+        _apply_format(params, parse_mode, fmt, auto_emphasis, ai_markup, as_query=True)
         return await self._request("POST", f"/api/chats/{int(chat_id)}/send_file", params=params, data=data,
                                    timeout=aiohttp.ClientTimeout(total=120))
 
-    async def send_album(self, chat_id: int, items: list[tuple[str, str, bytes, str]], reply_to: int = 0, parse_mode: str = "") -> dict:
+    async def send_album(self, chat_id: int, items: list[tuple[str, str, bytes, str]], reply_to: int = 0,
+                         parse_mode: str = "", fmt: str | None = None, auto_emphasis: bool | None = None,
+                         ai_markup: str | None = None) -> dict:
         """MỘT album thật (2-10 ảnh/video, hoặc tệp, hoặc âm thanh). items: [(kind, tên, nội dung, caption)]; mỗi tệp có caption riêng."""
         import base64
         body: dict[str, Any] = {"items": [{"kind": k, "name": n, "data_b64": base64.b64encode(d).decode("ascii"), "caption": c} for k, n, d, c in items]}
         if reply_to:
             body["reply_to"] = int(reply_to)
-        if parse_mode and parse_mode != "plain":
-            body["parse_mode"] = parse_mode
+        _apply_format(body, parse_mode, fmt, auto_emphasis, ai_markup)
         return await self._request("POST", f"/api/chats/{int(chat_id)}/send_album", json=body, timeout=aiohttp.ClientTimeout(total=180))
 
     async def send_voice_tts(self, peer: str, text: str, voice: str = "", rate: str = "") -> dict:
@@ -230,10 +249,10 @@ class TelegramGatewayApi:
             body["tts_rate"] = rate
         return await self._request("POST", "/api/send_voice", json=body, timeout=aiohttp.ClientTimeout(total=90))
 
-    async def edit_message(self, chat_id: int, message_id: int, text: str, parse_mode: str = "") -> dict:
+    async def edit_message(self, chat_id: int, message_id: int, text: str, parse_mode: str = "", fmt: str | None = None,
+                           auto_emphasis: bool | None = None, ai_markup: str | None = None) -> dict:
         body: dict[str, Any] = {"chat_id": int(chat_id), "message_id": int(message_id), "text": text}
-        if parse_mode and parse_mode != "plain":
-            body["parse_mode"] = parse_mode
+        _apply_format(body, parse_mode, fmt, auto_emphasis, ai_markup)
         return await self._request("POST", "/api/messages/edit", json=body)
 
     async def delete_messages(self, chat_id: int, message_ids: list[int], revoke: bool = True) -> None:

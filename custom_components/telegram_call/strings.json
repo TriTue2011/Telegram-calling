@@ -257,7 +257,11 @@
         },
         "format": {
           "name": "Định dạng chữ",
-          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+          "description": "default (mặc định: theo cài đặt «Chữ: định dạng» của tài khoản, mặc định markdown), plain, markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "auto_emphasis": {
+          "name": "Tự nhấn mạnh chữ",
+          "description": "Tự động nhấn mạnh các phần quan trọng trong tin nhắn (bỏ trống = theo công tắc «Chữ: tự nhấn mạnh» của tài khoản)."
         },
         "config_entry_id": {
           "name": "Tài khoản",
@@ -299,7 +303,11 @@
         },
         "format": {
           "name": "Định dạng chữ",
-          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+          "description": "default (mặc định: theo cài đặt «Chữ: định dạng» của tài khoản, mặc định markdown), plain, markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "auto_emphasis": {
+          "name": "Tự nhấn mạnh chữ",
+          "description": "Tự động nhấn mạnh các phần quan trọng trong tin nhắn (bỏ trống = theo công tắc «Chữ: tự nhấn mạnh» của tài khoản)."
         },
         "config_entry_id": {
           "name": "Tài khoản",
@@ -337,7 +345,11 @@
         },
         "format": {
           "name": "Định dạng chữ",
-          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+          "description": "default (mặc định: theo cài đặt «Chữ: định dạng» của tài khoản, mặc định markdown), plain, markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "auto_emphasis": {
+          "name": "Tự nhấn mạnh chữ",
+          "description": "Tự động nhấn mạnh các phần quan trọng trong tin nhắn (bỏ trống = theo công tắc «Chữ: tự nhấn mạnh» của tài khoản)."
         },
         "config_entry_id": {
           "name": "Tài khoản",
@@ -375,7 +387,11 @@
         },
         "format": {
           "name": "Định dạng chữ",
-          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+          "description": "default (mặc định: theo cài đặt «Chữ: định dạng» của tài khoản, mặc định markdown), plain, markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "auto_emphasis": {
+          "name": "Tự nhấn mạnh chữ",
+          "description": "Tự động nhấn mạnh các phần quan trọng trong tin nhắn (bỏ trống = theo công tắc «Chữ: tự nhấn mạnh» của tài khoản)."
         },
         "config_entry_id": {
           "name": "Tài khoản",
@@ -413,7 +429,11 @@
         },
         "format": {
           "name": "Định dạng chữ",
-          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+          "description": "default (mặc định: theo cài đặt «Chữ: định dạng» của tài khoản, mặc định markdown), plain, markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "auto_emphasis": {
+          "name": "Tự nhấn mạnh chữ",
+          "description": "Tự động nhấn mạnh các phần quan trọng trong tin nhắn (bỏ trống = theo công tắc «Chữ: tự nhấn mạnh» của tài khoản)."
         },
         "config_entry_id": {
           "name": "Tài khoản",
@@ -489,7 +509,11 @@
         },
         "format": {
           "name": "Định dạng chữ",
-          "description": "plain (mặc định), markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+          "description": "default (mặc định: theo cài đặt «Chữ: định dạng» của tài khoản, mặc định markdown), plain, markdown (MarkdownV2 của Telegram: *đậm* _nghiêng_ __gạch chân__ ~gạch ngang~ ||ẩn||), hoặc html (<b> <i> <u> <s> <code> <a href>)."
+        },
+        "auto_emphasis": {
+          "name": "Tự nhấn mạnh chữ",
+          "description": "Tự động nhấn mạnh các phần quan trọng trong tin nhắn (bỏ trống = theo công tắc «Chữ: tự nhấn mạnh» của tài khoản)."
         },
         "config_entry_id": {
           "name": "Tài khoản",
