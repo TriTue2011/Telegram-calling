@@ -52,12 +52,14 @@ ANSWER_CALL = vol.Schema({**_ENTRY, vol.Optional("call_id"): cv.string,         
                           vol.Optional("echo_guard"): vol.In(list(ECHO_MODES)),
                           vol.Optional("connect_now"): _PARTS, vol.Optional("connect"): _PARTS})
 
-_RULE_FIELDS = ("name", "answer", "answer_delay", "call_types", "pipeline", "greeting", "hangup_after", "announce", "announce_to", "announce_text", "announce_repeat",
+_RULE_FIELDS = ("name", "answer", "answer_delay", "call_types", "pipeline", "greeting", "hangup_after", "ai", "trusted", "ai_reply_text", "announce", "announce_to", "announce_text", "announce_repeat",
                 "announce_volume", "connect_now", "connect", "video_request", "echo_guard", "speaker", "mic", "mic_url", "camera", "volume")
 _RULE = {vol.Optional("name"): cv.string, vol.Optional("answer"): cv.boolean,
          vol.Optional("answer_delay"): vol.All(vol.Coerce(int), vol.Range(min=0, max=120)),
          vol.Optional("call_types"): vol.All(cv.ensure_list, [vol.In(list(CALL_TYPES))]),
          vol.Optional("pipeline"): cv.string, vol.Optional("greeting"): cv.string, vol.Optional("hangup_after"): cv.boolean,
+         vol.Optional("ai"): cv.boolean, vol.Optional("trusted"): cv.boolean,
+         vol.Optional("ai_reply_text"): cv.boolean,
          vol.Optional("announce"): cv.boolean, vol.Optional("announce_to"): cv.string, vol.Optional("announce_text"): cv.string,
          vol.Optional("announce_repeat"): vol.All(vol.Coerce(int), vol.Range(min=0, max=MAX_ANNOUNCE_REPEAT)),
          vol.Optional("announce_volume"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),

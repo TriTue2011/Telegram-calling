@@ -2,8 +2,11 @@
 tích hợp chờ ``DECIDE_GRACE`` giây cho các automation báo về, chọn quy tắc CỤ THỂ NHẤT rồi: báo ra loa (mọi quy tắc cùng bậc), nghe máy theo quy tắc làm chính
 (thiết bị nhà, lời nhắn), và xử lý «người nhà nói trực tiếp» / tắt mic / tắt hình / đọc lời vào cuộc gọi.
 
-Cùng thiết kế với ``zalo_call/call_voice.py`` (xem phần mô tả ở đó). Khác biệt vì gateway Telegram: không có trợ lý AI trò chuyện (gateway chưa đưa tiếng bên kia
-cho HA), thiết bị nhà được đặt cho gateway TRƯỚC khi nghe máy (``bridge.async_apply_override``) rồi đổi giữa cuộc gọi bằng ``/api/live/media``.
+Cùng thiết kế với ``zalo_call/call_voice.py`` (xem phần mô tả ở đó). AI nói chuyện khi nghe máy (nghe mic người gọi → Assist
+pipeline/``conversation.process`` → đọc trả lời vào cuộc gọi) dùng chung cơ chế «tap» tiếng người gọi của gateway Rust
+(``POST /api/live/media {action:audio_out}`` lấy ``{url,token}`` rồi ``GET /api/live/audio/out/<call_id>?t=<token>``) —
+KHÁC đường của Zalo (``/api/call/audio/tap/<token>``) nhưng cùng ý tưởng, xem ``_AiListener``/``async_run_ai`` dưới đây.
+Thiết bị nhà được đặt cho gateway TRƯỚC khi nghe máy (``bridge.async_apply_override``) rồi đổi giữa cuộc gọi bằng ``/api/live/media``.
 Quy tắc lưu sẵn (``set_rule``) chỉ là bản dự phòng khi không automation nào áp quy tắc cho cuộc gọi.
 """
 from __future__ import annotations
@@ -11,10 +14,14 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import re
+import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, AsyncIterator
 
-from homeassistant.core import HomeAssistant, callback
+import aiohttp
+from homeassistant.core import Context, HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later
 
 from .api import TelegramCallError
@@ -28,6 +35,220 @@ DECIDE_GRACE = 1.0              # giây chờ các automation «áp quy tắc» 
 ANNOUNCE_WAIT_MAX = 10.0        # giây tối đa tự nghe máy chờ câu báo tên người gọi đọc xong
 MAX_ANNOUNCE_LOOPS = 20
 DEFAULT_ANNOUNCE = "Có cuộc gọi {loai} từ {ten}"
+
+# -- AI nói chuyện khi nghe máy (cùng thiết kế zalo_call/call_voice.py, khác đường lấy tiếng người gọi: gateway Rust Telegram
+# dùng POST /api/live/media {action:audio_out} -> {url,token} rồi GET luồng đó, không phải /api/call/audio/tap/<token> của Zalo) ---
+AI_TURN_TIMEOUT_S = 45.0
+AI_MAX_CALL_S = 600.0            # AI nói chuyện tối đa 10 phút
+AI_MAX_TURNS = 30
+AI_IDLE_TURNS = 2                # im lặng/không nghe ra chữ liên tiếp ngần này lượt thì kết thúc
+AI_CHUNK_BYTES = 3200            # 100 ms PCM16 mono 16 kHz
+AI_WAV_HEADER = 44
+AI_QUEUE_MAX = 100               # ~10 s âm thanh chờ; đầy thì bỏ khúc cũ nhất (không để tụt hậu)
+AI_PHONE_HINT = ("Bạn đang nói chuyện qua điện thoại bằng giọng nói. Trả lời ngắn gọn, tự nhiên bằng lời nói: không dùng markdown, "
+                 "không liệt kê gạch đầu dòng.")
+AI_PUBLIC_HINT = ("Người gọi CHƯA được xác thực: không tiết lộ bất kỳ thông tin nào về gia đình, thiết bị, lịch sinh hoạt hay vị trí.")
+AI_END_HINT = (" Khi câu chuyện đã xong (người gọi tạm biệt hoặc không còn gì để nói), nói lời tạm biệt ngắn rồi kết thúc câu trả lời "
+               "bằng đúng dấu [[KET_THUC]] (dấu này sẽ không được đọc ra, cuộc gọi tự cúp máy ngay sau đó).")
+AI_END_RE = re.compile(r"\[{1,2}\s*(?i:KET[_\s]?THUC)\s*\]{1,2}|(?<![A-Za-z])KET[_\s]?THUC(?![A-Za-z])")
+# Blueprint hứa "để trống «Lời nhắn» thì bật AI nói chuyện ⇒ AI tự mở lời" (telegram_call_incoming_rule.yaml, ô cau_chao)
+# nhưng async_run_ai KHÔNG tự nói gì trước khi nghe — đo thật 26/11: cuộc gọi không có cau_chao, AI chỉ lặng lẽ chờ
+# người gọi nói trước; người gọi không biết máy đã "nghe" nên im lặng rồi cúp (11 giây, 1 lượt, không nghe ra chữ).
+AI_DEFAULT_OPENING = "Xin chào, tôi là trợ lý ảo, bạn cần gì ạ?"
+
+
+def ai_phone_hint(trusted: bool = False) -> str:
+    """Gợi ý cho trợ lý: nói chuyện qua điện thoại + phạm vi (người chưa tin cậy) + khi nào tự kết thúc.
+    Lớp MỀM; giới hạn thật nằm ở trợ lý được chọn cho cuộc gọi (không có quyền thiết bị nếu không muốn)."""
+    return AI_PHONE_HINT + ("" if trusted else " " + AI_PUBLIC_HINT) + AI_END_HINT
+
+
+AI_STT_RATE = 16000
+
+
+class _Resampler:
+    """PCM16 mono tốc độ bất kỳ → 16 kHz cho STT. Gateway Rust phát luồng audio_out ở 48 kHz (WAV header ghi rõ), còn
+    SpeechMetadata khai 16 kHz — đo thật 26/11: frames_in=3369, peak=25568 (người gọi nói rõ) mà STT vẫn
+    «stt-no-text-recognized» vì tiếng bị đọc chậm 3 lần. Đọc tốc độ THẬT từ header thay vì giả định."""
+
+    def __init__(self, rate: int) -> None:
+        self.rate = rate if rate > 0 else AI_STT_RATE
+        self._rest = b""
+
+    def __call__(self, chunk: bytes) -> bytes:
+        import numpy as np
+
+        if self.rate == AI_STT_RATE:
+            return chunk
+        data = self._rest + chunk
+        step = self.rate / AI_STT_RATE
+        if step.is_integer():
+            n = int(step)
+            usable = len(data) // (2 * n) * (2 * n)
+            self._rest = data[usable:]
+            if not usable:
+                return b""
+            samples = np.frombuffer(data[:usable], dtype="<i2").astype(np.int32).reshape(-1, n)
+            return samples.mean(axis=1).astype("<i2").tobytes()
+        usable = len(data) // 2 * 2
+        self._rest = data[usable:]
+        samples = np.frombuffer(data[:usable], dtype="<i2").astype(np.float32)
+        if not len(samples):
+            return b""
+        count = max(1, int(len(samples) / step))
+        out = np.interp(np.arange(count) * step, np.arange(len(samples)), samples)
+        return np.clip(out, -32768, 32767).astype("<i2").tobytes()
+
+
+class _AiListener:
+    """Đọc luồng tiếng người gọi (audio_out của gateway) vào hàng đợi PCM; tạm bỏ tiếng khi đang đọc (tránh nghe lại chính mình)."""
+
+    def __init__(self, hass: HomeAssistant, url: str) -> None:
+        self._hass, self._url = hass, url
+        self.queue: asyncio.Queue[bytes] = asyncio.Queue(AI_QUEUE_MAX)
+        self.muted = False
+        self.ended = False
+        self._task: asyncio.Task | None = None
+
+    def start(self) -> None:
+        self._task = asyncio.create_task(self._pump())
+
+    async def _pump(self) -> None:
+        try:
+            async with async_get_clientsession(self._hass).get(self._url, timeout=aiohttp.ClientTimeout(total=None, sock_read=30)) as r:
+                if r.status != 200:
+                    _LOGGER.warning("Không mở được luồng tiếng người gọi (HTTP %s)", r.status)
+                    return
+                first = True
+                resample = _Resampler(AI_STT_RATE)
+                async for chunk in r.content.iter_chunked(AI_CHUNK_BYTES):
+                    if first:
+                        first = False
+                        if chunk[:4] == b"RIFF" and len(chunk) >= AI_WAV_HEADER:
+                            resample = _Resampler(int.from_bytes(chunk[24:28], "little"))
+                            chunk = chunk[AI_WAV_HEADER:]
+                    chunk = resample(chunk)
+                    if self.muted or not chunk:
+                        continue
+                    if self.queue.full():
+                        self.queue.get_nowait()
+                    self.queue.put_nowait(chunk)
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            pass
+        finally:
+            self.ended = True
+
+    def drain(self) -> None:
+        while not self.queue.empty():
+            self.queue.get_nowait()
+
+    async def chunks(self) -> AsyncIterator[bytes]:
+        while not self.ended or not self.queue.empty():
+            try:
+                yield await asyncio.wait_for(self.queue.get(), timeout=1.0)
+            except asyncio.TimeoutError:
+                if self.ended:
+                    return
+
+    def stop(self) -> None:
+        if self._task:
+            self._task.cancel()
+
+
+async def _ai_one_turn(hass: HomeAssistant, listener: _AiListener, pipeline_id: str | None, language: str,
+                       conversation_id: str | None, hint: str, context: Context) -> tuple[str, str, str | None]:
+    """Nghe một câu → (chữ người gọi nói, câu trả lời của trợ lý, conversation_id). Không nghe ra chữ thì chữ = ""."""
+    import inspect
+
+    from homeassistant.components import assist_pipeline, stt
+    from homeassistant.components.assist_pipeline import pipeline as pipeline_mod
+
+    got: dict[str, Any] = {"text": "", "reply": "", "conv": conversation_id}
+
+    def on_event(event: Any) -> None:
+        data = event.data or {}
+        if event.type == pipeline_mod.PipelineEventType.STT_END:
+            got["text"] = str((data.get("stt_output") or {}).get("text") or "").strip()
+        elif event.type == pipeline_mod.PipelineEventType.INTENT_END:
+            out = data.get("intent_output") or {}
+            got["conv"] = out.get("conversation_id") or got["conv"]
+            got["reply"] = _speech(out)
+        elif event.type == pipeline_mod.PipelineEventType.ERROR:
+            _LOGGER.debug("Assist pipeline trong cuộc gọi: %s", (data or {}).get("code"))
+
+    meta = stt.SpeechMetadata(language=language, format=stt.AudioFormats.WAV, codec=stt.AudioCodecs.PCM,
+                              bit_rate=stt.AudioBitRates.BITRATE_16, sample_rate=stt.AudioSampleRates.SAMPLERATE_16000,
+                              channel=stt.AudioChannels.CHANNEL_MONO)
+    stream = listener.chunks()
+    extra: dict[str, Any] = {}
+    if "conversation_extra_system_prompt" in inspect.signature(assist_pipeline.async_pipeline_from_audio_stream).parameters:
+        extra["conversation_extra_system_prompt"] = hint      # HA cũ không có tham số này thì bỏ qua
+    try:
+        async with asyncio.timeout(AI_TURN_TIMEOUT_S):
+            await assist_pipeline.async_pipeline_from_audio_stream(
+                hass, context=context, event_callback=on_event, stt_metadata=meta, stt_stream=stream,
+                pipeline_id=pipeline_id, conversation_id=conversation_id,
+                end_stage=pipeline_mod.PipelineStage.INTENT,
+                audio_settings=pipeline_mod.AudioSettings(is_vad_enabled=True, silence_seconds=0.8), **extra)
+    except (asyncio.TimeoutError, TimeoutError):
+        pass
+    finally:
+        await stream.aclose()
+    return got["text"], got["reply"], got["conv"]
+
+
+async def async_run_ai(hass: HomeAssistant, rt: Any, call_id: str, rule: dict[str, Any],
+                       engine: str | None, language: str | None, options: dict | None) -> dict[str, Any]:
+    """Vòng AI nói chuyện cho tới khi cuộc gọi hết / im lặng / quá giới hạn / AI tự báo xong.
+    -> {"finished": bool, "heard": câu cuối người gọi nói}. KHÔNG có chuyển máy trực tiếp (handover) ở bản đầu này."""
+    media = await rt.api.live_media(call_id, action="audio_out")
+    tap = (media or {}).get("audio_out") or {}
+    # Gateway Telegram trả gộp token NGAY TRONG url (browser_audio.rs::descriptor: "...?t={token}"), không có khoá
+    # "token" riêng như Zalo — đòi cả "token" khiến mọi cuộc gọi AI đều báo lỗi này (đo thật 25/11).
+    url = tap.get("url")
+    if not url:
+        raise TelegramCallError("Gateway chưa có luồng tiếng của cuộc gọi %s" % call_id)
+    full_url = url if url.startswith("http") else rt.api.url + url
+    listener = _AiListener(hass, full_url)
+    listener.start()
+    start, conv, idle, turns = time.monotonic(), None, 0, 0
+    hint, heard, finished = ai_phone_hint(bool(rule.get("trusted"))), "", False
+    context = Context()
+    try:
+        if not rule.get("greeting"):      # không có «Lời nhắn» riêng: AI tự mở lời trước khi nghe (đúng mô tả blueprint)
+            listener.muted = True
+            try:
+                await async_say(hass, rt, call_id, AI_DEFAULT_OPENING, engine, language, options)
+            finally:
+                listener.drain()
+                listener.muted = False
+        while turns < AI_MAX_TURNS and time.monotonic() - start < AI_MAX_CALL_S and not listener.ended:
+            text, reply, conv = await _ai_one_turn(hass, listener, rule.get("pipeline") or None, language or hass.config.language, conv, hint, context)
+            turns += 1
+            if not text:
+                idle += 1
+                if idle >= AI_IDLE_TURNS:
+                    break
+                continue
+            idle = 0
+            heard = text
+            if AI_END_RE.search(reply):
+                reply, finished = AI_END_RE.sub("", reply).strip(), True
+            if reply:
+                listener.muted = True
+                try:
+                    await async_say(hass, rt, call_id, reply, engine, language, options)
+                finally:
+                    listener.drain()
+                    listener.muted = False
+            if finished:
+                break
+        _LOGGER.debug("AI trong cuộc gọi %s xong sau %d lượt (báo xong: %s)", call_id, turns, finished)
+        return {"finished": finished, "heard": heard}
+    finally:
+        listener.stop()
+
+
 SAY_MAX_S = 120.0
 ALERT_APPEAR_S = 6.0           # chờ cuộc gọi đi xuất hiện trong danh sách của gateway
 ALERT_WAIT_ANSWER_S = 60.0     # cuộc gọi cảnh báo không ai nghe sau chừng này giây thì cúp
@@ -303,10 +524,15 @@ async def _answer_by_rule(hass: HomeAssistant, rt: Any, call_id: str, rule: dict
         await rt.coordinator.async_refresh()
         if not _still_ringing(rt, call_id):
             return
-        await rt.bridge.async_apply_override(call_id, rule_override(rule, list(rule.get("connect_now") or [])),
-                                             held=True, echo_mode=rule.get("echo_guard"))
-        if rule.get("greeting"):
+        parts_now = list(rule.get("connect_now") or [])
+        if rule.get("ai"):                                        # AI giữ máy: không nối mic/loa nhà ngay (tranh đường tiếng với AI, như zalo_call)
+            parts_now = [p for p in parts_now if p not in ("mic", "speaker")]
+        await rt.bridge.async_apply_override(call_id, rule_override(rule, parts_now), held=True,
+                                             echo_mode=rule.get("echo_guard"))
+        if rule.get("greeting") or rule.get("ai"):
             voice.greeting_for[call_id] = rule
+        _LOGGER.debug("Nghe máy theo quy tắc cuộc gọi %s (greeting=%s, ai=%s, connect_now=%s)",
+                      call_id, bool(rule.get("greeting")), bool(rule.get("ai")), parts_now)
         try:
             await rt.api.accept(call_id)
         except TelegramCallError:
@@ -343,20 +569,33 @@ def schedule_answer(hass: HomeAssistant, rt: Any, payload: dict[str, Any], rule:
 
 
 async def _run_greeting(hass: HomeAssistant, rt: Any, call_id: str, rule: dict[str, Any]) -> None:
-    """Đã nghe máy theo quy tắc có lời nhắn: đọc lời nhắn vào cuộc gọi; `hangup_after` thì đọc xong cúp máy."""
+    """Đã nghe máy theo quy tắc có lời nhắn và/hoặc AI: đọc lời nhắn (nếu có) vào cuộc gọi; bật AI thì nói chuyện tiếp tới khi
+    AI tự báo xong / im lặng / quá giờ, không thì `hangup_after` đọc lời nhắn xong cúp luôn."""
+    _LOGGER.debug("Bắt đầu lời nhắn/AI cho cuộc gọi %s (greeting=%s, ai=%s)",
+                  call_id, bool(rule.get("greeting")), bool(rule.get("ai")))
     try:
         engine, language, options = pipeline_tts(hass, rule.get("pipeline") or None)
         await asyncio.sleep(0.5)                                 # media vừa nối: chờ một nhịp để người gọi không mất đầu câu
-        await async_say(hass, rt, call_id, str(rule["greeting"]), engine, language, options)
-        if rule.get("hangup_after"):
+        if rule.get("greeting"):
+            await async_say(hass, rt, call_id, str(rule["greeting"]), engine, language, options)
+        if rule.get("ai"):
+            res = await async_run_ai(hass, rt, call_id, rule, engine, language, options)
+            if res.get("finished") or rule.get("hangup_after"):
+                await rt.api.hangup(call_id)
+                await rt.coordinator.async_refresh()
+        elif rule.get("hangup_after"):
             await rt.api.hangup(call_id)
             await rt.coordinator.async_refresh()
     except asyncio.CancelledError:
+        _LOGGER.debug("Tác vụ lời nhắn/AI của cuộc gọi %s bị huỷ", call_id)
         raise
     except TelegramCallError as err:
         _LOGGER.warning("Đọc lời nhắn trong cuộc gọi %s lỗi: %s", call_id, err)
     except Exception:  # noqa: BLE001
         _LOGGER.exception("Đọc lời nhắn trong cuộc gọi %s lỗi", call_id)
+    finally:
+        if rt.voice.tasks.get(call_id) is asyncio.current_task():
+            rt.voice.tasks.pop(call_id, None)
 
 
 # -- chốt quy tắc ------------------------------------------------------------------------------------------------------
@@ -387,6 +626,13 @@ def _decide(hass: HomeAssistant, rt: Any, cid: str) -> None:
         stored = resolve_rule(get_rules(rt.defaults), payload.get("user_id"), payload.get("contact_status"))
         claims = [Claim(stored, len(SCOPES), "kho quy tắc (set_rule)")] if stored else []
     voice.decided[cid] = claims
+    main = primary_claim(claims)
+    _LOGGER.debug("Chốt quy tắc cuộc gọi %s: %d quy tắc (chính=%s, answer=%s, delay=%s, ai=%s, greeting=%s)",
+                  cid, len(claims), (main.source or "?") if main else "không có",
+                  bool(main.rule.get("answer")) if main else False,
+                  main.rule.get("answer_delay") if main else None,
+                  bool(main.rule.get("ai")) if main else False,
+                  bool(main.rule.get("greeting")) if main else False)
     _execute_rules(hass, rt, cid, payload, claims)
 
 
@@ -412,21 +658,45 @@ def _begin_decide(hass: HomeAssistant, rt: Any, cid: str, payload: dict[str, Any
 async def async_apply_claim(hass: HomeAssistant, rt: Any, call_id: Any, claim: Claim) -> str:
     """Dịch vụ apply_call_rule: một automation áp quy tắc của nó cho cuộc gọi `call_id`. Trả về: queued (chờ chốt), applied (đã chốt mà chưa có quy tắc nào nên làm ngay),
     late (đến sau khi đã chốt bằng quy tắc khác: bỏ, có ghi nhật ký), duplicate (automation này đã áp cho cuộc gọi này), recorded (đến trước khi cuộc gọi được đánh dấu «đến»),
-    connected (cuộc gọi đã có người nghe: nối thiết bị của quy tắc ngay)."""
+    connected (cuộc gọi đã có người nghe: chạy lời nhắn/AI nếu quy tắc có, không thì nối thiết bị của quy tắc ngay)."""
     voice: CallVoice = rt.voice
     cid = str(call_id)
-    if claim.source and any(c.source == claim.source for c in voice.claims.get(cid, [])):
+    prev_claims = voice.claims.get(cid, [])
+    if claim.source and any(c.source == claim.source for c in prev_claims):
+        _LOGGER.debug("Quy tắc của %s cho cuộc gọi %s: trùng lặp (bỏ qua)", claim.source, cid)
         return "duplicate"
+    decided = voice.decided.get(cid) or []
+    prev_rank = min((c.rank for c in (decided or prev_claims)), default=len(SCOPES) + 1)
     voice.claim_seq += 1
     claim.seq = voice.claim_seq
     voice.claims.setdefault(cid, []).append(claim)
-    if cid in voice.answered_ids:                                # cuộc gọi đã có người nghe (tay hoặc quy tắc khác) rồi quy tắc này mới tới: nối thiết bị ngay
+    if cid in voice.answered_ids:                                # cuộc gọi đã có người nghe (tay hoặc quy tắc khác) rồi quy tắc này mới tới
         payload = voice.call_payload.get(cid) or {"call_id": cid}
-        if cid not in voice.rule_of:                              # quy tắc này thành quy tắc của cuộc gọi (cho take_over, đọc ở rule_for_call)
+        if cid in voice.tasks or cid in voice.greeting_for:      # lời nhắn/AI đang (hoặc sắp) chạy: KHÔNG gọi _connect_by_rule (sẽ huỷ task qua async_take_over)
+            _LOGGER.debug("Quy tắc của %s đến khi cuộc gọi %s đã có tác vụ lời nhắn/AI: giữ nguyên tác vụ đang chạy", claim.source or "?", cid)
+            return "late"
+        if decided and claim.rank >= prev_rank:
+            _LOGGER.warning("Quy tắc của %s đến sau khi cuộc gọi %s đã chốt theo %s: bỏ qua (nới thời gian chờ nếu automation chậm)",
+                            claim.source or "?", cid, decided[0].source or "?")
+            return "late"
+        if cid not in voice.rule_of or claim.rank < prev_rank:    # quy tắc cụ thể hơn thành quy tắc của cuộc gọi (cho take_over, đọc ở rule_for_call)
             voice.rule_of[cid] = claim.rule
-        hass.async_create_task(_connect_by_rule(hass, rt, cid, payload))
+        if (not payload.get("outgoing") and cid not in voice.connected
+                and claim.rule.get("answer") and (claim.rule.get("greeting") or claim.rule.get("ai"))
+                and claim.rank < prev_rank):
+            voice.decided[cid] = [claim]
+            _LOGGER.debug("Quy tắc của %s đến sau khi cuộc gọi %s đã nghe máy: chạy lời nhắn/AI (greeting=%s, ai=%s)",
+                          claim.source or "?", cid, bool(claim.rule.get("greeting")), bool(claim.rule.get("ai")))
+            voice.tasks[cid] = hass.async_create_task(_run_greeting(hass, rt, cid, claim.rule))
+            return "connected"
+        if claim.rank <= prev_rank:
+            _LOGGER.debug("Quy tắc của %s đến sau khi cuộc gọi %s đã nghe máy: nối thiết bị theo quy tắc", claim.source or "?", cid)
+            hass.async_create_task(_connect_by_rule(hass, rt, cid, payload))
         return "connected"
     if cid in voice.decide_timers:
+        _LOGGER.debug("Quy tắc của %s cho cuộc gọi %s: đang chờ chốt (rank=%d, answer=%s, ai=%s, greeting=%s)",
+                      claim.source or "?", cid, claim.rank, bool(claim.rule.get("answer")),
+                      bool(claim.rule.get("ai")), bool(claim.rule.get("greeting")))
         return "queued"
     if cid in voice.decided:
         if voice.decided[cid]:
@@ -436,6 +706,8 @@ async def async_apply_claim(hass: HomeAssistant, rt: Any, call_id: Any, claim: C
         voice.decided[cid] = [claim]
         _execute_rules(hass, rt, cid, voice.call_payload.get(cid) or {"call_id": cid}, [claim])
         return "applied"
+    _LOGGER.debug("Quy tắc của %s cho cuộc gọi %s: ghi nhận sớm (rank=%d, answer=%s, ai=%s)",
+                  claim.source or "?", cid, claim.rank, bool(claim.rule.get("answer")), bool(claim.rule.get("ai")))
     return "recorded"
 
 
@@ -446,7 +718,7 @@ async def _connect_by_rule(hass: HomeAssistant, rt: Any, cid: str, payload: dict
     camera của QUY TẮC của người gọi — người nghe tay chính là người nói nên lấy cả «nối ngay» lẫn «khi chuyển máy» (như ``outgoing_devices`` của zalo_call).
     Không có quy tắc, hoặc quy tắc không chọn thiết bị nào: không làm gì. Mỗi cuộc một lần; lỗi chỉ ghi nhật ký (không làm hỏng cuộc gọi)."""
     voice: CallVoice = rt.voice
-    if payload.get("outgoing") or cid in voice.connected or rt.bridge.has_devices(cid):
+    if payload.get("outgoing") or cid in voice.connected or cid in voice.tasks or cid in voice.greeting_for or rt.bridge.has_devices(cid):
         return
     rule = rule_for_call(rt, payload)
     parts = rule_parts(rule) if rule else []
@@ -607,12 +879,20 @@ def on_call_state(hass: HomeAssistant, rt: Any, state: str, call_id: Any, termin
     elif state == "video_request":
         hass.async_create_task(async_handle_video_request(hass, rt, payload or {"call_id": cid}))
     elif state == "answered":
+        already_answered = cid in voice.answered_ids
         voice.answered_ids.add(cid)
         _stop_announce(voice, cid)                              # đã có người nghe: thôi báo ra loa
+        for timers in (voice.timers, voice.decide_timers):
+            cancel = timers.pop(cid, None)
+            if cancel:
+                cancel()
         rule = voice.greeting_for.pop(cid, None)
         if rule is not None and cid not in voice.tasks:
+            _LOGGER.debug("Cuộc gọi %s đã nghe máy: chạy lời nhắn/AI (greeting=%s, ai=%s)",
+                          cid, bool(rule.get("greeting")), bool(rule.get("ai")))
             voice.tasks[cid] = hass.async_create_task(_run_greeting(hass, rt, cid, rule))
-        elif payload:                                           # nghe TAY (nút R1, answer_call...): nối thiết bị theo quy tắc của người gọi
+        elif not already_answered and payload and cid not in voice.tasks:       # nghe TAY (nút R1, answer_call...): nối thiết bị theo quy tắc của người gọi
+            _LOGGER.debug("Cuộc gọi %s đã nghe máy không có lời nhắn/AI chờ sẵn: thử nối thiết bị theo quy tắc", cid)
             hass.async_create_task(_connect_by_rule(hass, rt, cid, payload))
     elif state in terminal:
         _stop_announce(voice, cid)
@@ -630,3 +910,74 @@ def on_call_state(hass: HomeAssistant, rt: Any, state: str, call_id: Any, termin
         task = voice.tasks.pop(cid, None)
         if task:
             task.cancel()
+
+
+# -- AI tự trả lời tin nhắn CHỮ (quy tắc `ai_reply_text`, bản đầu: chỉ 1-1, chỉ chữ, không phân biệt quen/lạ) -----------------------------
+
+_AI_TEXT_MIN_INTERVAL = 2.0          # giây giữa hai lượt trả lời cùng một người — tránh trả lời chồng khi người gửi gõ nhiều tin liền
+_AI_TEXT_MAX_REPLY = 2000
+_ai_text_locks: dict[str, asyncio.Lock] = {}
+_ai_text_last: dict[str, float] = {}
+_ai_text_seen: dict[str, int] = {}   # chat_id -> message_id ĐÃ trả lời gần nhất: tránh trả lời 2 lần cùng một tin (đo thật 25/11,
+                                     # EVENT_MESSAGE bắn hai lần cho cùng một tin — chưa rõ gốc ở tầng gateway hay bộ nghe dài hạn
+                                     # (messages.py poll dài 20s, có thể một tin vừa lọt vào cuối đợt vừa lọt lại đầu đợt sau nếu
+                                     # con trỏ gateway không tịnh tiến đúng); chặn ở ĐÂY vì đây là nơi hậu quả thấy rõ nhất (gửi 2 tin).
+
+
+def _speech(resp: dict | None) -> str:
+    out = (resp or {}).get("response") or {}
+    return str((((out.get("speech") or {}).get("plain") or {}).get("speech")) or "").strip()
+
+
+def pipeline_agent(hass: HomeAssistant, pipeline_id: str | None) -> str:
+    """Trợ lý hội thoại (entity) của một Assist pipeline; "" nếu không lấy được."""
+    try:
+        from homeassistant.components.assist_pipeline import pipeline as pipeline_mod
+        return str(pipeline_mod.async_get_pipeline(hass, pipeline_id).conversation_engine or "")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+async def async_reply_to_message(hass: HomeAssistant, rt: Any, event: dict[str, Any]) -> None:
+    """Tin nhắn CHỮ đến (EVENT_MESSAGE): quy tắc của người gửi có `ai_reply_text` thì AI trả lời bằng chữ.
+    Bản đầu: chỉ hội thoại 1-1 (không nhóm), chỉ tin chữ (không STT tin thoại như zalo_call), không trích dẫn/định dạng tự động,
+    không phân biệt quen/lạ (không có lời dặn riêng cho người lạ)."""
+    chat_id = str(event.get("chat_id") or "")
+    text = str(event.get("text") or "").strip()
+    if not chat_id or not text or event.get("kind", "text") != "text" or chat_id.startswith("-"):   # nhóm Telegram luôn có chat_id âm
+        return
+    try:
+        message_id = int(event.get("message_id") or 0)
+    except (TypeError, ValueError):
+        message_id = 0
+    try:
+        status, _name = await rt.contacts.async_lookup(int(chat_id)) if rt.contacts is not None else ("unknown", "")
+    except (TypeError, ValueError):
+        return
+    rule = resolve_rule(get_rules(rt.defaults), chat_id, status)
+    if rule is None or not rule.get("ai_reply_text"):
+        return
+    lock = _ai_text_locks.setdefault(chat_id, asyncio.Lock())
+    async with lock:
+        if message_id and message_id <= _ai_text_seen.get(chat_id, 0):
+            return   # tin này đã trả lời rồi (sự kiện tới 2 lần) — không gửi lần nữa
+        if message_id:
+            _ai_text_seen[chat_id] = message_id
+        wait = _AI_TEXT_MIN_INTERVAL - (time.monotonic() - _ai_text_last.get(chat_id, 0.0))
+        if wait > 0:
+            await asyncio.sleep(wait)
+        data: dict[str, Any] = {"text": text, "conversation_id": "telegram_call_" + chat_id, "language": hass.config.language}
+        agent = pipeline_agent(hass, rule.get("pipeline") or None)
+        if agent:
+            data["agent_id"] = agent
+        try:
+            resp = await hass.services.async_call("conversation", "process", data, blocking=True, return_response=True)
+            reply = _speech(resp)
+            if reply:
+                await rt.api.send_text(int(chat_id), reply[:_AI_TEXT_MAX_REPLY])
+        except TelegramCallError as err:
+            _LOGGER.warning("AI không gửi được trả lời chữ cho %s: %s", chat_id, err)
+        except Exception:  # noqa: BLE001 - agent lỗi không được làm sập vòng nghe tin nhắn
+            _LOGGER.exception("AI trả lời tin chữ lỗi cho %s", chat_id)
+        finally:
+            _ai_text_last[chat_id] = time.monotonic()

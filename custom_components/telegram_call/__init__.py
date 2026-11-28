@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -21,7 +21,7 @@ from . import call_rules
 from .bridge_core import derive_state, redact
 from .call_rules import CallVoice
 from .contacts import ContactBook
-from .const import CONF_ACCOUNT, CONF_PASSWORD, CONF_URL, CONF_USERNAME, DOMAIN, EVENT_STATE, POLL_BUSY_S, POLL_IDLE_S
+from .const import CONF_ACCOUNT, CONF_PASSWORD, CONF_URL, CONF_USERNAME, DOMAIN, EVENT_MESSAGE, EVENT_STATE, POLL_BUSY_S, POLL_IDLE_S
 from .devices import DeviceDefaults
 from .messages import MessageFeed
 from .rules import get_rules
@@ -213,6 +213,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     account = AccountCoordinator(hass, entry, api)
     messages = MessageFeed(hass, api, entry.entry_id)
     entry.runtime_data = TelegramCallData(api, coordinator, bridge, defaults, messages, CallVoice(), coordinator.contacts, account)
+
+    @callback
+    def _on_message(event) -> None:
+        hass.async_create_task(call_rules.async_reply_to_message(hass, entry.runtime_data, event.data))
+    entry.async_on_unload(hass.bus.async_listen(EVENT_MESSAGE, _on_message))
+
     await coordinator.async_config_entry_first_refresh()
     await account.async_refresh()                                  # lỗi tạm thời không chặn nạp tích hợp: cảm biến báo «không rõ» tới lần hỏi sau
     hass.async_create_task(coordinator.contacts.async_lookup(0))   # làm nóng danh bạ: cuộc gọi đến đầu tiên không phải chờ tải
